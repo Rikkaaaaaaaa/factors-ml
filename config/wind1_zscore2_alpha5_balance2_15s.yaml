@@ -1,0 +1,34 @@
+
+seed: 2023
+
+# factor dataset
+dataset:
+  BT_month: [202304, 202305, 202306]
+  indus_class: wind1
+  avg_price: 10
+  ret_name: 15s
+  threshold_pct: 40
+  std_type: default
+  alpha: 5e-4
+  class_num: 2
+
+
+
+
+
+
+ "month_bt": month[i + std_month_num],
+ "indus_from": config.indus_from,
+ "indus_type": indus_type,
+ "avg_price": config.avg_price,
+ "label_name": config.label_name,
+ "pct_num": config.pct_num,
+ "std_type": config.std_type,
+ "alpha": config.alpha,
+ "class_num": config.class_num,
+ "num_epoch": config.num_epoch,
+ "res_path": config.res_path,
+ "model_name": config.model_name,
+ "n_jobs": config.process_num,
+ "phase": config.phase,
+ "balance": config.balance
