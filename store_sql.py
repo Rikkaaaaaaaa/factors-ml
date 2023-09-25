@@ -6,8 +6,6 @@ import os
 from tqdm import tqdm
 
 
-
-
 def is_null_indus(indus_type, indus_from):
     data = utils.cx_read_sql(
         'select * from static_data_hs300_old where {}="{}" and avg_price > {}'. \
