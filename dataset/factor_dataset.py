@@ -22,7 +22,7 @@ class FactorDataset():
         x_train, y_train: train data
         x_test, y_test: test data
     """
-    def __init__(self, opt, test_month, indus_type, cache=None):
+    def __init__(self, opt, test_month, indus_type, cache=None, *args, **kwargs):
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
@@ -32,6 +32,8 @@ class FactorDataset():
         self.tickers = []
         self.pool_name = self.opt['dataset']['pool_name']
         self.training_month = self.get_training_month()
+
+        self.lock = kwargs.get('lock')
 
 
     def get_training_month(self):
@@ -68,13 +70,14 @@ class FactorDataset():
             self.tickers = sorted(self.tickers)#[:10]
             assert len(self.tickers) > 0
 
+            # read data from mysql
+            self.lock.acquire()
             data = dict() # restore data by month
             for month in self.training_month:
-                # read data from mysql
                 data[month] = self.load_data_from_sql(month)
-
             if self.is_backtest:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
+            self.lock.release()
 
             # split data
             train_data, test_data = self.split_data(data)

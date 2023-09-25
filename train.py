@@ -10,9 +10,13 @@ from utils.report import push_report
 
 
 
+def init(args):
+    global lock
+    lock = args[0]
+
 def train_pipeline(train_args):
     opt, test_month, indus_type = train_args
-    dataset = FactorDataset(opt, test_month, indus_type)
+    dataset = FactorDataset(opt, test_month, indus_type, lock=lock)
     dataset.load_data()
 
     model = LgbmModel(opt, test_month, indus_type)
@@ -36,10 +40,13 @@ def gen_mp_args(opt):
     return args
 
 def main(root_path):
+    lock = mp.Lock()
+    init_args = [lock, ]
+
     opt = parse_options(root_path)
     args = gen_mp_args(opt)
 
-    pool = mp.Pool(opt['n_jobs'])#
+    pool = mp.Pool(opt['n_jobs'], initializer=init, initargs=(init_args,))#
     global_timer = utils.Timer()
     results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
     [result.get() for result in results]
