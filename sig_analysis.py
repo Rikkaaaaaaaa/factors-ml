@@ -55,8 +55,6 @@ def merge_signal(month, config):
 
 
 def main(config):
-
-
     months = [202304, 202305, 202306]
     signal = Parallel(config.n_jobs)([delayed(merge_signal)(month, config) for month in months])
     #signal = merge_signal(202304)

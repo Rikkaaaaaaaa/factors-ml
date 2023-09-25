@@ -1,13 +1,10 @@
 import glob
 import argparse
-import pandas as pd
 import os
 import pandas as pd
 import sqlalchemy.types
 import pymysql
-from utils import create_pd_engine, create_index
-
-
+from utils.mysql import create_pd_engine, create_index
 
 
 def get_summary(config):

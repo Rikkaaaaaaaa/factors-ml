@@ -125,8 +125,7 @@ def create_index(database, table_name, index_cols):
 if __name__ == '__main__':
     strategy_engine = create_pd_engine('strategy')
     smart_order_position_engine = create_pd_engine('strategy')
-    # path = 'D:\\wuyi\\EQ Algo Trading\\backtest_result_analysis\\'
-    # main_statistics = pd.read_csv(os.path.join(path, "analysis", 'main_statistics.csv'))
+
 
     # read_sql
     temp_date_data = pd.read_sql('select * from static_data where ticker="000001.SZ"', strategy_engine)

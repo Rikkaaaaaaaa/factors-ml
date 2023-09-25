@@ -3,7 +3,6 @@ import time
 import os
 import shutil
 
-from .read_files import cx_read_sql, create_pd_engine, create_index
 
 
 
@@ -18,10 +17,10 @@ class Timer():
     def __init__(self):
         self.v = time.time()
 
-    def s(self):
+    def start(self):
         self.v = time.time()
 
-    def t(self):
+    def item(self):
         return time.time() - self.v
 
 
