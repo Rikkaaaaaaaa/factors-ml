@@ -64,7 +64,7 @@ def parse_options(root_path):
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting or runtime')
     args = parser.parse_args()
 
-    #args.option = 'config\wind1_lgbm_alpha5_15s.yaml'
+    #args.option = 'config\highprice_15s_wind1_lgbm_alpha5.yaml'
 
     # parse yml to dict
     opt = yaml_load(args.option)

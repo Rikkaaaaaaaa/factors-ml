@@ -1,11 +1,10 @@
 name: train_lgbm_15s_lowprice
 manual_seed: 2023
-
 n_jobs: 10
 
 # factor dataset
 dataset:
-  backtest_month: [202304, 202305, 202306, 202307]
+  backtest_month: [202304, 202305, 202306]
   io_backend: sql # disk
   pool_name: ['hs300', 'zz500']
   indus_class: wind1

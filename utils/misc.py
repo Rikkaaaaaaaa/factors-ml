@@ -34,5 +34,24 @@ def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def copy_option(opt):
-    opt['path']['experimen']
+class Timer():
+    def __init__(self):
+        self.v = time.time()
+
+    def start(self):
+        self.v = time.time()
+
+    def item(self):
+        return time.time() - self.v
+
+
+def time_str(t):
+    if t > 3600:
+        return '{:.1f}h'.format(t/3600)
+    if t > 60:
+        return '{:.1f}min'.format(t/60)
+    return '{:.1f}s'.format(t)
+
+
+
+

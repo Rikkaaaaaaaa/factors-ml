@@ -2,6 +2,7 @@ import numpy as np
 import os.path as osp
 import pandas as pd
 from tqdm import tqdm
+import traceback
 
 from utils.misc import mkdir
 from metric.base_metric import compute_metric, compute_metric_RT
@@ -31,75 +32,84 @@ class BackTester():
 
 
     def backtest(self, factor_data, model):
-        self.tickers = factor_data.tickers
-        x_train = factor_data.x_train
-        x_test = factor_data.x_test
+        try:
+            self.tickers = factor_data.tickers
+            x_train = factor_data.x_train
+            x_test = factor_data.x_test
 
-        if self.opt['test']['bound_mode'] == 'by_indus':
-            self.train_proba = model.predict(x_train)
+            if self.opt['test']['bound_mode'] == 'by_indus':
+                self.train_proba = model.predict(x_train)
 
-        tbar = tqdm(self.tickers)
-        for ticker in tbar:
-            tbar.set_description("Backtesting {}, indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
-            self._ticker_ret = factor_data.test_ret[ticker]
-            self._ticker_time = factor_data.test_idx[ticker]
-            self._ticker = ticker
+            tbar = tqdm(self.tickers)
+            for ticker in tbar:
+                tbar.set_description("Backtesting: {}, indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
+                self._ticker_ret = factor_data.test_ret[ticker]
+                self._ticker_time = factor_data.test_idx[ticker]
+                self._ticker = ticker
 
-            # load test and train data in one ticker
-            train_position = factor_data.train_position[ticker]
-            test_position = factor_data.test_position[ticker]
-            _x_train = x_train[train_position[0]: train_position[1]]
-            _x_test = x_test[test_position[0]: test_position[1]]
+                # load test and train data in one ticker
+                train_position = factor_data.train_position[ticker]
+                test_position = factor_data.test_position[ticker]
+                _x_train = x_train[train_position[0]: train_position[1]]
+                _x_test = x_test[test_position[0]: test_position[1]]
 
-            # get proba from prediction
-            if self.opt['test']['bound_mode'] == 'by_ticker':
-                self.train_proba = model.predict(_x_train)
-            self.pre_proba = model.predict(_x_test)
+                # get proba from prediction
+                if self.opt['test']['bound_mode'] == 'by_ticker':
+                    self.train_proba = model.predict(_x_train)
+                self.pre_proba = model.predict(_x_test)
 
-            # compute null idx in test data
-            self.null_idx = np.isnan(_x_test).any(axis=1)
+                # compute null idx in test data
+                self.null_idx = np.isnan(_x_test).any(axis=1)
 
-            # compute metric with not null data
-            self.compute_results()
+                # compute metric with not null data
+                self.compute_results()
 
-            # push signal dataframe into self.signals
-            self.push_signal()
+                # push signal dataframe into self.signals
+                self.push_signal()
 
-            #tbar.set_postfix({'loading_time': '{}'.format(self.summary),})
+                #tbar.set_postfix({'loading_time': '{}'.format(self.summary),})
 
-        # save all files
-        self.save_results()
-        self.save_bound()
-        self.save_signals()
+            # save all files
+            self.save_results()
+            self.save_bound()
+            self.save_signals()
+
+        except Exception as e:
+            traceback.print_exc()
+            print('Error backtesting {} in indus {}: '.format(ticker, self.indus_type), e)
 
     def runtime(self, factor_data, model):
-        self.tickers = factor_data.tickers
-        x_train = factor_data.x_train
+        try:
+            self.tickers = factor_data.tickers
+            x_train = factor_data.x_train
 
-        if self.opt['test']['bound_mode'] == 'by_indus':
-            self.train_proba = model.predict(x_train)
+            if self.opt['test']['bound_mode'] == 'by_indus':
+                self.train_proba = model.predict(x_train)
 
-        tbar = tqdm(self.tickers)
-        for ticker in tbar:
-            tbar.set_description("Backtesting {}, indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
-            self._ticker = ticker
-            # load test and train data in one ticker
-            train_position = factor_data.train_position[ticker]
-            _x_train = x_train[train_position[0]: train_position[1]]
+            tbar = tqdm(self.tickers)
+            for ticker in tbar:
+                tbar.set_description("Backtesting {}, indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
+                self._ticker = ticker
+                # load test and train data in one ticker
+                train_position = factor_data.train_position[ticker]
+                _x_train = x_train[train_position[0]: train_position[1]]
 
-            # get proba from prediction
-            if self.opt['test']['bound_mode'] == 'by_ticker':
-                self.train_proba = model.predict(_x_train)
+                # get proba from prediction
+                if self.opt['test']['bound_mode'] == 'by_ticker':
+                    self.train_proba = model.predict(_x_train)
 
-            # compute metric with not null data
-            self.compute_results()
+                # compute metric with not null data
+                self.compute_results()
 
-            #tbar.set_postfix({'loading_time': '{}'.format(self.summary),})
+                #tbar.set_postfix({'loading_time': '{}'.format(self.summary),})
 
-        # save testing bounds
-        self.save_results()
-        self.save_bound()
+            # save testing bounds
+            self.save_results()
+            self.save_bound()
 
+        except Exception as e:
+            traceback.print_exc()
+            print('Error runtime: {} in indus {}: '.format(ticker, self.indus_type), e)
 
     def compute_results(self):
         # init summaries list
@@ -117,30 +127,31 @@ class BackTester():
 
 
     def save_results(self):
-        self.result = pd.DataFrame(self.summaries, columns=self.metric_keys)
-        self.result.insert(0, 'ticker', self.tickers)
-        self.result.insert(1, 'month', self.indus_type)
-        self.result.insert(2, 'indus_type', self.test_month)
+        self.results = pd.DataFrame(self.summaries, columns=self.metric_keys)
+        self.results.insert(0, 'ticker', self.tickers)
+        self.results.insert(1, 'month', self.indus_type)
+        self.results.insert(2, 'indus_type', self.test_month)
 
         # save results file
         results_folder = osp.join(self.opt['path']['results_root'], str(self.test_month))
         mkdir(results_folder)
         results_name = 'results_month{}_indus{}.csv'.format(self.test_month, self.indus_type)
         results_path = osp.join(results_folder, results_name)
-        self.result.reset_index(drop=True, inplace=True)
-        self.result.to_csv(results_path, index=False)
+        self.results.reset_index(drop=True, inplace=True)
+        self.results.to_csv(results_path, index=False)
 
 
     def save_bound(self):
-        if not hasattr(self, 'result'):
-            print('Please compute results before saving boundary values!')
+        if not hasattr(self, 'results'):
+            print('Please run compute_results before saving boundary values!')
+
         # save bound file
         inference_folder = osp.join(self.opt['path']['inference_root'], str(self.test_month))
         mkdir(inference_folder)
         bound_name = 'bound_month{}_indus{}.csv'.format(self.test_month, self.indus_type)
         bound_path = osp.join(inference_folder, bound_name)
         inference_cols = ['ticker', 'up_bound', 'down_bound']
-        self.result[inference_cols].to_csv(bound_path, index=False)
+        self.results[inference_cols].to_csv(bound_path, index=False)
 
 
     def push_signal(self):

@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting')
     args = parser.parse_args()
 
-    config_path = '../config/wind1_lgbm_alpha5_15s.yaml'
+    config_path = '../config/highprice_15s_wind1_lgbm_alpha5.yaml'
     root_path = '../'
 
     push_report(parse_options(root_path, config_path))

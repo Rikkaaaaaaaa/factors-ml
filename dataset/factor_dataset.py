@@ -65,7 +65,7 @@ class FactorDataset():
                 self.tickers.extend(ticker)
 
             # ordered ticker list
-            self.tickers = sorted(self.tickers)[:10]
+            self.tickers = sorted(self.tickers)#[:10]
             assert len(self.tickers) > 0
 
             data = dict() # restore data by month
@@ -74,7 +74,7 @@ class FactorDataset():
                 data[month] = self.load_data_from_sql(month)
 
             if self.is_backtest:
-                data[self.test_month] = self.load_data_from_sql(month)
+                data[self.test_month] = self.load_data_from_sql(self.test_month)
 
             # split data
             train_data, test_data = self.split_data(data)
@@ -107,7 +107,7 @@ class FactorDataset():
             is_rebalanced = True
         else:
             is_rebalanced = False
-        self.tickers = tuple(self.tickers[:10])
+        self.tickers = tuple(self.tickers)
         if is_rebalanced and month % 100 in [4, 5, 6, 10, 11, 12]:
             factor = cx_read_sql('select * from factor_{}_index_rebalancing where ticker in {}'.format(month, self.tickers))
             labels = cx_read_sql('select ticker, date, time, ret_{}  from ret_{}_index_rebalancing where ticker in {}'.format(
@@ -297,6 +297,7 @@ class FactorDataset():
             reversed_y = np.zeros_like(self.y_train)
             reversed_y[self.y_train==0] = 1
             self.y_train = np.concatenate([self.y_train, reversed_y], axis=0)
+
 
 
 if __name__ == '__main__':
