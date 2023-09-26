@@ -54,5 +54,6 @@ def time_str(t):
     return '{:.1f}s'.format(t)
 
 
-
+def get_time_str():
+    return time.strftime('%Y%m%d_%H%M%S', time.localtime())
 

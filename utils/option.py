@@ -8,7 +8,25 @@ import shutil
 
 from utils.misc import set_random_seed, ensure_path, mkdir
 
+def dict2str(opt, indent_level=1):
+    """dict to string for printing options.
 
+    Args:
+        opt (dict): Option dict.
+        indent_level (int): Indent level. Default: 1.
+
+    Return:
+        (str): Option string for printing.
+    """
+    msg = '\n'
+    for k, v in opt.items():
+        if isinstance(v, dict):
+            msg += ' ' * (indent_level * 2) + k + ':['
+            msg += dict2str(v, indent_level + 1)
+            msg += ' ' * (indent_level * 2) + ']\n'
+        else:
+            msg += ' ' * (indent_level * 2) + k + ': ' + str(v) + '\n'
+    return msg
 
 def ordered_yaml():
     """Support OrderedDict for yaml.
@@ -126,7 +144,11 @@ def parse_options(root_path):
     mkdir(signal_root)
 
     # log path
-    opt['path']['log'] = experiments_root
+    log_root = opt['path'].get('log_root')
+    if log_root is None:
+        log_root = osp.join(experiments_root, 'log')
+    opt['path']['log'] = log_root
+    mkdir(log_root)
 
     # copy option
     shutil.copy2(args.option, opt['path']['experiments_root'])

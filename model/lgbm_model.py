@@ -5,7 +5,7 @@ import os.path as osp
 import pandas as pd
 
 from utils.misc import mkdir
-from metric.base_metric import compute_metric
+from utils.logger import get_root_logger
 
 class LgbmModel():
     """
@@ -24,6 +24,10 @@ class LgbmModel():
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
         self.num_epoch = self.opt['train']['num_epoch']
+        # logging file
+        logger_name = f"month{test_month}_indus{indus_type}"
+        self.logger = get_root_logger(logger_name=logger_name)
+        self.logger.info(f"LGBM model init successfully in {test_month} with indus {indus_type}")
 
     def train(self, x_train, y_train):
         train_matrix = lgb.Dataset(x_train, label=y_train)
@@ -74,6 +78,7 @@ class LgbmModel():
         ckpt_name = 'lgbm_month{}_indus{}.txt'.format(self.test_month, self.indus_type)
         ckpt_path = osp.join(ckpt_folder, ckpt_name)
         self.model.save_model(ckpt_path)
+        self.logger.info(f"Saving model at {ckpt_path}")
 
 
     def predict(self, data):

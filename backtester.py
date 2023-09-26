@@ -5,6 +5,7 @@ from tqdm import tqdm
 import traceback
 
 from utils.misc import mkdir
+from utils.logger import get_root_logger
 from metric.base_metric import compute_metric, compute_metric_RT
 
 class BackTester():
@@ -29,6 +30,10 @@ class BackTester():
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
         self.is_backtest = self.opt['is_backtest']
+        # logging file
+        logger_name = f"month{test_month}_indus{indus_type}"
+        self.logger = get_root_logger(logger_name=logger_name)
+        self.logger.info(f'Backtester init successfully in {test_month} with indus {indus_type}')
 
 
     def backtest(self, factor_data, model):
@@ -40,9 +45,9 @@ class BackTester():
             if self.opt['test']['bound_mode'] == 'by_indus':
                 self.train_proba = model.predict(x_train)
 
-            tbar = tqdm(self.tickers)
+            tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
-                tbar.set_description("Backtesting: {}, indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
+                tbar.set_description("Backtesting indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
                 self._ticker_ret = factor_data.test_ret[ticker]
                 self._ticker_time = factor_data.test_idx[ticker]
                 self._ticker = ticker
@@ -73,6 +78,7 @@ class BackTester():
             self.save_results()
             self.save_bound()
             self.save_signals()
+            self.logger.info(f"Backtesting finish wiht ticker num {len(self.tickers)}")
 
         except Exception as e:
             traceback.print_exc()
@@ -106,6 +112,7 @@ class BackTester():
             # save testing bounds
             self.save_results()
             self.save_bound()
+
 
         except Exception as e:
             traceback.print_exc()
