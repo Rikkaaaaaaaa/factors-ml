@@ -78,7 +78,7 @@ class BackTester():
             self.save_results()
             self.save_bound()
             self.save_signals()
-            self.logger.info(f"Backtesting finish wiht ticker num {len(self.tickers)}")
+            self.logger.info(f"Backtesting finish with ticker num {len(self.tickers)}")
 
         except Exception as e:
             traceback.print_exc()

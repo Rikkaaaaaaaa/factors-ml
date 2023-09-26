@@ -33,6 +33,7 @@ class FactorDataset():
         self.tickers = []
         self.pool_name = self.opt['dataset']['pool_name']
         self.training_month = self.get_training_month()
+        self.lock = kwargs['lock']
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -69,23 +70,25 @@ class FactorDataset():
                 self.tickers.extend(ticker)
 
             # ordered ticker list
-            self.tickers = sorted(self.tickers)[:10]
+            self.tickers = sorted(self.tickers)#[:10]
             assert len(self.tickers) > 0
-            self.logger.info(f"Loading {len(self.tickers)} tickers in indus {self.indus_type} test_month {self.test_month}: ")
+            self.logger.info(f"Loading {len(self.tickers)} tickers in indus {self.indus_type} test_month {self.test_month}")
 
 
             # read data from mysql
             data = dict() # restore data by month
+            #self.lock.acquire()
             for month in self.training_month:
                 data[month] = self.load_data_from_sql(month)
-                self.logger.info(f"Loading data in {month} successfully")
+                self.logger.info(f"Loading data in {month}")
             if self.is_backtest:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
-                self.logger.info(f"Loading data in {self.test_month} successfully")
+                self.logger.info(f"Loading data in {self.test_month} ")
+            #self.lock.release()
+            self.logger.info(f"Finish loading data with indus {self.indus_type}")
 
             # split data
             train_data, test_data = self.split_data(data)
-            self.logger.info(f"Splitting data successfully")
 
             # make labels according to return
             train_data, test_data = self.make_label(train_data, test_data)
@@ -104,9 +107,7 @@ class FactorDataset():
             else:
                 # returned data is in self.x_train/y_train
                 self.transform_RT(train_data)
-
-            self.logger.info(f"Transforming data successfully")
-
+            self.logger.info(f"Finish transforming data with indus {self.indus_type}")
         except Exception as e:
             traceback.print_exc()
             self.logger.info('Error loading factor data in indus {}: '.format(self.indus_type), e)

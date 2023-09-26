@@ -1,1 +1,1 @@
-from dataset.check_sql_data import check_indus
+from dataset.fetch_sql_data import check_indus

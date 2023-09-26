@@ -9,7 +9,7 @@ from backtester import  BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
 from utils.report import push_report
-from utils.misc import Timer, time_str, get_time_str
+from utils.misc import Timer, time_str, get_time_str, exists_results
 
 
 
@@ -24,21 +24,21 @@ def train_pipeline(train_args):
     logger_name = f"month{test_month}_indus{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
-    logger.info(get_env_info())
-    logger.info(dict2str(opt))
+    #logger.info(get_env_info())
+    #logger.info(dict2str(opt))
 
     dataset = FactorDataset(opt, test_month, indus_type, lock=lock)
     dataset.load_data()
-
-    model = LgbmModel(opt, test_month, indus_type)
-    model.train(dataset.x_train, dataset.y_train)
-    model.save_ckpt()
-
-    backtester = BackTester(opt, test_month, indus_type)
-    if opt['is_backtest']:
-        backtester.backtest(dataset, model)
-    else:
-        backtester.runtime(dataset, model)
+    #
+    # model = LgbmModel(opt, test_month, indus_type)
+    # model.train(dataset.x_train, dataset.y_train)
+    # model.save_ckpt()
+    #
+    # backtester = BackTester(opt, test_month, indus_type)
+    # if opt['is_backtest']:
+    #     backtester.backtest(dataset, model)
+    # else:
+    #     backtester.runtime(dataset, model)
 
 
 def gen_mp_args(opt):
@@ -46,7 +46,8 @@ def gen_mp_args(opt):
     for month in opt['dataset']['backtest_month']:
         industry = check_indus(opt, month)
         for indus_type in industry:
-            args.append((opt, month, indus_type))
+            if not exists_results(opt, month, indus_type):
+                args.append((opt, month, indus_type))
     return args
 
 def main(root_path):
