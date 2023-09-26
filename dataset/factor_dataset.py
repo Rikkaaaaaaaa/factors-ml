@@ -33,7 +33,7 @@ class FactorDataset():
         self.tickers = []
         self.pool_name = self.opt['dataset']['pool_name']
         self.training_month = self.get_training_month()
-        self.lock = kwargs['lock']
+        # self.lock = kwargs['lock']
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)

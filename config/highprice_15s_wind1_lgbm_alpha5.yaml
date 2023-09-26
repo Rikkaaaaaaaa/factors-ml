@@ -24,6 +24,6 @@ test:
 
 network:
   name: lgbm
-  n_cpus: 4
+  n_cpus: 8
 
 
