@@ -70,8 +70,8 @@ if __name__ == '__main__':
     # push report.CSV and push signal to sql
     #push_report(opt)
     signal = cat_signals(opt)
-    if opt['is_highprice']:
-        table_name = 'signal_zz800_'+ opt['dataset']['ret_name'] +'_ml'
+    if opt['dataset']['is_highprice']:
+        table_name = 'signal_zz800_highprice_'+ opt['dataset']['ret_name'] +'_ml'
     else:
         table_name = 'signal_zz800_lowprice_' + opt['dataset']['ret_name'] + '_ml'
-    push_signals_sql(signal, )
+    push_signals_sql(signal, table_name)
