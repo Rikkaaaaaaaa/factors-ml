@@ -70,7 +70,7 @@ class BackTester():
                 self.compute_results()
 
                 # push signal dataframe into self.signals
-                self.push_signal()
+                self.compute_signal()
 
                 #tbar.set_postfix({'loading_time': '{}'.format(self.summary),})
 
@@ -161,7 +161,7 @@ class BackTester():
         self.results[inference_cols].to_csv(bound_path, index=False)
 
 
-    def push_signal(self):
+    def compute_signal(self):
         # init signals df list
         if not hasattr(self, 'signals'):
             self.signals = []
@@ -175,8 +175,8 @@ class BackTester():
         # compute up/down signal according to proba and bound
         signal['proba'] = self.pre_proba
         signal_array = np.zeros(len(self.pre_proba))
-        signal_array[signal_array > self._summary['up_bound']] = 1
-        signal_array[1 - signal_array > self._summary['down_bound']] = -1
+        signal_array[signal['proba'] > self._summary['up_bound']] = 1
+        signal_array[1 - signal['proba'] > self._summary['down_bound']] = -1
         signal_array[self.null_idx] = 0
         signal['signal'] = signal_array
         self.signals.append(signal)
@@ -190,7 +190,7 @@ class BackTester():
         signal_path = osp.join(signal_folder, signal_name)
         self.signals = pd.concat(self.signals, ignore_index=True)
         self.signals = self.signals[['ticker', 'time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]
-        self.signals.to_csv(signal_path)
+        self.signals.to_csv(signal_path, index=False)
 
 
 

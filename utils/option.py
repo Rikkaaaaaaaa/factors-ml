@@ -78,11 +78,9 @@ def yaml_load(f):
 
 def parse_options(root_path):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='config/highprice_15s_wind1_lgbm_alpha5.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting or runtime')
     args = parser.parse_args()
-
-    #args.option = 'config\highprice_15s_wind1_lgbm_alpha5.yaml'
 
     # parse yml to dict
     opt = yaml_load(args.option)
