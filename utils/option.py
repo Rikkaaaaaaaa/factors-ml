@@ -123,7 +123,7 @@ def parse_options(root_path):
     # preprocess param root
     preprocess_root = opt['path'].get('preprocess_root')
     if preprocess_root is None:
-        preprocess_root = osp.join(experiments_root, 'preprocess')
+        preprocess_root = osp.join(experiments_root, 'preprocess_params')
     opt['path']['preprocess_root'] = preprocess_root
     mkdir(preprocess_root)
 

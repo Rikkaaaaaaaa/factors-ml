@@ -18,7 +18,9 @@ def push_report(opt):
             report.append(pd.read_csv(r))
     report = pd.concat(report).reset_index(drop=True)
     report= report.reset_index(drop=True)
-    report.to_csv(os.path.join(res_path, '{}_report.csv'.format(opt['name'])), index=False)
+    report_name = '{}_report.csv'.format(opt['name'])
+    report.to_csv(os.path.join(res_path, report_name), index=False)
+    print(f"backtesting report has been saved at {report_name}")
 
 def cat_signals(opt):
     signal_path = opt['path']['signal_root']
@@ -33,7 +35,10 @@ def cat_signals(opt):
     signal = signal.reset_index(drop=True)
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
-    signal.to_csv(os.path.join(signal_path, '{}_signal.csv'.format(opt['name'])), index=False)
+    signal_name = '{}_signal.csv'.format(opt['name'])
+    signal.to_csv(os.path.join(signal_path, signal_name), index=False)
+    print(f"signals have been saved at {signal_name}")
+
     return signal
 
 def push_signals_sql(signal, table_name ):
@@ -45,6 +50,7 @@ def push_signals_sql(signal, table_name ):
                          'time': sqlalchemy.types.BIGINT,
                          })
     create_index('strategy', table_name, ['ticker', 'date', 'time'])
+    print(f"write signals to sql successfully")
 
 
 if __name__ == "__main__":
