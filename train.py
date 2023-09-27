@@ -65,9 +65,13 @@ if __name__ == '__main__':
 
     root_path = './'
     opt = parse_options(root_path)
-    main(opt)
+    #main(opt)
 
     # push report.CSV and push signal to sql
-    push_report(opt)
+    #push_report(opt)
     signal = cat_signals(opt)
-    push_signals_sql(signal, 'signal_zz800_'+ opt['dataset']['ret_name'] +'_ml')
+    if opt['is_highprice']:
+        table_name = 'signal_zz800_'+ opt['dataset']['ret_name'] +'_ml'
+    else:
+        table_name = 'signal_zz800_lowprice_' + opt['dataset']['ret_name'] + '_ml'
+    push_signals_sql(signal, )
