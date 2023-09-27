@@ -2,8 +2,10 @@ import glob
 import argparse
 import pandas as pd
 import os
+import sqlalchemy.types
 
 from utils.option import parse_options
+from utils.mysql import create_pd_engine, create_index
 
 
 def push_report(opt):
@@ -17,6 +19,32 @@ def push_report(opt):
     report = pd.concat(report).reset_index(drop=True)
     report= report.reset_index(drop=True)
     report.to_csv(os.path.join(res_path, '{}_report.csv'.format(opt['name'])), index=False)
+
+def cat_signals(opt):
+    signal_path = opt['path']['signal_root']
+    signal = []
+    for month in os.listdir(signal_path):
+        csv_folder = os.path.join(signal_path, month)
+        res_csv = glob.glob(csv_folder.rstrip('/') + '/*csv')
+        for r in res_csv:
+            signal.append(pd.read_csv(r))
+
+    signal = pd.concat(signal).reset_index(drop=True)
+    signal = signal.reset_index(drop=True)
+    signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
+    signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
+    signal.to_csv(os.path.join(signal_path, '{}_signal.csv'.format(opt['name'])), index=False)
+    return signal
+
+def push_signals_sql(signal, table_name ):
+    engine = create_pd_engine('strategy')
+    table_name = table_name
+    signal.to_sql(table_name, con=engine, index=False, if_exists='replace', chunksize=10000,
+                  dtype={'ticker': sqlalchemy.types.VARCHAR(length=10),
+                         'date': sqlalchemy.types.BIGINT,
+                         'time': sqlalchemy.types.BIGINT,
+                         })
+    create_index('strategy', table_name, ['ticker', 'date', 'time'])
 
 
 if __name__ == "__main__":

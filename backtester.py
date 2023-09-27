@@ -189,7 +189,7 @@ class BackTester():
         signal_name = 'signal_month{}_indus{}.csv'.format(self.test_month, self.indus_type)
         signal_path = osp.join(signal_folder, signal_name)
         self.signals = pd.concat(self.signals, ignore_index=True)
-        self.signals = self.signals[['time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]
+        self.signals = self.signals[['ticker', 'time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]
         self.signals.to_csv(signal_path)
 
 

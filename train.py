@@ -8,7 +8,7 @@ from model.lgbm_model import LgbmModel
 from backtester import  BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
-from utils.report import push_report
+from utils.report import push_report, cat_signals, push_signals_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results
 
 
@@ -29,7 +29,7 @@ def train_pipeline(train_args):
 
     dataset = FactorDataset(opt, test_month, indus_type)
     dataset.load_data()
-    #
+
     model = LgbmModel(opt, test_month, indus_type)
     model.train(dataset.x_train, dataset.y_train)
     model.save_ckpt()
@@ -50,21 +50,24 @@ def gen_mp_args(opt):
                 args.append((opt, month, indus_type))
     return args
 
-
-if __name__ == '__main__':
-
-    root_path = './'
-    opt = parse_options(root_path)
+def main(opt):
     pool = mp.Pool(processes=opt['n_jobs'], )
 
     global_timer = Timer()
     args = gen_mp_args(opt)
     results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
     [result.get() for result in results]
-
     pool.close()
     pool.join()
-
-    # report
-    push_report(opt)
     print("Task time is {}".format(time_str(global_timer.item())))
+
+if __name__ == '__main__':
+
+    root_path = './'
+    opt = parse_options(root_path)
+    main(opt)
+
+    # push report.CSV and push signal to sql
+    push_report(opt)
+    signal = cat_signals(opt)
+    push_signals_sql(signal, 'signal_zz800_'+ opt['dataset']['ret_name'] +'_ml')
