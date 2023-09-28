@@ -77,14 +77,12 @@ class FactorDataset():
 
             # read data from mysql
             data = dict() # restore data by month
-            #self.lock.acquire()
             for month in self.training_month:
                 data[month] = self.load_data_from_sql(month)
                 self.logger.info(f"Loading data in {month}")
             if self.is_backtest:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
                 self.logger.info(f"Loading data in {self.test_month} ")
-            #self.lock.release()
             self.logger.info(f"Finish loading data with indus {self.indus_type}")
 
             # split data

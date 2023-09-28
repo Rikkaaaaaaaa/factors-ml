@@ -43,7 +43,7 @@ def train_pipeline(train_args):
 
 def gen_mp_args(opt):
     args = []
-    for month in opt['dataset']['backtest_month']:
+    for month in opt['dataset']['test_month']:
         industry = check_indus(opt, month)
         for indus_type in industry:
             if not exists_results(opt, month, indus_type):
@@ -65,10 +65,10 @@ if __name__ == '__main__':
 
     root_path = './'
     opt = parse_options(root_path)
-    #main(opt)
+    main(opt)
 
     # push report.CSV and push signal to sql
-    #push_report(opt)
+    push_report(opt)
     signal = cat_signals(opt)
     if opt['dataset']['is_highprice']:
         table_name = 'signal_zz800_highprice_'+ opt['dataset']['ret_name'] +'_ml'
