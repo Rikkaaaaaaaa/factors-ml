@@ -72,7 +72,7 @@ class FactorDataset():
             # ordered ticker list
             self.tickers = sorted(self.tickers)#[:10]
             assert len(self.tickers) > 0
-            if not opt['dataset']['is_highprice']:
+            if not self.opt['dataset']['is_highprice']:
                 if '000540.SZ' in self.tickers:
                     self.tickers.remove('000540.SZ')
             self.logger.info(f"Loading {len(self.tickers)} tickers in indus {self.indus_type} test_month {self.test_month}")
