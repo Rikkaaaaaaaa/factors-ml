@@ -4,7 +4,7 @@ n_jobs: 8
 
 # factor dataset
 dataset:
-  test_month: [202307] #[202304, 202305, 202306]
+  test_month: [ 202304, 202305, 202306, 202307]
   io_backend: sql # disk
   pool_name: ['hs300', 'zz500']
   indus_class: wind1
