@@ -50,7 +50,7 @@ def push_signals_sql(signal, table_name ):
                          'time': sqlalchemy.types.BIGINT,
                          })
     create_index('strategy', table_name, ['ticker', 'date', 'time'])
-    print(f"write signals to sql successfully")
+    print(f"write signals to sql tabel:{table_name} successfully")
 
 
 if __name__ == "__main__":
