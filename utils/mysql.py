@@ -122,11 +122,3 @@ def create_index(database, table_name, index_cols):
         print('create index in table "{}" error: {}'.format(table_name, e))
 
 
-if __name__ == '__main__':
-    strategy_engine = create_pd_engine('strategy')
-    smart_order_position_engine = create_pd_engine('strategy')
-
-
-    # read_sql
-    temp_date_data = pd.read_sql('select * from static_data where ticker="000001.SZ"', strategy_engine)
-    print(temp_date_data)

@@ -78,7 +78,7 @@ def yaml_load(f):
 
 def parse_options(root_path):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='config/train_lgbm_15s_highprice.yaml', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='config/test_lgbm_15s_highprice.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting or runtime')
     args = parser.parse_args()
 
@@ -106,40 +106,34 @@ def parse_options(root_path):
     opt['path']['experiments_root'] = experiments_root
     ensure_path(experiments_root)
 
-    # model root: ckpt and training_states
-    model_root = opt['path'].get('model_root')
-    if model_root is None:
-        model_root = osp.join(experiments_root, 'ckpt')
-    opt['path']['model_root'] = model_root
-    mkdir(model_root)
+    # saving path
+    opt['path']['model_path'] = dict()
+    opt['path']['results_path'] = dict()
+    opt['path']['preprocess_path'] = dict()
+    opt['path']['inference_path'] = dict()
+    opt['path']['signal_path'] = dict()
+    for test_month in opt['dataset']['test_month']:
+        model_path = osp.join(experiments_root, str(test_month), 'ckpt')
+        opt['path']['model_path'][test_month] = model_path
+        mkdir(model_path)
 
-    # results path
-    results_root = opt['path'].get('results_root')
-    if results_root is None:
-        results_root = osp.join(experiments_root, 'results')
-    opt['path']['results_root'] = results_root
-    mkdir(results_root)
+        results_path = osp.join(experiments_root, str(test_month),'results')
+        opt['path']['results_path'][test_month]  = results_path
+        mkdir(results_path)
 
-    # preprocess param root
-    preprocess_root = opt['path'].get('preprocess_root')
-    if preprocess_root is None:
-        preprocess_root = osp.join(experiments_root, 'preprocess_params')
-    opt['path']['preprocess_root'] = preprocess_root
-    mkdir(preprocess_root)
+        preprocess_path = osp.join(experiments_root, str(test_month), 'preprocess_params')
+        opt['path']['preprocess_path'][test_month] = preprocess_path
+        mkdir(preprocess_path)
 
-    # inference param root
-    inference_root = opt['path'].get('inference_root')
-    if inference_root is None:
-        inference_root = osp.join(experiments_root, 'inference_params')
-    opt['path']['inference_root'] = inference_root
-    mkdir(inference_root)
+        inference_path = osp.join(experiments_root, str(test_month), 'inference_params')
+        opt['path']['inference_path'][test_month] = inference_path
+        mkdir(inference_path)
 
-    # signal param root
-    signal_root = opt['path'].get('signal_root')
-    if signal_root is None:
-        signal_root = osp.join(experiments_root, 'signal')
-    opt['path']['signal_root'] = signal_root
-    mkdir(signal_root)
+        signal_path = osp.join(experiments_root, str(test_month), 'signal')
+        opt['path']['signal_path'][test_month] = signal_path
+        mkdir(signal_path)
+
+
 
     # log path
     log_root = opt['path'].get('log_root')

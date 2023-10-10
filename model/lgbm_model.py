@@ -27,7 +27,7 @@ class LgbmModel():
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
-        self.logger.info(f"LGBM model init successfully in {test_month} with indus {indus_type}")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: LGBM model init successfully")
 
     def train(self, x_train, y_train):
         train_matrix = lgb.Dataset(x_train, label=y_train)
@@ -73,12 +73,11 @@ class LgbmModel():
 
     def save_ckpt(self):
         # save model file
-        ckpt_folder = osp.join(self.opt['path']['model_root'], str(self.test_month))
-        mkdir(ckpt_folder)
-        ckpt_name = 'lgbm_month{}_indus{}.txt'.format(self.test_month, self.indus_type)
+        ckpt_folder = self.opt['path']['model_path'][self.test_month]
+        ckpt_name = 'lgbm_indus{}.txt'.format(self.indus_type)
         ckpt_path = osp.join(ckpt_folder, ckpt_name)
         self.model.save_model(ckpt_path)
-        self.logger.info(f"Saving model at {ckpt_path}")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Saving model at {ckpt_path}")
 
 
     def predict(self, data):

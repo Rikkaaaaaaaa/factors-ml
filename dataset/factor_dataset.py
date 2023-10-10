@@ -4,7 +4,6 @@ import os.path as osp
 import traceback
 
 from utils.mysql import cx_read_sql
-from utils.misc import mkdir
 from utils.logger import get_root_logger
 
 class FactorDataset():
@@ -75,18 +74,19 @@ class FactorDataset():
             if not self.opt['dataset']['is_highprice']:
                 if '000540.SZ' in self.tickers:
                     self.tickers.remove('000540.SZ')
-            self.logger.info(f"Loading {len(self.tickers)} tickers in indus {self.indus_type} test_month {self.test_month}")
-
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: total ticker number is {len(self.tickers)}")
 
             # read data from mysql
             data = dict() # restore data by month
             for month in self.training_month:
                 data[month] = self.load_data_from_sql(month)
-                self.logger.info(f"Loading data in {month}")
+                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {month}")
             if self.is_backtest:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
-                self.logger.info(f"Loading data in {self.test_month} ")
-            self.logger.info(f"Finish loading data with indus {self.indus_type}")
+                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {self.test_month} ")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
+            if '000063.SZ' in self.tickers:
+                print('ticker debug point')
 
             # split data
             train_data, test_data = self.split_data(data)
@@ -108,10 +108,10 @@ class FactorDataset():
             else:
                 # returned data is in self.x_train/y_train
                 self.transform_RT(train_data)
-            self.logger.info(f"Finish transforming data with indus {self.indus_type}")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data")
         except Exception as e:
             traceback.print_exc()
-            self.logger.info('Error loading factor data in indus {}: '.format(self.indus_type), e)
+            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error loading factor data', e)
 
 
     def load_data_from_sql(self, month):
@@ -175,7 +175,6 @@ class FactorDataset():
 
 
     def del_null_value(self, train_data):
-
         return train_data.dropna()
 
 
@@ -188,6 +187,7 @@ class FactorDataset():
         data = pd.concat([up_data, down_data], ignore_index=True)
 
         return data
+
 
     def transform(self, train_data, test_data=None):
         del_column = ['time', 'ticker', 'date', 'class_label', 'ret']          # deli columns in data
@@ -215,9 +215,9 @@ class FactorDataset():
             # split to x and y
             factor_names = list(set(_train_data.columns) - set(del_column))
             transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
-            train_x = _train_data.drop(del_column, axis=1).values
+            train_x = _train_data[factor_names].values
             train_y = _train_data['class_label'].values
-            test_x = _test_data.drop(del_column, axis=1).values
+            test_x = _test_data[factor_names].values
             test_y = _test_data['class_label'].values  # test 应该再bt模式下设置为0
 
             # data std
@@ -237,8 +237,7 @@ class FactorDataset():
             transform_params['std'] = factor_std
             transform_params['min'] = factor_min
             transform_params['max'] = factor_max
-            save_folder = osp.join(self.opt['path']['preprocess_root'], str(self.test_month))
-            mkdir(save_folder)
+            save_folder = self.opt['path']['preprocess_path'][self.test_month] #osp.join(self.opt['path']['preprocess_root'], str(self.test_month))
             svg_path = osp.join(save_folder,'{}.csv'.format(ticker))
             transform_params.to_csv(svg_path)
 
@@ -274,7 +273,7 @@ class FactorDataset():
             # split to x and y
             factor_names = list(set(_train_data.columns) - set(del_column))
             transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
-            train_x = _train_data.drop(del_column, axis=1).values
+            train_x = _train_data[factor_names].values
             train_y = _train_data['class_label'].values
 
             # data std
@@ -292,8 +291,7 @@ class FactorDataset():
             transform_params['std'] = factor_std
             transform_params['min'] = factor_min
             transform_params['max'] = factor_max
-            save_folder = osp.join(self.opt['path']['preprocess_root'], str(self.test_month))
-            mkdir(save_folder)
+            save_folder = self.opt['path']['preprocess_path'][self.test_month] #osp.join(self.opt['path']['preprocess_root'], str(self.test_month))
             svg_path = osp.join(save_folder,'{}.csv'.format(ticker))
             transform_params.to_csv(svg_path)
 

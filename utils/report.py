@@ -9,10 +9,10 @@ from utils.mysql import create_pd_engine, create_index
 
 
 def push_report(opt):
-    res_path = opt['path']['results_root']
+    res_path = opt['path']['results_path']
     report = []
-    for month in os.listdir(res_path):
-        csv_folder = os.path.join(res_path, month)
+    for month in res_path.keys():
+        csv_folder = res_path[month]
         res_csv = glob.glob(csv_folder.rstrip('/') + '/*csv')
         for r in res_csv:
             report.append(pd.read_csv(r))
@@ -20,13 +20,13 @@ def push_report(opt):
     report= report.reset_index(drop=True)
     report_name = '{}_report.csv'.format(opt['name'])
     report.to_csv(os.path.join(res_path, report_name), index=False)
-    print(f"backtesting report has been saved at {report_name}")
+    print(f"Backtesting report has been saved at {report_name}")
 
 def cat_signals(opt):
-    signal_path = opt['path']['signal_root']
+    signal_path = opt['path']['signal_signal']
     signal = []
-    for month in os.listdir(signal_path):
-        csv_folder = os.path.join(signal_path, month)
+    for month in signal_path.keys():
+        csv_folder = signal_path[month]
         res_csv = glob.glob(csv_folder.rstrip('/') + '/*csv')
         for r in res_csv:
             signal.append(pd.read_csv(r))
@@ -36,21 +36,22 @@ def cat_signals(opt):
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
     signal_name = '{}_signal.csv'.format(opt['name'])
-    signal.to_csv(os.path.join(signal_path, signal_name), index=False)
-    print(f"signals have been saved at {signal_name}")
+    #signal.to_csv(os.path.join(signal_path, signal_name), index=False)
+    print(f"Signals have been saved at {signal_name}")
 
     return signal
 
-def push_signals_sql(signal, table_name ):
+def push_signals_sql(opt, table_name, if_exists='replace' ):
+    signal = cat_signals(opt)
     engine = create_pd_engine('strategy')
     table_name = table_name
-    signal.to_sql(table_name, con=engine, index=False, if_exists='replace', chunksize=10000,
+    signal.to_sql(table_name, con=engine, index=False, if_exists=if_exists, chunksize=10000,
                   dtype={'ticker': sqlalchemy.types.VARCHAR(length=10),
                          'date': sqlalchemy.types.BIGINT,
                          'time': sqlalchemy.types.BIGINT,
                          })
     create_index('strategy', table_name, ['ticker', 'date', 'time'])
-    print(f"write signals to sql tabel:{table_name} successfully")
+    print(f"Write signals to sql tabel \'{table_name}\' successfully")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ import pandas as pd
 from tqdm import tqdm
 import traceback
 
-from utils.misc import mkdir
 from utils.logger import get_root_logger
 from metric.base_metric import compute_metric, compute_metric_RT
 
@@ -33,7 +32,7 @@ class BackTester():
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
-        self.logger.info(f'Backtester init successfully in {test_month} with indus {indus_type}')
+        self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Backtester init successfully')
 
 
     def backtest(self, factor_data, model):
@@ -78,11 +77,11 @@ class BackTester():
             self.save_results()
             self.save_bound()
             self.save_signals()
-            self.logger.info(f"Backtesting finish with ticker num {len(self.tickers)}")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Backtesting finish with ticker num {len(self.tickers)}")
 
         except Exception as e:
             traceback.print_exc()
-            print('Error backtesting {} in indus {}: '.format(ticker, self.indus_type), e)
+            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
 
     def runtime(self, factor_data, model):
         try:
@@ -94,7 +93,7 @@ class BackTester():
 
             tbar = tqdm(self.tickers)
             for ticker in tbar:
-                tbar.set_description("Backtesting {}, indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
+                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesting {ticker}")
                 self._ticker = ticker
                 # load test and train data in one ticker
                 train_position = factor_data.train_position[ticker]
@@ -116,7 +115,7 @@ class BackTester():
 
         except Exception as e:
             traceback.print_exc()
-            print('Error runtime: {} in indus {}: '.format(ticker, self.indus_type), e)
+            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error runtime in {ticker}', e)
 
     def compute_results(self):
         # init summaries list
@@ -136,13 +135,12 @@ class BackTester():
     def save_results(self):
         self.results = pd.DataFrame(self.summaries, columns=self.metric_keys)
         self.results.insert(0, 'ticker', self.tickers)
-        self.results.insert(1, 'month', self.indus_type)
-        self.results.insert(2, 'indus_type', self.test_month)
+        self.results.insert(1, 'month', self.test_month)
+        self.results.insert(2, 'indus_type', self.indus_type)
 
         # save results file
-        results_folder = osp.join(self.opt['path']['results_root'], str(self.test_month))
-        mkdir(results_folder)
-        results_name = 'results_month{}_indus{}.csv'.format(self.test_month, self.indus_type)
+        results_folder =  self.opt['path']['results_path'][self.test_month] # osp.join(self.opt['path']['results_root'], str(self.test_month))
+        results_name = 'results_indus{}.csv'.format(self.test_month, self.indus_type)
         results_path = osp.join(results_folder, results_name)
         self.results.reset_index(drop=True, inplace=True)
         self.results.to_csv(results_path, index=False)
@@ -153,9 +151,8 @@ class BackTester():
             print('Please run compute_results before saving boundary values!')
 
         # save bound file
-        inference_folder = osp.join(self.opt['path']['inference_root'], str(self.test_month))
-        mkdir(inference_folder)
-        bound_name = 'bound_month{}_indus{}.csv'.format(self.test_month, self.indus_type)
+        inference_folder = self.opt['path']['inference_path'][self.test_month] #osp.join(self.opt['path']['inference_root'], str(self.test_month))
+        bound_name = 'bound_indus{}.csv'.format(self.indus_type)
         bound_path = osp.join(inference_folder, bound_name)
         inference_cols = ['ticker', 'up_bound', 'down_bound']
         self.results[inference_cols].to_csv(bound_path, index=False)
@@ -184,9 +181,8 @@ class BackTester():
 
     def save_signals(self):
         # save signal file
-        signal_folder = osp.join(self.opt['path']['signal_root'], str(self.test_month))
-        mkdir(signal_folder)
-        signal_name = 'signal_month{}_indus{}.csv'.format(self.test_month, self.indus_type)
+        signal_folder = self.opt['path']['signal_path'][self.test_month]#osp.join(self.opt['path']['signal_root'], str(self.test_month))
+        signal_name = 'signal_indus{}.csv'.format(self.test_month, self.indus_type)
         signal_path = osp.join(signal_folder, signal_name)
         self.signals = pd.concat(self.signals, ignore_index=True)
         self.signals = self.signals[['ticker', 'time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]

@@ -12,7 +12,6 @@ from utils.report import push_report, cat_signals, push_signals_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results
 
 
-
 def init(args):
     global lock
     lock = args[0]
@@ -56,22 +55,26 @@ def main(opt):
     global_timer = Timer()
     args = gen_mp_args(opt)
     results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
+
     [result.get() for result in results]
     pool.close()
     pool.join()
     print("Task time is {}".format(time_str(global_timer.item())))
 
-if __name__ == '__main__':
+def push_report_signal(opt):
+    push_report(opt)
+    if opt['dataset']['is_highprice']:
+        table_name = 'signal_zz800_highprice_'+ opt['dataset']['ret_name'] +'_ml'
+    else:
+        table_name = 'signal_zz800_lowprice_' + opt['dataset']['ret_name'] + '_ml'
+    push_signals_sql(opt, table_name)
 
+
+if __name__ == '__main__':
+    # parse option file
     root_path = './'
     opt = parse_options(root_path)
+    # train pipeline
     main(opt)
-
-    # push report.CSV and push signal to sql
-    push_report(opt)
-    # signal = cat_signals(opt)
-    # if opt['dataset']['is_highprice']:
-    #     table_name = 'signal_zz800_highprice_'+ opt['dataset']['ret_name'] +'_ml'
-    # else:
-    #     table_name = 'signal_zz800_lowprice_' + opt['dataset']['ret_name'] + '_ml'
-    # push_signals_sql(signal, table_name)
+    # push all results to report.CSV and push all signals to sql
+    push_report_signal(opt)

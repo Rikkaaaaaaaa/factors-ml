@@ -1,4 +1,4 @@
-name: train_lgbm_15s_highprice
+name: test_lgbm_15s_highprice
 manual_seed: 2023
 n_jobs: 8
 
