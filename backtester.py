@@ -139,7 +139,7 @@ class BackTester():
 
         # save results file
         results_folder =  self.opt['path']['results_path'][self.test_month] # osp.join(self.opt['path']['results_root'], str(self.test_month))
-        results_name = 'results_indus{}.csv'.format(self.test_month, self.indus_type)
+        results_name = 'results_{}_indus{}.csv'.format(self.test_month, self.indus_type)
         results_path = osp.join(results_folder, results_name)
         self.results.reset_index(drop=True, inplace=True)
         self.results.to_csv(results_path, index=False)
@@ -181,7 +181,7 @@ class BackTester():
     def save_signals(self):
         # save signal file
         signal_folder = self.opt['path']['signal_path'][self.test_month]#osp.join(self.opt['path']['signal_root'], str(self.test_month))
-        signal_name = 'signal_indus{}.csv'.format(self.test_month, self.indus_type)
+        signal_name = 'signal_{}_indus{}.csv'.format(self.test_month, self.indus_type)
         signal_path = osp.join(signal_folder, signal_name)
         self.signals = pd.concat(self.signals, ignore_index=True)
         self.signals = self.signals[['ticker', 'time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]

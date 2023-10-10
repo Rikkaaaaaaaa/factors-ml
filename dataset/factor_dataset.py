@@ -222,6 +222,9 @@ class FactorDataset():
             test_x = _test_data[factor_names].values
             test_y = _test_data['class_label'].values  # test 应该再bt模式下设置为0
 
+            if ticker == '000063.SZ':
+                pass
+
             # data std
             factor_mean = np.mean(train_x, axis=0)
             factor_std = np.std(train_x, axis=0)
@@ -277,6 +280,7 @@ class FactorDataset():
             transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
             train_x = _train_data[factor_names].values
             train_y = _train_data['class_label'].values
+
 
             # data std
             factor_mean = np.mean(train_x, axis=0)
