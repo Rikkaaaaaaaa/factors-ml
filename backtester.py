@@ -46,7 +46,7 @@ class BackTester():
 
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
-                tbar.set_description("Backtesting indus: {}, test month: {}".format(ticker, self.indus_type, self.test_month))
+                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
                 self._ticker_ret = factor_data.test_ret[ticker]
                 self._ticker_time = factor_data.test_idx[ticker]
                 self._ticker = ticker
@@ -87,13 +87,13 @@ class BackTester():
         try:
             self.tickers = factor_data.tickers
             x_train = factor_data.x_train
-
+            # bound mode settings
             if self.opt['test']['bound_mode'] == 'by_indus':
                 self.train_proba = model.predict(x_train)
 
             tbar = tqdm(self.tickers)
             for ticker in tbar:
-                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesting {ticker}")
+                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Runtime preparing ticker {ticker}")
                 self._ticker = ticker
                 # load test and train data in one ticker
                 train_position = factor_data.train_position[ticker]
@@ -111,7 +111,6 @@ class BackTester():
             # save testing bounds
             self.save_results()
             self.save_bound()
-
 
         except Exception as e:
             traceback.print_exc()
