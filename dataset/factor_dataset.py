@@ -26,13 +26,15 @@ class FactorDataset():
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
+
         self.is_backtest = self.opt['is_backtest']
         self.indus_class = self.opt['dataset']['indus_class']
         self.class_num = self.opt['dataset']['class_num']
-        self.tickers = []
         self.pool_name = self.opt['dataset']['pool_name']
+        self.tickers = []
         self.training_month = self.get_training_month()
         # self.lock = kwargs['lock']
+
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -54,14 +56,13 @@ class FactorDataset():
         try:
             # fetch ticker list from mysql table
             for pool in self.pool_name:
-
-                # lowprice stocks have no indus_type
                 if self.opt['dataset']['is_highprice']:
                     indus_table = cx_read_sql('select * from static_data_industry_{}_history where {}="{}" and test_month={}'.format(pool,
                                               self.indus_class, self.indus_type, self.test_month ))
                     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
                                               pool, self.opt['dataset']['avg_price'], self.test_month))
                 else:
+                    # note that lowprice stocks have no indus_type, default is 0
                     indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool, self.test_month))
                     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(
                                                pool, self.opt['dataset']['avg_price'], self.test_month))
