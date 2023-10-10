@@ -1,37 +1,38 @@
 import numpy as np
 import pandas as pd
-import utils
 import sqlalchemy
 import argparse
 import multiprocessing as mp
 import time
 from tqdm import tqdm
 
+from utils import cx_read_sql, create_index, create_pd_engines
+
 def read_proba_LR(config, ticker, month):
-    pro_15s = utils.cx_read_sql(
+    pro_15s = cx_read_sql(
         'select * from prob_15s where ticker="{}"  and {}<date and date<{}'.format(ticker, month * 100, (month + 1) * 100))
-    pro_60s = utils.cx_read_sql(
+    pro_60s = cx_read_sql(
         'select * from prob_60s where ticker="{}" and {}<date and date<{}'.format(ticker,month * 100, (month + 1) * 100))
 
     return pro_15s, pro_60s
 
 def read_signal_ML(config, month, ticker=None):
     if ticker:
-        sig_15s = utils.cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_15s, ticker, month*100, (month+1)*100))
-        sig_60s = utils.cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_60s, ticker, month * 100, (month + 1) * 100))
-        sig_120s = utils.cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_120s, ticker, month * 100,(month + 1) * 100))
-        sig_300s = utils.cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_300s, ticker, month * 100,(month + 1) * 100))
+        sig_15s = cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_15s, ticker, month*100, (month+1)*100))
+        sig_60s = cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_60s, ticker, month * 100, (month + 1) * 100))
+        sig_120s = cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_120s, ticker, month * 100,(month + 1) * 100))
+        sig_300s = cx_read_sql('select * from {} where ticker="{}" and {}<date and date<{}'.format(config.sig_300s, ticker, month * 100,(month + 1) * 100))
     else:
-        sig_15s = utils.cx_read_sql(
+        sig_15s = cx_read_sql(
             'select * from {} where  {}<date and date<{}'.format(config.sig_15s, month * 100,
                                                                                 (month + 1) * 100))
-        sig_60s = utils.cx_read_sql(
+        sig_60s = cx_read_sql(
             'select * from {} where {}<date and date<{}'.format(config.sig_60s, month * 100,
                                                                                 (month + 1) * 100))
-        sig_120s = utils.cx_read_sql(
+        sig_120s = cx_read_sql(
             'select * from {} where  {}<date and date<{}'.format(config.sig_120s, month * 100,
                                                                                 (month + 1) * 100))
-        sig_300s = utils.cx_read_sql(
+        sig_300s = cx_read_sql(
             'select * from {} where {}<date and date<{}'.format(config.sig_300s, month * 100,
                                                                                 (month + 1) * 100))
     return sig_15s, sig_60s, sig_120s, sig_300s
@@ -39,7 +40,7 @@ def read_signal_ML(config, month, ticker=None):
 
 def save2sql(data_name, merge_signal):
 
-    engine = utils.create_pd_engine('strategy')
+    engine = create_pd_engine('strategy')
     merge_signal.to_sql(data_name, con=engine, index=False, if_exists='append', chunksize=10000,
                         dtype={'ticker': sqlalchemy.types.VARCHAR(length=10),
                                'date': sqlalchemy.types.BIGINT,
@@ -99,9 +100,7 @@ if __name__ == '__main__':
     pool.map(func, args)
     pool.close()
     pool.join()
-    utils.create_index('strategy', table_name, ['ticker', 'date', 'time'])
+    create_index('strategy', table_name, ['ticker', 'date', 'time'])
 
-    # merge_signal_ensemble_zz800((config, 202304, table_name, signal_col_name))
-    # utils.create_index('strategy', table_name, ['ticker', 'date', 'time'])
 
 

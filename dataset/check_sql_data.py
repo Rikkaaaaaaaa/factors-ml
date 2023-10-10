@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os.path as osp
 
-from utils.mysql import cx_read_sql
+from utils import cx_read_sql
 
 
 def check_indus(opt, first_month):

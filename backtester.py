@@ -12,7 +12,7 @@ class BackTester():
     Backtester: include evaluation of model, metric of backtest and signal generation.
 
     Args:
-        opt(dict): config for dataset, includes following keys:
+        opt(dict): option for dataset, includes following keys:
             ...
         test_month(int): month needs to be eval
         indus_type(int): one of the indus_class

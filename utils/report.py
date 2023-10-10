@@ -19,11 +19,11 @@ def push_report(opt):
     report = pd.concat(report).reset_index(drop=True)
     report= report.reset_index(drop=True)
     report_name = '{}_report.csv'.format(opt['name'])
-    report.to_csv(os.path.join(res_path, report_name), index=False)
+    report.to_csv(os.path.join(opt['path']['experiments_root'], report_name), index=False)
     print(f"Backtesting report has been saved at {report_name}")
 
 def cat_signals(opt):
-    signal_path = opt['path']['signal_signal']
+    signal_path = opt['path']['signal_path']
     signal = []
     for month in signal_path.keys():
         csv_folder = signal_path[month]
@@ -35,9 +35,10 @@ def cat_signals(opt):
     signal = signal.reset_index(drop=True)
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
+    # save all signals to csv
     signal_name = '{}_signal.csv'.format(opt['name'])
-    #signal.to_csv(os.path.join(signal_path, signal_name), index=False)
-    print(f"Signals have been saved at {signal_name}")
+    #signal.to_csv(os.path.join(opt['path']['experiments_root'], signal_name), index=False)
+    #print(f"Signals have been saved at {signal_name}")
 
     return signal
 
@@ -56,11 +57,11 @@ def push_signals_sql(opt, table_name, if_exists='replace' ):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-config', type=str, default='', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='', help='Path to option YAML file.')
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting')
     args = parser.parse_args()
 
-    config_path = '../config/train_lgbm_15s_highprice.yaml'
+    config_path = '../option/train_lgbm_15s_highprice.yaml'
     root_path = '../'
 
     push_report(parse_options(root_path, config_path))

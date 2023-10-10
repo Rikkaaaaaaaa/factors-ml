@@ -11,7 +11,7 @@ class FactorDataset():
     fetch dataset in one indus_type for factor and return
 
     Args:
-        opt(dict): config for dataset, includes following keys:
+        opt(dict): option for dataset, includes following keys:
             ...
         test_month(int): month needs to be eval
         indus_type(int): one of the indus_class
