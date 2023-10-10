@@ -5,6 +5,7 @@ import traceback
 
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
+from utils import factor_all
 
 class FactorDataset():
     """
@@ -214,7 +215,7 @@ class FactorDataset():
             test_cur += len(_test_data)
 
             # split to x and y
-            factor_names = list(set(_train_data.columns) - set(del_column))
+            factor_names = factor_all #list(set(_train_data.columns) - set(del_column))
             transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
             train_x = _train_data[factor_names].values
             train_y = _train_data['class_label'].values
@@ -272,7 +273,7 @@ class FactorDataset():
             train_cur += len(_train_data)
 
             # split to x and y
-            factor_names = list(set(_train_data.columns) - set(del_column))
+            factor_names = factor_all#list(set(_train_data.columns) - set(del_column))
             transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
             train_x = _train_data[factor_names].values
             train_y = _train_data['class_label'].values

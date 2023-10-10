@@ -75,6 +75,6 @@ if __name__ == '__main__':
     root_path = './'
     opt = parse_options(root_path)
     # train pipeline
-    #main(opt)
+    main(opt)
     # push all results to report.CSV and push all signals to sql
     push_report_signal(opt)
