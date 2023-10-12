@@ -77,4 +77,4 @@ if __name__ == '__main__':
     # train pipeline
     main(opt)
     # push all results to report.CSV and push all signals to sql
-    push_report_signal(opt)
+    #push_report_signal(opt)

@@ -87,8 +87,6 @@ class FactorDataset():
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
                 self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {self.test_month} ")
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
-            if '000063.SZ' in self.tickers:
-                print('ticker debug point')
 
             # split data
             train_data, test_data = self.split_data(data)
@@ -222,9 +220,6 @@ class FactorDataset():
             test_x = _test_data[factor_names].values
             test_y = _test_data['class_label'].values  # test 应该再bt模式下设置为0
 
-            if ticker == '000063.SZ':
-                pass
-
             # data std
             factor_mean = np.mean(train_x, axis=0)
             factor_std = np.std(train_x, axis=0)
@@ -256,7 +251,7 @@ class FactorDataset():
         self.x_test = np.concatenate(self.x_test, axis=0)
         self.y_test = np.concatenate(self.y_test, axis=0)
 
-        # balance data by reversing
+        # balance training data by reversing
         if self.class_num==2 and self.opt['dataset']['balance']=='reverse':
             self.x_train = np.concatenate([self.x_train, -1*self.x_train], axis=0)
             reversed_y = np.zeros_like(self.y_train)

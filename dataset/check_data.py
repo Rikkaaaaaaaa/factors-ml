@@ -20,6 +20,10 @@ def check_indus(opt, first_month):
 
     return set(indus_list)
 
+def write_factor_sql(test_month, x_test, ):
+
+    table_name = f'train_factor_ml_{test_month}'
+
 
 
 
