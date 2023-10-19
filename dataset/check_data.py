@@ -9,7 +9,7 @@ def check_indus(opt, first_month):
     pools = opt['dataset']['pool_name']
     indus_class = opt['dataset']['indus_class']
     indus_list = []
-    if opt['dataset']['is_highprice']:
+    if opt['dataset']['price_name'] == 'highprice':
         for pool in pools:
             indus_table = cx_read_sql('select distinct {} from static_data_industry_{}_history where test_month={}'.format(
                                         indus_class, pool, first_month))
@@ -20,9 +20,6 @@ def check_indus(opt, first_month):
 
     return set(indus_list)
 
-def write_factor_sql(test_month, x_test, ):
-
-    table_name = f'train_factor_ml_{test_month}'
 
 
 

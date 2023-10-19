@@ -78,7 +78,7 @@ def yaml_load(f):
 
 def parse_options(root_path):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='option/test_lgbm_15s_highprice.yaml', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='option/test_lgbm_15s_highprice_zz800.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting or runtime')
     args = parser.parse_args()
 

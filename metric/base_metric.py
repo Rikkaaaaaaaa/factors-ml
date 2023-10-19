@@ -44,7 +44,6 @@ def compute_metric_RT(opt, pre_prob_train):
     :param pre_prob_train: train probability
 
     """
-
     pct_num = [100-opt['test']['threshold_pct'], 100-opt['test']['threshold_pct']]
     class_num = opt['dataset']['class_num']
 

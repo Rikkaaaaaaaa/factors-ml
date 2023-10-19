@@ -8,7 +8,7 @@ from utils.option import parse_options
 from utils.mysql import create_pd_engine, create_index
 
 
-def push_report(opt):
+def save_report_disk(opt):
     res_path = opt['path']['results_path']
     report = []
     for month in res_path.keys():
@@ -36,13 +36,14 @@ def cat_signals(opt):
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
     # save all signals to csv
-    signal_name = '{}_signal.csv'.format(opt['name'])
+    #signal_name = '{}_signal.csv'.format(opt['name'])
     #signal.to_csv(os.path.join(opt['path']['experiments_root'], signal_name), index=False)
     #print(f"Signals have been saved at {signal_name}")
 
     return signal
 
-def push_signals_sql(opt, table_name, if_exists='replace' ):
+def write_signals_sql(opt, table_name, if_exists='replace'):
+    print(f"Writing signals to sql tabel \'{table_name}\' now...")
     signal = cat_signals(opt)
     engine = create_pd_engine('strategy')
     table_name = table_name
@@ -61,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting')
     args = parser.parse_args()
 
-    config_path = '../option/train_lgbm_15s_highprice.yaml'
+    config_path = '../option/backtest_zz800_highprice_lgbm_15s.yaml'
     root_path = '../'
 
-    push_report(parse_options(root_path, config_path))
+    save_report_disk(parse_options(root_path, config_path))

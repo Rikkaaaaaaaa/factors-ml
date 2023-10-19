@@ -8,8 +8,9 @@ from model.lgbm_model import LgbmModel
 from backtester import  BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
-from utils.report import push_report, cat_signals, push_signals_sql
+from utils.report import save_report_disk, write_signals_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results
+from dataset import factor_all
 
 
 def init(args):
@@ -26,32 +27,49 @@ def train_pipeline(train_args):
     #logger.info(get_env_info())
     #logger.info(dict2str(opt))
 
+    # get data set from test month
     dataset = FactorDataset(opt, test_month, indus_type)
     dataset.load_data()
+    if dataset.is_empty:
+        return
 
-    model = LgbmModel(opt, test_month, indus_type)
-    model.train(dataset.x_train, dataset.y_train)
-    model.save_ckpt()
+    # train lgbm model
+    # x_train, y_train = dataset.train_data[factor_all], dataset.train_data['class_label']
+    # model = LgbmModel(opt, test_month, indus_type)
+    # model.train(x_train, y_train)
+    # model.save_ckpt()
 
-    backtester = BackTester(opt, test_month, indus_type)
-    if opt['is_backtest']:
-        backtester.backtest(dataset, model)
-    else:
-        backtester.runtime(dataset, model)
+    # # backtesting/realtime process
+    # backtester = BackTester(opt, test_month, indus_type)
+    # if opt['is_backtest']:
+    #     backtester.backtest(dataset, model)
 
 
 def gen_mp_args(opt):
     args = []
-    for month in opt['dataset']['test_month']:
-        industry = check_indus(opt, month)
+    for test_month in opt['dataset']['test_month']:
+        industry = check_indus(opt, test_month)
         for indus_type in industry:
-            if not exists_results(opt, month, indus_type):
-                args.append((opt, month, indus_type))
+            if not exists_results(opt, test_month, indus_type):
+                args.append((opt, test_month, indus_type))
     return args
+
+
+def push_report_signal(opt):
+    save_report_disk(opt)
+    if 'hs300' in opt['dataset']['pool_name'] and 'zz500' in opt['dataset']['pool_name']:
+        pool_name = 'zz800'
+    else:
+        pool_name = opt['dataset']['pool_name'][-1]
+    if opt['dataset']['price_name'] == 'highprice':
+        table_name = f"signal_{pool_name}_highprice_lgbm_{opt['dataset']['ret_name']}"
+    else:
+        table_name = f"signal_{pool_name}_lowpriceprice_lgbm_{opt['dataset']['ret_name']}"
+    write_signals_sql(opt, table_name)
+
 
 def main(opt):
     pool = mp.Pool(processes=opt['n_jobs'], )
-
     global_timer = Timer()
     args = gen_mp_args(opt)
     results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
@@ -61,20 +79,10 @@ def main(opt):
     pool.join()
     print("Task time is {}".format(time_str(global_timer.item())))
 
-def push_report_signal(opt):
-    push_report(opt)
-    if opt['dataset']['is_highprice']:
-        table_name = 'signal_zz800_highprice_'+ opt['dataset']['ret_name'] +'_ml'
-    else:
-        table_name = 'signal_zz800_lowprice_' + opt['dataset']['ret_name'] + '_ml'
-    push_signals_sql(opt, table_name)
-
 
 if __name__ == '__main__':
-    # parse option file
+
     root_path = './'
     opt = parse_options(root_path)
-    # train pipeline
-    main(opt)
-    # push all results to report.CSV and push all signals to sql
-    #push_report_signal(opt)
+    #main(opt)
+    push_report_signal(opt)

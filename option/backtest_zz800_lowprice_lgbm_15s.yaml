@@ -1,15 +1,15 @@
-name: train_lgbm_15s_highprice
+name: zz800_lowprice_lgbm_15s
 manual_seed: 2023
 n_jobs: 8
 
 # factor dataset
 dataset:
-  test_month: [202307]
+  test_month: [202304, 202305, 202306, 202307]
   io_backend: sql # disk
   pool_name: ['hs300', 'zz500']
   indus_class: wind1
   avg_price: 10
-  is_highprice: True
+  price_name: lowprice
   ret_name: 15s
   std_type: default # trainingset std
   alpha: 0.0005
@@ -24,6 +24,6 @@ test:
 
 network:
   name: lgbm
-  n_cpus: 8
+  n_cpus: 10
 
 

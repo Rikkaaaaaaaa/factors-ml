@@ -1,19 +1,18 @@
-name: train_lgbm_300s_highprice
+name: zz1000_highprice_lgbm_120s
 manual_seed: 2023
 n_jobs: 8
 
 # factor dataset
 dataset:
-  test_month: [202307]
+  test_month: [202304, 202305, 202306, 202307]
   io_backend: sql # disk
-  pool_name: ['hs300', 'zz500']
+  pool_name: ['zz1000']
   indus_class: wind1
   avg_price: 10
-  is_highprice: True
-  ret_name: 300s
-
+  price_name: highprice
+  ret_name: 120s
   std_type: default # trainingset std
-  alpha: 0.001
+  alpha: 0.0005
   class_num: 2
   balance: reverse
 
@@ -21,7 +20,7 @@ train:
   num_epoch: 200
 test:
   bound_mode: by_ticker # indus
-  threshold_pct: 5
+  threshold_pct: 10
 
 network:
   name: lgbm

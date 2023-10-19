@@ -30,6 +30,7 @@ class LgbmModel():
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: LGBM model init successfully")
 
     def train(self, x_train, y_train):
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LGBM model...")
         train_matrix = lgb.Dataset(x_train, label=y_train)
         if self.class_num == 3:
             params = {
@@ -70,6 +71,7 @@ class LgbmModel():
             }
 
         self.model = lgb.train(params, train_set=train_matrix, num_boost_round=self.num_epoch)
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
 
     def save_ckpt(self):
         # save model file
@@ -82,9 +84,6 @@ class LgbmModel():
 
     def predict(self, data):
         return self.model.predict(data)
-
-
-
 
 
 

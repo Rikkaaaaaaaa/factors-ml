@@ -5,7 +5,7 @@ import traceback
 
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
-from utils import factor_all
+from dataset import factor_all
 
 class FactorDataset():
     """
@@ -27,7 +27,7 @@ class FactorDataset():
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
-
+        self.price_name = self.opt['dataset']['price_name']
         self.is_backtest = self.opt['is_backtest']
         self.indus_class = self.opt['dataset']['indus_class']
         self.class_num = self.opt['dataset']['class_num']
@@ -57,12 +57,12 @@ class FactorDataset():
         try:
             # fetch ticker list from mysql table
             for pool in self.pool_name:
-                if self.opt['dataset']['is_highprice']:
+                if self.price_name == 'highprice':
                     indus_table = cx_read_sql('select * from static_data_industry_{}_history where {}="{}" and test_month={}'.format(pool,
                                               self.indus_class, self.indus_type, self.test_month ))
                     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
                                               pool, self.opt['dataset']['avg_price'], self.test_month))
-                else:
+                if self.price_name == 'lowprice':
                     # note that lowprice stocks have no indus_type, default is 0
                     indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool, self.test_month))
                     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(
@@ -72,20 +72,30 @@ class FactorDataset():
 
             # ordered ticker list
             self.tickers = sorted(self.tickers)#[:10]
-            assert len(self.tickers) > 0
-            if not self.opt['dataset']['is_highprice']:
+            # check ticker list is null
+            if len(self.tickers) == 0:
+                self.is_empty = True
+                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: no ticker data in {self.test_month} ")
+                return
+            else:
+                self.is_empty = False
+            #assert len(self.tickers) > 0, print(f'no ticker in {self.test_month} and indus_type {self.indus_type}')
+
+            # delete
+            if self.price_name == 'lowptice':
                 if '000540.SZ' in self.tickers:
                     self.tickers.remove('000540.SZ')
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: total ticker number is {len(self.tickers)}")
+
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(self.tickers)}")
 
             # read data from mysql
             data = dict() # restore data by month
             for month in self.training_month:
                 data[month] = self.load_data_from_sql(month)
-                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {month}")
+                #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {month}")
             if self.is_backtest:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
-                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {self.test_month} ")
+                #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {self.test_month} ")
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
 
             # split data
@@ -109,6 +119,8 @@ class FactorDataset():
                 # returned data is in self.x_train/y_train
                 self.transform_RT(train_data)
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Train data num is {len(train_data)} and test data num is {len(test_data)}")
+
         except Exception as e:
             traceback.print_exc()
             self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error loading factor data', e)
@@ -152,7 +164,6 @@ class FactorDataset():
             test_data = data[self.test_month]
         else:
             test_data = pd.DataFrame()
-
         return train_data, test_data
 
 
@@ -191,34 +202,19 @@ class FactorDataset():
 
     def transform(self, train_data, test_data=None):
         del_column = ['time', 'ticker', 'date', 'class_label', 'ret']          # deli columns in data
-        self.x_train, self.y_train, self.x_test, self.y_test = [], [], [], []  # np.array for training
-        self.train_position = dict()  # record idx for backtest
-        self.test_position = dict()
-        self.test_idx = dict()         # record time date in test data
-        self.test_ret = dict()         # record return in test data
-        train_cur, test_cur = 0, 0     # record data cursor for backtest
+        factor_names = factor_all  # list(set(_train_data.columns) - set(del_column))
+        self.train_data = train_data.reset_index()
+        self.test_data = test_data.reset_index()
+        self.transform_params = []
 
         for ticker in self.tickers:
-            _train_data = train_data.query('ticker==@ticker')
-            _test_data = test_data.query('ticker==@ticker')
-            self.test_idx[ticker] = dict()
-            self.test_ret[ticker] = _test_data['ret']
-
-            # record time date index and test return
-            self.train_position[ticker] = [train_cur, train_cur + len(_train_data)]
-            self.test_position[ticker] = [test_cur, test_cur + len(_test_data)]
-            self.test_idx[ticker]['date'], self.test_idx[ticker]['time'] = _test_data['date'], _test_data['time']
-
-            train_cur += len(_train_data)
-            test_cur += len(_test_data)
+            _train_data = self.train_data.query('ticker==@ticker')
+            _test_data = self.test_data.query('ticker==@ticker')
 
             # split to x and y
-            factor_names = factor_all #list(set(_train_data.columns) - set(del_column))
-            transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
+            transform_param = pd.DataFrame(columns=['factor_name', 'min', 'max', 'mean', 'std'])
             train_x = _train_data[factor_names].values
-            train_y = _train_data['class_label'].values
             test_x = _test_data[factor_names].values
-            test_y = _test_data['class_label'].values  # test 应该再bt模式下设置为0
 
             # data std
             factor_mean = np.mean(train_x, axis=0)
@@ -233,81 +229,33 @@ class FactorDataset():
             test_x = np.clip(test_x, factor_min, factor_max)
 
             # save transform params
-            transform_params['mean'] = factor_mean
-            transform_params['std'] = factor_std
-            transform_params['min'] = factor_min
-            transform_params['max'] = factor_max
-            save_folder = self.opt['path']['preprocess_path'][self.test_month] #osp.join(self.opt['path']['preprocess_root'], str(self.test_month))
-            svg_path = osp.join(save_folder,'{}.csv'.format(ticker))
-            transform_params.to_csv(svg_path)
+            transform_param['factor_name'] = factor_all
+            transform_param['mean'] = factor_mean
+            transform_param['std'] = factor_std
+            transform_param['min'] = factor_min
+            transform_param['max'] = factor_max
+            transform_param.insert(0, 'ticker',ticker)
 
-            self.x_train.append(train_x)
-            self.y_train.append(train_y)
-            self.x_test.append(test_x)
-            self.y_test.append(test_y)
-
-        self.x_train = np.concatenate(self.x_train, axis=0)
-        self.y_train = np.concatenate(self.y_train, axis=0)
-        self.x_test = np.concatenate(self.x_test, axis=0)
-        self.y_test = np.concatenate(self.y_test, axis=0)
+            self.transform_params.append(transform_param)
+            self.train_data.loc[_train_data.index, factor_all] = train_x
+            self.test_data.loc[_test_data.index, factor_all] = test_x
 
         # balance training data by reversing
-        if self.class_num==2 and self.opt['dataset']['balance']=='reverse':
-            self.x_train = np.concatenate([self.x_train, -1*self.x_train], axis=0)
-            reversed_y = np.zeros_like(self.y_train)
-            reversed_y[self.y_train==0] = 1
-            self.y_train = np.concatenate([self.y_train, reversed_y], axis=0)
+        if self.class_num == 2 and self.opt['dataset']['balance'] == 'reverse':
+            train_data_copy = self.train_data.copy()
+            train_data_copy[factor_all] = -1 * train_data_copy[factor_all]
+            train_y = train_data_copy['class_label']
+            reversed_y = np.zeros_like(train_y)
+            reversed_y[train_y==0] = 1
+            train_data_copy['class_label'] = reversed_y
 
-    def transform_RT(self, train_data):
-        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']          # deli columns in data
-        self.x_train, self.y_train = [], []  # np.array for training
-        self.train_position = dict()  # record idx for backtest
-        train_cur = 0
-        for ticker in self.tickers:
-            _train_data = train_data.query('ticker==@ticker')
+            self.train_data = pd.concat([self.train_data, train_data_copy])
 
-            # record train data pos by ticker
-            self.train_position[ticker] = [train_cur, train_cur + len(_train_data)]
-            train_cur += len(_train_data)
-
-            # split to x and y
-            factor_names = factor_all#list(set(_train_data.columns) - set(del_column))
-            transform_params = pd.DataFrame(index=factor_names, columns=['min', 'max', 'mean', 'std'])
-            train_x = _train_data[factor_names].values
-            train_y = _train_data['class_label'].values
-
-
-            # data std
-            factor_mean = np.mean(train_x, axis=0)
-            factor_std = np.std(train_x, axis=0)
-            train_x = (train_x - factor_mean) / factor_std
-
-            # data clip
-            factor_min = np.percentile(train_x, 5, axis=0,)
-            factor_max = np.percentile(train_x, 95, axis=0,)
-            train_x = np.clip(train_x, factor_min, factor_max)
-
-            # save transform params
-            transform_params['mean'] = factor_mean
-            transform_params['std'] = factor_std
-            transform_params['min'] = factor_min
-            transform_params['max'] = factor_max
-            save_folder = self.opt['path']['preprocess_path'][self.test_month] #osp.join(self.opt['path']['preprocess_root'], str(self.test_month))
-            svg_path = osp.join(save_folder,'{}.csv'.format(ticker))
-            transform_params.to_csv(svg_path)
-
-            self.x_train.append(train_x)
-            self.y_train.append(train_y)
-
-        self.x_train = np.concatenate(self.x_train, axis=0)
-        self.y_train = np.concatenate(self.y_train, axis=0)
-
-        # balance data by reversing
-        if self.class_num==2 and self.opt['dataset']['balance']=='reverse':
-            self.x_train = np.concatenate([self.x_train, -1*self.x_train], axis=0)
-            reversed_y = np.zeros_like(self.y_train)
-            reversed_y[self.y_train==0] = 1
-            self.y_train = np.concatenate([self.y_train, reversed_y], axis=0)
+        # save preprocess params
+        save_folder = self.opt['path']['preprocess_path'][self.test_month]
+        svg_path = osp.join(save_folder, f"preprocess_params.csv")
+        self.transform_params = pd.concat(self.transform_params)
+        self.transform_params.to_csv(svg_path, index=False)
 
 
 
