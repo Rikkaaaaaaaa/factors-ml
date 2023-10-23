@@ -82,7 +82,7 @@ class FactorDataset():
             #assert len(self.tickers) > 0, print(f'no ticker in {self.test_month} and indus_type {self.indus_type}')
 
             # delete
-            if self.price_name == 'lowptice':
+            if self.price_name == 'lowprice':
                 if '000540.SZ' in self.tickers:
                     self.tickers.remove('000540.SZ')
 
