@@ -34,15 +34,15 @@ def train_pipeline(train_args):
         return
 
     # train lgbm model
-    # x_train, y_train = dataset.train_data[factor_all], dataset.train_data['class_label']
-    # model = LgbmModel(opt, test_month, indus_type)
-    # model.train(x_train, y_train)
-    # model.save_ckpt()
+    x_train, y_train = dataset.train_data[factor_all], dataset.train_data['class_label']
+    model = LgbmModel(opt, test_month, indus_type)
+    model.train(x_train, y_train)
+    model.save_ckpt()
 
-    # # backtesting/realtime process
-    # backtester = BackTester(opt, test_month, indus_type)
-    # if opt['is_backtest']:
-    #     backtester.backtest(dataset, model)
+    # backtesting/realtime process
+    backtester = BackTester(opt, test_month, indus_type)
+    if opt['is_backtest']:
+        backtester.backtest(dataset, model)
 
 
 def gen_mp_args(opt):
@@ -52,11 +52,12 @@ def gen_mp_args(opt):
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
+
     return args
 
 
-def push_report_signal(opt):
-    save_report_disk(opt)
+def push_signal(opt, suffix=''):
+
     if 'hs300' in opt['dataset']['pool_name'] and 'zz500' in opt['dataset']['pool_name']:
         pool_name = 'zz800'
     else:
@@ -65,6 +66,9 @@ def push_report_signal(opt):
         table_name = f"signal_{pool_name}_highprice_lgbm_{opt['dataset']['ret_name']}"
     else:
         table_name = f"signal_{pool_name}_lowpriceprice_lgbm_{opt['dataset']['ret_name']}"
+    if len(suffix) > 0:
+        table_name + f'_{suffix}'
+    print(table_name)
     write_signals_sql(opt, table_name)
 
 
@@ -84,5 +88,6 @@ if __name__ == '__main__':
 
     root_path = './'
     opt = parse_options(root_path)
-    #main(opt)
-    push_report_signal(opt)
+    main(opt)
+    save_report_disk(opt)
+    #push_signal(opt)
