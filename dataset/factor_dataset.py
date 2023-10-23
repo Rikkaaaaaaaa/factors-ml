@@ -50,6 +50,7 @@ class FactorDataset():
             training_month = [(self.test_month) - 100 + 10, self.test_month - 2, self.test_month - 1]
         else:
             training_month = [ self.test_month - 3, self.test_month - 2, self.test_month - 1]
+
         return training_month
 
 
@@ -71,7 +72,7 @@ class FactorDataset():
                 self.tickers.extend(ticker)
 
             # ordered ticker list
-            self.tickers = sorted(self.tickers)#[:10]
+            self.tickers = sorted(self.tickers)
             # check ticker list is null
             if len(self.tickers) == 0:
                 self.is_empty = True
@@ -104,7 +105,7 @@ class FactorDataset():
             # make labels according to return
             train_data, test_data = self.make_label(train_data, test_data)
 
-            # delete nan in train data (the nan of test data will be treated in backtest)
+            # delete nan in train data
             train_data = self.del_null_value(train_data)
 
             # down_sample balancing method
@@ -134,7 +135,7 @@ class FactorDataset():
         self.tickers = tuple(self.tickers)
         if is_rebalanced and month % 100 in [4, 5, 6, 10, 11, 12]:
             factor = cx_read_sql('select * from factor_{}_index_rebalancing where ticker in {}'.format(month, self.tickers))
-            labels = cx_read_sql('select ticker, date, time, ret_{}  from ret_{}_index_rebalancing where ticker in {}'.format(
+            labels = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format(
                                         self.opt['dataset']['ret_name'], month, self.tickers))
         else:
             factor = cx_read_sql('select * from factor_{} where ticker in {}'.format(month, self.tickers))
@@ -153,7 +154,9 @@ class FactorDataset():
         # merge factors and labels by ticker, date, time
         data = pd.merge(factor, labels, on=['ticker', 'date', 'time'])
         data.rename(columns={'ret_' + self.opt['dataset']['ret_name']: 'ret'}, inplace=True)
-
+        # assert missing tickers
+        missing_tickers = set(self.tickers)-set(data['ticker'].unique())
+        assert len(self.tickers) == len(data['ticker'].unique()), print("SQL data missing ticker", missing_tickers)
         return data
 
 
@@ -177,11 +180,9 @@ class FactorDataset():
         label_mask(train_data)
         if self.is_backtest:
             label_mask(test_data)
-
-        # 顺序未定
+        # filter
         if self.class_num == 2:
-            train_data =  train_data.query('class_label < 2')
-
+            train_data =  train_data.query('class_label != 2')
         return train_data, test_data
 
 
@@ -196,7 +197,6 @@ class FactorDataset():
         up_data = data.query('class_label==0').sample(n=sample_num)
         down_data = data.query('class_label==1').sample(n=sample_num)
         data = pd.concat([up_data, down_data], ignore_index=True)
-
         return data
 
 
@@ -210,24 +210,20 @@ class FactorDataset():
         for ticker in self.tickers:
             _train_data = self.train_data.query('ticker==@ticker')
             _test_data = self.test_data.query('ticker==@ticker')
-
             # split to x and y
             transform_param = pd.DataFrame(columns=['factor_name', 'min', 'max', 'mean', 'std'])
             train_x = _train_data[factor_names].values
             test_x = _test_data[factor_names].values
-
             # data std
             factor_mean = np.mean(train_x, axis=0)
             factor_std = np.std(train_x, axis=0)
             train_x = (train_x - factor_mean) / factor_std
             test_x = (test_x - factor_mean) / factor_std
-
             # data clip
             factor_min = np.percentile(train_x, 5, axis=0,)
             factor_max = np.percentile(train_x, 95, axis=0,)
             train_x = np.clip(train_x, factor_min, factor_max)
             test_x = np.clip(test_x, factor_min, factor_max)
-
             # save transform params
             transform_param['factor_name'] = factor_all
             transform_param['mean'] = factor_mean
@@ -246,10 +242,17 @@ class FactorDataset():
             train_data_copy[factor_all] = -1 * train_data_copy[factor_all]
             train_y = train_data_copy['class_label']
             reversed_y = np.zeros_like(train_y)
-            reversed_y[train_y==0] = 1
+            up_idx = (train_y==0)
+            down_idx = (train_y==1)
+            reversed_y[up_idx] = 1
+            reversed_y[down_idx] = 0
             train_data_copy['class_label'] = reversed_y
+            train_data_copy['augment'] = 1
+            self.train_data['augment'] = 0
+            self.train_data = pd.concat([self.train_data, train_data_copy], ignore_index=True)
 
-            self.train_data = pd.concat([self.train_data, train_data_copy])
+        if self.class_num == 2 and self.opt['dataset']['balance'] == 'downsample':
+            self.train_data = self.down_sample(self.train_data)
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]

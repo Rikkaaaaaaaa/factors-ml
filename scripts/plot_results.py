@@ -21,7 +21,7 @@ def label_mask(df, ret_name, alpha=5e-4):
 def plot_ticker_curve(experiment_name, month, ret_name):
     pre_prob = []
     label = []
-    pre_results_folder = osp.join('experiments', experiment_name, str(month), 'signal')
+    pre_results_folder = osp.join('../experiments', experiment_name, str(month), 'signal')
     for pre_file in glob.glob(pre_results_folder.rstrip('/') + '/*'):
         signal = pd.read_csv(pre_file)
         tickers = tuple(signal['ticker'].unique())
@@ -71,7 +71,7 @@ def plot_roc(experiment_name, test_month, label, pre_prob):
     fpr, tpr, threshold = metrics.roc_curve(label, pre_prob)
     roc_auc = metrics.auc(fpr, tpr)
     plt.figure(figsize=(8, 8))
-    plt.title(f"{experiment_name} ROC, test_month={test_month}")
+    plt.title(f"{test_month} ROC-Curve")
     plt.plot(fpr, tpr, 'b', label='PRED AUC = %0.4f' % roc_auc)
     plt.legend(loc='best')
     plt.ylim(0, 1)
@@ -80,26 +80,19 @@ def plot_roc(experiment_name, test_month, label, pre_prob):
     plt.xlabel('False Positive Rate')
     # corner
     plt.plot([0, 1], [0, 1], 'r--')
-    plt.savefig(f"ROC_{test_month}_{experiment_name}.jpg")
+    plt.savefig(f"roc-curve/{experiment_name}_{month}.jpg")
 
 
-def plot_pr_curve(experiment_name, test_month, label, pre_prob):
+def plot_pr_curve(experiment_name, test_month, label, pre_prob, ticker=None):
 
-    precision, recall, threshold = precision_recall_curve(label, pre_prob, pos_label=1,)
-    ave_precision = average_precision_score(label, pre_prob, )
-    plt.figure(figsize=(8, 8))
-    plt.title(f"{experiment_name} PR-Curve, test_month={test_month}")
-    plt.plot(recall, precision, 'b', label='AP = %0.4f' % ave_precision)
-    plt.ylim(0.4, 1)
-    plt.xlim(0, 1)
-    plt.legend(loc='best')
-    plt.ylabel('Precision')
-    plt.xlabel('Recall')
-    plt.savefig(f"PR-Curve_{test_month}_{experiment_name}.jpg")
-
-    # disp = PrecisionRecallDisplay(precision=precision, recall=recall, pos_label=1, average_precision=ave_precision)
-    # disp.plot()
-    # plt.savefig(f"PR-Curve_{test_month}_{experiment_name}.jpg")
+    precision, recall, threshold = precision_recall_curve(label, pre_prob, pos_label=1, )
+    fig, ax = plt.subplots(figsize=(8, 8))
+    disp = PrecisionRecallDisplay(precision=precision, recall=recall, pos_label=1,
+                                  average_precision=average_precision_score(data_['class_label'], data_['proba']))
+    ax.set_title(f"{test_month} PR-Curve")
+    disp.plot(ax=ax, )
+    plt.savefig(f'pr-curve/{experiment_name}_{month}.jpg')
+    plt.close()
 
 
 if __name__ == '__main__':

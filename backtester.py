@@ -138,7 +138,6 @@ class BackTester():
         signal['ticker'] = self._ticker
         signal['up_bound'] = self._metric['up_bound']
         signal['down_bound'] = self._metric['down_bound']
-
         # compute up/down signal according to proba and bound
         signal['proba'] = self._pre_proba
         signal_array = np.zeros(len(self._pre_proba))
