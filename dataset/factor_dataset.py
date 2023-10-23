@@ -50,7 +50,6 @@ class FactorDataset():
             training_month = [(self.test_month) - 100 + 10, self.test_month - 2, self.test_month - 1]
         else:
             training_month = [ self.test_month - 3, self.test_month - 2, self.test_month - 1]
-
         return training_month
 
 
