@@ -64,7 +64,7 @@ class BackTester():
                     self._train_proba = model.predict(x_train)
                 self._pre_proba = model.predict(x_test)
                 # compute null idx in test data
-                self._null_idx = np.isnan(x_test).any(axis=1)
+                self._null_idx = np.isnan(test_data[factor_all + ['ret']]).any(axis=1)
                 # compute metric with not null data
                 self.compute_results()
                 # push signal dataframe into self.signals
