@@ -85,10 +85,10 @@ if __name__ == '__main__':
     test_month = [202304,202305,202306,202307]
 
     config = parser.parse_args()
-    config.sig_15s = f'signal_{config.pool_name}_{config.price_name}_15s_ml'
-    config.sig_60s = f'signal_{config.pool_name}_{config.price_name}_60s_ml'
-    config.sig_120s = f'signal_{config.pool_name}_{config.price_name}_120s_ml'
-    config.sig_300s = f'signal_{config.pool_name}_{config.price_name}_300s_ml'
+    config.sig_15s = f'signal_{config.pool_name}_{config.price_name}_lgbm_15s'
+    config.sig_60s = f'signal_{config.pool_name}_{config.price_name}_lgbm_60s'
+    config.sig_120s = f'signal_{config.pool_name}_{config.price_name}_lgbm_120s'
+    config.sig_300s = f'signal_{config.pool_name}_{config.price_name}_lgbm_300s'
 
     table_name = f'ensemble_{config.pool_name}_{config.price_name}_ml'
     signal_col_name = f'ensemble_{config.pool_name}_{config.price_name}_ml'
