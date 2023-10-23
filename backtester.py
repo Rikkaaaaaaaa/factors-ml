@@ -49,7 +49,7 @@ class BackTester():
             for ticker in tbar:
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
                 # load train and test array from df
-                train_data = factor_data.train_data.query('ticker==@ticker')
+                train_data = factor_data.train_data.query('ticker==@ticker and augment==0')
                 test_data = factor_data.test_data.query('ticker==@ticker')
                 x_train = train_data[factor_all]
                 x_test = test_data[factor_all]
@@ -90,6 +90,7 @@ class BackTester():
         if self.is_backtest:
             # filter null data
             self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
+            #self._metric = compute_metric(self.opt, self._pre_proba, self._train_proba, self._test_ret)
         else:
             self._metric = compute_metric_RT(self.opt, self._train_proba)
         self.results.append(list(self._metric.values()))
