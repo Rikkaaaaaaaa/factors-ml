@@ -4,7 +4,7 @@ import sqlalchemy
 import argparse
 import multiprocessing as mp
 import time
-from tqdm import tqdm
+
 
 from utils import cx_read_sql, create_index, create_pd_engine
 
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     config.sig_120s = f'signal_{config.pool_name}_{config.price_name}_120s_ml'
     config.sig_300s = f'signal_{config.pool_name}_{config.price_name}_300s_ml'
 
-    table_name = f'ensemble_{config.pool_name}_{config.price_name}_ml_new'
+    table_name = f'ensemble_{config.pool_name}_{config.price_name}_ml'
     signal_col_name = f'ensemble_{config.pool_name}_{config.price_name}_ml'
     func = merge_signal_ensemble
     args = [(config, month, table_name, signal_col_name) for month in test_month]
