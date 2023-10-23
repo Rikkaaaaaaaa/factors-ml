@@ -14,7 +14,7 @@ dataset:
   std_type: default # trainingset std
   alpha: 0.0005
   class_num: 2
-  balance: reverse
+  balance: reverse # reverse
 
 train:
   num_epoch: 200
