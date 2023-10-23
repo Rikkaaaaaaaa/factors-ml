@@ -63,8 +63,9 @@ def compute_prob_bound(pre_prob, pct_num, class_label, class_num):
         bound = np.percentile(pre_prob[:, class_label], pct_num)
     if class_num == 2:
         if class_label == 0:
-            pre_prob = 1 - pre_prob
-        bound = np.percentile(pre_prob, pct_num)
+            bound = np.percentile(1 - pre_prob, pct_num)
+        else:
+            bound = np.percentile(pre_prob, pct_num)
 
     return bound
 
