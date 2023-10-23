@@ -9,7 +9,7 @@ import os.path as osp
 def exists_results(opt, test_month, indus_type):
 
     results_folder = opt['path']['results_path'][test_month]
-    results_name = 'results_indus{}.csv'.format(indus_type)
+    results_name = 'results_{}_indus{}.csv'.format(test_month, indus_type)
     results_path = osp.join(results_folder, results_name)
     if osp.exists(results_path):
         return True
