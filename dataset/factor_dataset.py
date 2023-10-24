@@ -255,7 +255,7 @@ class FactorDataset():
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        svg_path = osp.join(save_folder, f"preprocess_params.csv")
+        svg_path = osp.join(save_folder, f"preprocess_params_indus{self.indus_type}.csv")
         self.transform_params = pd.concat(self.transform_params)
         self.transform_params.to_csv(svg_path, index=False)
 
