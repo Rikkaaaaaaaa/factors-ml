@@ -34,7 +34,6 @@ def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
     summary['zero_rate'] = zero_sample / summary['total_sample']
     summary['up_signal_rate'] = up_trade_num / summary['total_sample']
     summary['down_signal_rate'] = down_trade_num / summary['total_sample']
-
     return summary
 
 
@@ -49,14 +48,13 @@ def compute_metric_RT(opt, pre_prob_train):
 
     # compute up accuracy
     up_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[0], class_label=1, class_num=class_num)
-
     # compute down accuracy
     down_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[1], class_label=0, class_num=class_num)
 
     summary = dict()
     summary['up_bound'], summary['down_bound'] = up_bound, down_bound
-
     return summary
+
 
 def compute_prob_bound(pre_prob, pct_num, class_label, class_num):
     if class_num == 3:
@@ -66,8 +64,8 @@ def compute_prob_bound(pre_prob, pct_num, class_label, class_num):
             bound = np.percentile(1 - pre_prob, pct_num)
         else:
             bound = np.percentile(pre_prob, pct_num)
-
     return bound
+
 
 def compute_win_rate(pre_prob, mid_price, bound, class_label, class_num):
     # delete prob under bound and zero return
@@ -86,8 +84,8 @@ def compute_win_rate(pre_prob, mid_price, bound, class_label, class_num):
         hit = np.sum(mid_price[selected_idx] > 0)
     pre_num = len(mid_price[selected_idx])
     win_rate = hit / pre_num
-
     return win_rate
+
 
 def compute_return(pre_prob, bound, mid_price, class_label=0, class_num=3):
     # delete prob under bound
@@ -99,8 +97,8 @@ def compute_return(pre_prob, bound, mid_price, class_label=0, class_num=3):
         if class_label == 0:
             pre_prob = 1 - pre_prob
         selected_idx = (pre_prob >= bound)
-
     return len(mid_price[selected_idx]), np.mean(mid_price[selected_idx])
+
 
 def compute_zero_num(mid_price):
     return len(mid_price[mid_price == 0])
