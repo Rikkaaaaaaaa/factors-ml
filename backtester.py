@@ -143,7 +143,7 @@ class BackTester():
         signal_array = np.zeros(len(self._pre_proba))
         signal_array[signal['proba'] > self._metric['up_bound']] = 1
         signal_array[1 - signal['proba'] > self._metric['down_bound']] = -1
-        signal_array[self._null_idx] = 0
+        signal_array[self._null_idx] = np.nan
         signal['signal'] = signal_array
         self.signals.append(signal)
 
