@@ -34,8 +34,6 @@ class FactorDataset():
         self.pool_name = self.opt['dataset']['pool_name']
         self.tickers = []
         self.training_month = self.get_training_month()
-        # self.lock = kwargs['lock']
-
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -55,75 +53,73 @@ class FactorDataset():
 
     def load_data(self):
         try:
-            # fetch ticker list from mysql table
-            for pool in self.pool_name:
-                if self.price_name == 'highprice':
-                    indus_table = cx_read_sql('select * from static_data_industry_{}_history where {}="{}" and test_month={}'.format(pool,
-                                              self.indus_class, self.indus_type, self.test_month ))
-                    price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
-                                              pool, self.opt['dataset']['avg_price'], self.test_month))
-                if self.price_name == 'lowprice':
-                    # note that lowprice stocks have no indus_type, default is 0
-                    indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool, self.test_month))
-                    price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(
-                                               pool, self.opt['dataset']['avg_price'], self.test_month))
-                ticker = set(indus_table['ticker']) & set(price_table['ticker'])
-                self.tickers.extend(ticker)
-
-            # ordered ticker list
-            self.tickers = sorted(self.tickers)
-            # check ticker list is null
-            if len(self.tickers) == 0:
-                self.is_empty = True
-                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: no ticker data in {self.test_month} ")
+            # read tickers from mysql
+            self.load_ticker_list()
+            if self.is_empty:
                 return
-            else:
-                self.is_empty = False
-            #assert len(self.tickers) > 0, print(f'no ticker in {self.test_month} and indus_type {self.indus_type}')
-
-            # delete
-            if self.price_name == 'lowprice':
-                if '000540.SZ' in self.tickers:
-                    self.tickers.remove('000540.SZ')
-
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(self.tickers)}")
-
             # read data from mysql
             data = dict() # restore data by month
             for month in self.training_month:
                 data[month] = self.load_data_from_sql(month)
-                #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {month}")
             if self.is_backtest:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
                 #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {self.test_month} ")
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
-
             # split data
             train_data, test_data = self.split_data(data)
-
             # make labels according to return
             train_data, test_data = self.make_label(train_data, test_data)
-
             # delete nan in train data
             train_data = self.del_null_value(train_data)
-
             # down_sample balancing method
             if self.opt['dataset']['balance'] == 'down_sample':
                 train_data = self.down_sample(train_data)
-
-            # std, clip, save params by ticker, reverse balancing
+            # std, clip, save params by ticker,
             if self.is_backtest:
-                # returned data is in self.x_train/y_train/x_test/y_test
                 self.transform(train_data, test_data)
             else:
-                # returned data is in self.x_train/y_train
                 self.transform_RT(train_data)
+            # training data balancing
+            self.rebalance_training_data()
+
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data")
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Train data num is {len(train_data)} and test data num is {len(test_data)}")
 
         except Exception as e:
             traceback.print_exc()
             self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error loading factor data', e)
+
+
+    def load_ticker_list(self):
+        # fetch ticker list from mysql table
+        for pool in self.pool_name:
+            if self.price_name == 'highprice':
+                indus_table = cx_read_sql('select * from static_data_industry_{}_history where {}="{}" and test_month={}'.format(pool,
+                                           self.indus_class, self.indus_type,self.test_month))
+                price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
+                                           pool, self.opt['dataset']['avg_price'], self.test_month))
+            if self.price_name == 'lowprice':
+                # note that lowprice stocks have no indus_type, default is 0
+                indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool, self.test_month))
+                price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(
+                                           pool, self.opt['dataset']['avg_price'], self.test_month))
+            ticker = set(indus_table['ticker']) & set(price_table['ticker'])
+            self.tickers.extend(ticker)
+
+        # ordered ticker list
+        self.tickers = sorted(self.tickers)
+        # check ticker list is null
+        if len(self.tickers) == 0:
+            self.is_empty = True
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: no ticker data in {self.test_month} ")
+            return
+        else:
+            self.is_empty = False
+        # delete some tickers
+        if self.price_name == 'lowprice':
+            if '000540.SZ' in self.tickers:
+                self.tickers.remove('000540.SZ')
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(self.tickers)}")
 
 
     def load_data_from_sql(self, month):
@@ -153,9 +149,9 @@ class FactorDataset():
         # merge factors and labels by ticker, date, time
         data = pd.merge(factor, labels, on=['ticker', 'date', 'time'])
         data.rename(columns={'ret_' + self.opt['dataset']['ret_name']: 'ret'}, inplace=True)
-        # assert missing tickers
+        # check missing tickers
         missing_tickers = set(self.tickers)-set(data['ticker'].unique())
-        assert len(self.tickers) == len(data['ticker'].unique()), print("SQL data missing ticker", missing_tickers)
+        assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
         return data
 
 
@@ -170,7 +166,9 @@ class FactorDataset():
 
 
     def make_label(self, train_data, test_data):
-        # classification of return, 0 for down, 1 for up and 2 for stable
+        '''
+        classification of return, 0 for down, 1 for up and 2 for stable
+        '''
         def label_mask(df):
             df['class_label'] = df['ret'].mask(df['ret'] <= -1 * alpha, 0).mask(df['ret'] >= alpha, 1) \
                 .mask((-1 * alpha < df['ret']) & (df['ret'] < alpha), 2)
@@ -230,12 +228,19 @@ class FactorDataset():
             transform_param['min'] = factor_min
             transform_param['max'] = factor_max
             transform_param.insert(0, 'ticker',ticker)
-
             self.transform_params.append(transform_param)
+            # restore data at original position
             self.train_data.loc[_train_data.index, factor_all] = train_x
             self.test_data.loc[_test_data.index, factor_all] = test_x
 
-        # balance training data by reversing
+        # save preprocess params
+        save_folder = self.opt['path']['preprocess_path'][self.test_month]
+        svg_path = osp.join(save_folder, f"preprocess_params_indus{self.indus_type}.csv")
+        self.transform_params = pd.concat(self.transform_params)
+        self.transform_params.to_csv(svg_path, index=False)
+
+    def rebalance_training_data(self):
+        # balance training data
         if self.class_num == 2 and self.opt['dataset']['balance'] == 'reverse':
             train_data_copy = self.train_data.copy()
             train_data_copy[factor_all] = -1 * train_data_copy[factor_all]
@@ -252,13 +257,6 @@ class FactorDataset():
 
         if self.class_num == 2 and self.opt['dataset']['balance'] == 'downsample':
             self.train_data = self.down_sample(self.train_data)
-
-        # save preprocess params
-        save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        svg_path = osp.join(save_folder, f"preprocess_params_indus{self.indus_type}.csv")
-        self.transform_params = pd.concat(self.transform_params)
-        self.transform_params.to_csv(svg_path, index=False)
-
 
 
 if __name__ == '__main__':
