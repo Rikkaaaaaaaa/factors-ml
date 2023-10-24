@@ -19,7 +19,6 @@ def init(args):
 
 def train_pipeline(train_args):
     opt, test_month, indus_type = train_args
-
     # logger init
     logger_name = f"month{test_month}_indus{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
@@ -32,13 +31,11 @@ def train_pipeline(train_args):
     dataset.load_data()
     if dataset.is_empty:
         return
-
     # train lgbm model
     x_train, y_train = dataset.train_data[factor_all], dataset.train_data['class_label']
     model = LgbmModel(opt, test_month, indus_type)
     model.train(x_train, y_train)
     model.save_ckpt()
-
     # backtesting/realtime process
     backtester = BackTester(opt, test_month, indus_type)
     if opt['is_backtest']:
@@ -52,12 +49,10 @@ def gen_mp_args(opt):
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
-
     return args
 
 
 def push_signal(opt, suffix=''):
-
     if 'hs300' in opt['dataset']['pool_name'] and 'zz500' in opt['dataset']['pool_name']:
         pool_name = 'zz800'
     else:
@@ -74,11 +69,11 @@ def push_signal(opt, suffix=''):
 
 
 def main(opt):
+    print(get_env_info())
     pool = mp.Pool(processes=opt['n_jobs'], )
     global_timer = Timer()
     args = gen_mp_args(opt)
     results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
-
     [result.get() for result in results]
     pool.close()
     pool.join()
@@ -86,7 +81,6 @@ def main(opt):
 
 
 if __name__ == '__main__':
-
     root_path = './'
     opt = parse_options(root_path)
     main(opt)
