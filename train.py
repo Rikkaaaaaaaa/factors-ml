@@ -8,7 +8,7 @@ from model.lgbm_model import LgbmModel
 from backtester import BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
-from utils.report import save_report_disk, write_signals_sql
+from utils.publish import save_report_disk, push_signal_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results
 
 
@@ -50,21 +50,6 @@ def gen_mp_args(opt):
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
     return args
-
-
-def push_signal(opt, suffix=''):
-    if 'hs300' in opt['dataset']['pool_name'] and 'zz500' in opt['dataset']['pool_name']:
-        pool_name = 'zz800'
-    else:
-        pool_name = opt['dataset']['pool_name'][-1]
-    if opt['dataset']['price_name'] == 'highprice':
-        table_name = f"signal_{pool_name}_highprice_lgbm_{opt['dataset']['ret_name']}"
-    else:
-        table_name = f"signal_{pool_name}_lowpriceprice_lgbm_{opt['dataset']['ret_name']}"
-    if len(suffix) > 0:
-        table_name + f'_{suffix}'
-    write_signals_sql(opt, table_name)
-
 
 
 def main(opt):
