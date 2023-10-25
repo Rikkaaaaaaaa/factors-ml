@@ -20,7 +20,7 @@ train:
   num_epoch: 200
 test:
   bound_mode: by_ticker # indus
-  threshold_pct: 10
+  threshold_pct: 5
 
 network:
   name: lgbm
