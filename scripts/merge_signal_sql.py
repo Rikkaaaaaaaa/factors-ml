@@ -4,8 +4,9 @@ import sqlalchemy
 import argparse
 import multiprocessing as mp
 import time
+import sys
 
-
+sys.path.append('./')
 from utils import cx_read_sql, create_index, create_pd_engine
 
 def read_proba_LR(config, ticker, month):

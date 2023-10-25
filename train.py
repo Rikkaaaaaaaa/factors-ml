@@ -2,15 +2,15 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 
-from dataset.factor_dataset import FactorDataset
-from dataset import check_indus
+from dataset import FactorDataset
+from dataset import check_indus, factor_all
 from model.lgbm_model import LgbmModel
-from backtester import  BackTester
+from backtester import BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
 from utils.report import save_report_disk, write_signals_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results
-from dataset import factor_all
+
 
 
 def init(args):
