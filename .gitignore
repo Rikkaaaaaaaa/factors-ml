@@ -2,3 +2,4 @@
 /experiments/
 /.idea/
 /experiment*
+/lgbm_data/*
