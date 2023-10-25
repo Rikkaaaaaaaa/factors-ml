@@ -63,9 +63,8 @@ def push_signal(opt, suffix=''):
         table_name = f"signal_{pool_name}_lowpriceprice_lgbm_{opt['dataset']['ret_name']}"
     if len(suffix) > 0:
         table_name + f'_{suffix}'
-    print(f'Pushing {table_name} to SQL...')
     write_signals_sql(opt, table_name)
-    print(f'{table_name} has been saved to SQL')
+
 
 
 def main(opt):
@@ -85,4 +84,4 @@ if __name__ == '__main__':
     opt = parse_options(root_path)
     main(opt)
     save_report_disk(opt)
-    push_signal(opt)
+    #push_signal(opt)
