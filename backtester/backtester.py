@@ -18,11 +18,6 @@ class BackTester():
         test_month(int): month needs to be eval
         indus_type(int): one of the indus_class
 
-    Attrs:
-        train_idx, test_idx: sample index, including date and time
-        test_ret: test return values
-        x_train, y_train: train data
-        x_test, y_test: test data
         """
     def __init__(self, opt, test_month, indus_type):
         self.opt = opt
