@@ -21,6 +21,25 @@ def check_indus(opt, first_month):
     return set(indus_list)
 
 
+def get_ticker_list(pool_name, price_name, test_month):
+    '''
+    fetch ticker list from mysql table
+    '''
+
+    if price_name == 'highprice':
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool_name, test_month))
+        price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
+                                   pool_name, 10, test_month))
+    if price_name == 'lowprice':
+        # note that lowprice stocks have no indus_type, default is 0
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool_name, test_month))
+        price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(
+                                   pool_name, 10, test_month))
+    tickers = set(indus_table['ticker']) & set(price_table['ticker'])
+    # ordered ticker list
+    tickers = sorted(tickers)
+
+    return tickers
 
 
 
