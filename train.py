@@ -67,6 +67,6 @@ def main(opt):
 if __name__ == '__main__':
     root_path = './'
     opt = parse_options(root_path)
-    main(opt)
-    save_report_disk(opt)
-    #push_signal(opt)
+    #main(opt)
+    #save_report_disk(opt)
+    #push_signal_sql(opt)
