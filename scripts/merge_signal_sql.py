@@ -5,7 +5,6 @@ import argparse
 import multiprocessing as mp
 import time
 import sys
-
 sys.path.append('./')
 from utils import cx_read_sql, create_index, create_pd_engine
 
@@ -52,7 +51,7 @@ def save2sql(data_name, merge_signal):
 def merge_signal_ensemble(args):
     # zz800 高价股
     config, month, table_name, signal_col_name = args[0], args[1], args[2], args[3]
-    print(f'Merging table {table_name}...')
+    print(f'Merging {month} table {table_name}...')
     s = time.time()
     sig_15s, sig_60s, sig_120s, sig_300s = read_signal_ML(config, month)
     sig_15s = sig_15s[['ticker', 'date', 'time', 'proba']]
@@ -69,7 +68,7 @@ def merge_signal_ensemble(args):
     # write to sql
     lock.acquire()
     s = time.time()
-    print(f'Writing data {month} to SQL...')
+    print(f'Writing data in {month} to SQL...')
     save2sql(table_name, merge_signal)
     print(f'Finishing writing data in {month}, cost {time.time() - s}s')
     lock.release()
