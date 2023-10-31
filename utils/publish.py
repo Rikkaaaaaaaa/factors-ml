@@ -64,7 +64,7 @@ def push_signal_sql(opt, suffix=''):
     if opt['dataset']['price_name'] == 'highprice':
         table_name = f"signal_{pool_name}_highprice_lgbm_{opt['dataset']['ret_name']}"
     else:
-        table_name = f"signal_{pool_name}_lowpriceprice_lgbm_{opt['dataset']['ret_name']}"
+        table_name = f"signal_{pool_name}_lowprice_lgbm_{opt['dataset']['ret_name']}"
     if len(suffix) > 0:
         table_name + f'_{suffix}'
     write_table_sql(opt, table_name)
