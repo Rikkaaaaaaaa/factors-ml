@@ -102,7 +102,7 @@ class FactorDataset():
             self.tickers.extend(ticker)
 
         # ordered ticker list
-        self.tickers = sorted(self.tickers)[:10]
+        self.tickers = sorted(self.tickers)
         # check ticker list is null
         if len(self.tickers) == 0:
             self.is_empty = True
