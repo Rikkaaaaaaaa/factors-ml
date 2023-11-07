@@ -79,14 +79,14 @@ def yaml_load(f):
 def parse_options(root_path):
     parser = argparse.ArgumentParser()
     parser.add_argument('-option', type=str, default='option/test_lgbm_300s_highprice_hs300.yaml', help='Path to option YAML file.')
-    parser.add_argument('-is_backtest', type=bool, default=True, help='Whether the phase is backtesting or runtime')
+    parser.add_argument('-is_runtime', action='store_true', help='Whether the phase is backtesting or runtime')
     args = parser.parse_args()
 
     # parse yml to dict
     opt = yaml_load(args.option)
 
     # parse backtest flag
-    opt['is_backtest'] = args.is_backtest
+    opt['is_runtime'] = args.is_runtime
 
     # random seed
     seed = opt.get('manual_seed')

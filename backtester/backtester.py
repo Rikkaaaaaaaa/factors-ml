@@ -6,7 +6,7 @@ import traceback
 
 from dataset import factor_all
 from utils.logger import get_root_logger
-from metric.base_metric import compute_metric, compute_metric_RT
+from metric.base_metric import compute_metric, compute_metric_runtime
 
 class BackTester():
     """
@@ -24,7 +24,7 @@ class BackTester():
         self.test_month = test_month
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
-        self.is_backtest = self.opt['is_backtest']
+        self.is_runtime = self.opt['is_runtime']
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -83,12 +83,13 @@ class BackTester():
         if not hasattr(self, 'results'):
             self.results = []  # results summary
         # compute performance dict
-        if self.is_backtest:
-            # filter null data
-            self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
-            #self._metric = compute_metric(self.opt, self._pre_proba, self._train_proba, self._test_ret)
+        if self.is_runtime:
+            self._metric = compute_metric_runtime(self.opt, self._train_proba)
         else:
-            self._metric = compute_metric_RT(self.opt, self._train_proba)
+            # filter null data
+            self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba,
+                                          self._test_ret[~self._null_idx])
+            # self._metric = compute_metric(self.opt, self._pre_proba, self._train_proba, self._test_ret)
         self.results.append(list(self._metric.values()))
         # get metric keys in summary
         if not hasattr(self, 'metric_keys'):
@@ -154,5 +155,32 @@ class BackTester():
         self.signals.to_csv(signal_path, index=False)
 
 
+    def runtime(self, factor_data, model):
+        '''
+        backtest data and save results. bound values and signals
+         '''
+        try:
+            self.tickers = factor_data.tickers
+            if self.opt['test']['bound_mode'] == 'by_indus':
+                self._train_proba = model.predict(factor_data.train_data[factor_all])
 
+            tbar = tqdm(self.tickers, leave=False)
+            for ticker in tbar:
+                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
+                # load train and test array from df
+                train_data = factor_data.train_data.query('ticker==@ticker and augment==0')
+                x_train = train_data[factor_all]
+                self._ticker = ticker
+                # get proba from prediction
+                if self.opt['test']['bound_mode'] == 'by_ticker':
+                    self._train_proba = model.predict(x_train)
+                # compute runtime metric with train data
+                self.compute_results()
+            # save bound values
+            self.save_results()
+            self.save_bound()
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Runtime params saving finish with {len(self.tickers)} tickers")
+        except Exception as e:
+            traceback.print_exc()
+            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
 

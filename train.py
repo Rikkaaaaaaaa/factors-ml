@@ -38,7 +38,9 @@ def train_pipeline(train_args):
     model.save_ckpt()
     # backtesting/realtime process
     backtester = BackTester(opt, test_month, indus_type)
-    if opt['is_backtest']:
+    if opt['is_runtime']:
+        backtester.runtime(dataset, model)
+    else:
         backtester.backtest(dataset, model)
 
 
@@ -67,6 +69,5 @@ def main(opt):
 if __name__ == '__main__':
     root_path = './'
     opt = parse_options(root_path)
-    #main(opt)
-    #save_report_disk(opt)
-    #push_signal_sql(opt)
+    main(opt)
+    save_report_disk(opt)

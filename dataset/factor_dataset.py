@@ -23,7 +23,7 @@ class FactorDataset():
         self.test_month = test_month
         self.indus_type = indus_type
         self.price_name = self.opt['dataset']['price_name']
-        self.is_backtest = self.opt['is_backtest']
+        self.is_runtime = self.opt['is_runtime']
         self.indus_class = self.opt['dataset']['indus_class']
         self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
@@ -56,7 +56,7 @@ class FactorDataset():
             data = dict() # restore data by month
             for month in self.training_month:
                 data[month] = self.load_data_from_sql(month)
-            if self.is_backtest:
+            if not self.is_runtime:
                 data[self.test_month] = self.load_data_from_sql(self.test_month)
                 #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading data in {self.test_month} ")
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
@@ -70,10 +70,10 @@ class FactorDataset():
             if self.opt['dataset']['balance'] == 'down_sample':
                 train_data = self.down_sample(train_data)
             # std, clip, save params by ticker,
-            if self.is_backtest:
-                self.transform(train_data, test_data)
+            if self.is_runtime:
+                self.transform_runtime(train_data)
             else:
-                self.transform_RT(train_data)
+                self.transform(train_data, test_data)
             # training data balancing
             self.rebalance_training_data()
 
@@ -153,10 +153,10 @@ class FactorDataset():
     def split_data(self, data):
         # split month data to train/test
         train_data = pd.concat([data[m] for m in self.training_month])
-        if self.is_backtest:
-            test_data = data[self.test_month]
-        else:
+        if self.is_runtime:
             test_data = pd.DataFrame()
+        else:
+            test_data = data[self.test_month]
         return train_data, test_data
 
 
@@ -164,14 +164,14 @@ class FactorDataset():
         '''
         classification of return, 0 for down, 1 for up and 2 for stable
         '''
-        def label_mask(df):
+        def add_label(df):
             df['class_label'] = df['ret'].mask(df['ret'] <= -1 * alpha, 0).mask(df['ret'] >= alpha, 1) \
                 .mask((-1 * alpha < df['ret']) & (df['ret'] < alpha), 2)
 
         alpha = self.opt['dataset']['alpha']
-        label_mask(train_data)
-        if self.is_backtest:
-            label_mask(test_data)
+        add_label(train_data)
+        if not self.is_runtime:
+            add_label(test_data)
         # filter
         if self.class_num == 2:
             train_data =  train_data.query('class_label != 2')
@@ -193,7 +193,7 @@ class FactorDataset():
 
 
     def transform(self, train_data, test_data=None):
-        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']          # deli columns in data
+        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']  # del columns in data
         factor_names = factor_all  # list(set(_train_data.columns) - set(del_column))
         self.train_data = train_data.reset_index()
         self.test_data = test_data.reset_index()
@@ -227,6 +227,46 @@ class FactorDataset():
             # restore data at original position
             self.train_data.loc[_train_data.index, factor_all] = train_x
             self.test_data.loc[_test_data.index, factor_all] = test_x
+
+        # save preprocess params
+        save_folder = self.opt['path']['preprocess_path'][self.test_month]
+        svg_path = osp.join(save_folder, f"preprocess_params_indus{self.indus_type}.csv")
+        self.transform_params = pd.concat(self.transform_params)
+        self.transform_params.to_csv(svg_path, index=False)
+
+
+    def transform_runtime(self, train_data):
+        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']          # del columns in data
+        factor_names = factor_all
+        self.train_data = train_data.reset_index()
+        self.transform_params = []
+
+        for ticker in self.tickers:
+            _train_data = self.train_data.query('ticker==@ticker')
+            # split to x and y
+            transform_param = pd.DataFrame(columns=['factor_name', 'min', 'max', 'mean', 'std'])
+            train_x = _train_data[factor_names].values
+
+            # data std
+            factor_mean = np.mean(train_x, axis=0)
+            factor_std = np.std(train_x, axis=0)
+            train_x = (train_x - factor_mean) / factor_std
+
+            # data clip
+            factor_min = np.percentile(train_x, 5, axis=0,)
+            factor_max = np.percentile(train_x, 95, axis=0,)
+            train_x = np.clip(train_x, factor_min, factor_max)
+
+            # save transform params
+            transform_param['factor_name'] = factor_all
+            transform_param['mean'] = factor_mean
+            transform_param['std'] = factor_std
+            transform_param['min'] = factor_min
+            transform_param['max'] = factor_max
+            transform_param.insert(0, 'ticker',ticker)
+            self.transform_params.append(transform_param)
+            # restore data at original position
+            self.train_data.loc[_train_data.index, factor_all] = train_x
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]
