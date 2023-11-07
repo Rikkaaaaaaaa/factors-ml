@@ -12,6 +12,9 @@ from dataset import get_ticker_list
 
 
 def summarize_report(pool_name, price_name, model_name='lgbm', root='/root/PycharmProjects/factors-ml', svg_path='./'):
+    '''
+    summary all window_size(15s, 60s, 120s, 300s) report into a csv file
+    '''
     if pool_name in ['zz500', 'hs300']:
        report_pool_name = 'zz800'
     cols = [ 'month', 'up_bound', 'down_bound', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
