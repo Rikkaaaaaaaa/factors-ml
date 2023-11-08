@@ -2,8 +2,8 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 
-from dataset import FactorDataset
-from dataset import check_indus, factor_all
+from dataset import FactorDataset, FactorDataset2
+from dataset import check_indus, factor_all, batch2_factor_list
 from model.lgbm_model import LgbmModel
 from backtester import BackTester
 from utils.logger import get_root_logger, get_env_info
@@ -27,12 +27,12 @@ def train_pipeline(train_args):
     #logger.info(dict2str(opt))
 
     # get data set from test month
-    dataset = FactorDataset(opt, test_month, indus_type)
+    dataset = FactorDataset2(opt, test_month, indus_type)
     dataset.load_data()
     if dataset.is_empty:
         return
     # train lgbm model
-    x_train, y_train = dataset.train_data[factor_all], dataset.train_data['class_label']
+    x_train, y_train = dataset.train_data[batch2_factor_list], dataset.train_data['class_label']
     model = LgbmModel(opt, test_month, indus_type)
     model.train(x_train, y_train)
     model.save_ckpt()
