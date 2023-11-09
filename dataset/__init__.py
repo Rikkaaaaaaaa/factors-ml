@@ -1,4 +1,3 @@
 from dataset.check_data import check_indus, get_ticker_list
-from dataset.column_map import factor_all, batch2_factor_list
 from dataset.factor_dataset import FactorDataset
 from dataset.factor_dataset2 import FactorDataset2

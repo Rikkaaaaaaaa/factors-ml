@@ -5,7 +5,7 @@ import traceback
 
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
-from dataset import factor_all
+from dataset.factor_names import base_factor
 
 class FactorDataset():
     """

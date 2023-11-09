@@ -21,7 +21,8 @@ def summarize_report(pool_name, price_name, model_name='lgbm', root='/root/Pycha
            'up_signal_rate', 'down_signal_rate', 'weighted_ret', 'total_sample', 'zero_rate']
     summary = []
     for ret_window in ['15s', '60s', '120s', '300s']:
-        report_name = f'{report_pool_name}_{price_name}_{model_name}_{ret_window}'
+        #report_name = f'{report_pool_name}_{price_name}_{model_name}_{ret_window}'
+        report_name = f'all_factor_lgbm_{ret_window}_highprice_hs300'
         report_path = osp.join(root, 'experiments', report_name, report_name + '_report.csv')
         report = pd.read_csv(report_path)
         report['weighted_ret'] = report['up_mean_ret'] * report['up_signal_rate'] - report['down_mean_ret'] * report['down_signal_rate']
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='merge bt signal')
     parser.add_argument('-n_jobs', type=int, default=8, help="parallel num")
     parser.add_argument('-price_name', type=str, default='highprice', help='highprice or lowprice')
-    parser.add_argument('-pool_name', type=str, default='zz500', help='hs300, zz500 or zz1000')
+    parser.add_argument('-pool_name', type=str, default='hs300', help='hs300, zz500 or zz1000')
     config = parser.parse_args()
 
     summarize_report(config.pool_name, config.price_name)

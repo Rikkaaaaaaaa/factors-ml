@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 import traceback
 
-from dataset import factor_all
+from dataset.factor_names import *
 from utils.logger import get_root_logger
 from metric.base_metric import compute_metric, compute_metric_runtime
 
@@ -29,6 +29,7 @@ class BackTester():
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
         self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Backtester init successfully')
+        self.factor_names = base_factor
 
 
     def backtest(self, factor_data, model):
@@ -38,7 +39,7 @@ class BackTester():
         try:
             self.tickers = factor_data.tickers
             if self.opt['test']['bound_mode'] == 'by_indus':
-                self._train_proba = model.predict(factor_data.train_data[factor_all])
+                self._train_proba = model.predict(factor_data.train_data[self.factor_names])
 
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
@@ -46,8 +47,8 @@ class BackTester():
                 # load train and test array from df
                 train_data = factor_data.train_data.query('ticker==@ticker and augment==0')
                 test_data = factor_data.test_data.query('ticker==@ticker')
-                x_train = train_data[factor_all]
-                x_test = test_data[factor_all]
+                x_train = train_data[self.factor_names]
+                x_test = test_data[self.factor_names]
 
                 # test ret time date ticker used for signal record
                 self._ticker = ticker
@@ -59,8 +60,8 @@ class BackTester():
                     self._train_proba = model.predict(x_train)
                 self._pre_proba = model.predict(x_test)
                 # compute null idx in test data
-                self._null_idx = np.isnan(test_data[factor_all + ['ret']].values).any(axis=1)
-                #self._null_idx = np.isnan(test_data[factor_all].values).any(axis=1) # factor nan
+                self._null_idx = np.isnan(test_data[self.factor_names + ['ret']].values).any(axis=1)
+                #self._null_idx = np.isnan(test_data[self.factor_names].values).any(axis=1) # factor nan
                 # compute metric with not null data
                 self.compute_results()
                 # push signal dataframe into self.signals
@@ -162,14 +163,14 @@ class BackTester():
         try:
             self.tickers = factor_data.tickers
             if self.opt['test']['bound_mode'] == 'by_indus':
-                self._train_proba = model.predict(factor_data.train_data[factor_all])
+                self._train_proba = model.predict(factor_data.train_data[self.factor_names])
 
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
                 # load train and test array from df
                 train_data = factor_data.train_data.query('ticker==@ticker and augment==0')
-                x_train = train_data[factor_all]
+                x_train = train_data[self.factor_names]
                 self._ticker = ticker
                 # get proba from prediction
                 if self.opt['test']['bound_mode'] == 'by_ticker':
