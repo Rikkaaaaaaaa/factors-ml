@@ -123,8 +123,8 @@ def eval(model, x_train, x_test, num_epoch, model_name='lgbm', class_num=3 ):
         pre_prob = model.predict(x_test)
         pre_prob_train = model.predict(x_train)
 
-        # pre_prob = model.predict_proba(x_test)[:, 1] # only need label 1
-        # pre_prob_train = model.predict_proba(x_train)[:, 1]
+        # pre_prob = models.predict_proba(x_test)[:, 1] # only need label 1
+        # pre_prob_train = models.predict_proba(x_train)[:, 1]
     if model_name == 'lgbm':
         if class_num == 3:
             pre_prob = model.predict(x_test, num_iteration=num_epoch)

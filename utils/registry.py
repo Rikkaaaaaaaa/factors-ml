@@ -6,17 +6,25 @@ class Registry():
     The registry that provides name -> object mapping, to support third-party
     users' custom modules.
 
-    To create a registry (e.g. a dataset registry):
+    To create a registry (e.g. a backbone registry):
 
-        DATASET_REGISTRY = Registry('BACKBONE')
+    .. code-block:: python
+
+        BACKBONE_REGISTRY = Registry('BACKBONE')
 
     To register an object:
 
-        @DATASET_REGISTRY.register()
-        class MyDataset():
+    .. code-block:: python
+
+        @BACKBONE_REGISTRY.register()
+        class MyBackbone():
             ...
+
     Or:
-        DATASET_REGISTRY.register(MyBackbone)
+
+    .. code-block:: python
+
+        BACKBONE_REGISTRY.register(MyBackbone)
     """
 
     def __init__(self, name):
@@ -54,7 +62,7 @@ class Registry():
         name = obj.__name__
         self._do_register(name, obj, suffix)
 
-    def get(self, name, suffix='basicsr'):
+    def get(self, name, suffix='basicalgo'):
         ret = self._obj_map.get(name)
         if ret is None:
             ret = self._obj_map.get(name + '_' + suffix)
@@ -72,6 +80,7 @@ class Registry():
     def keys(self):
         return self._obj_map.keys()
 
-
+# define register for different object
 DATASET_REGISTRY = Registry('dataset')
-MODEL_REGISTRY = Registry('model')
+MODEL_REGISTRY = Registry('models')
+

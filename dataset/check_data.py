@@ -1,7 +1,3 @@
-import numpy as np
-import pandas as pd
-import os.path as osp
-
 from utils import cx_read_sql
 
 

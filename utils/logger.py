@@ -1,8 +1,8 @@
-import datetime
+
 import logging
 import time
-
-
+import sys
+sys.path.append('../')
 initialized_logger = {}
 
 
@@ -39,7 +39,6 @@ class AvgTimer():
 
     def get_avg_time(self):
         return self.avg_time
-
 
 
 def get_root_logger(logger_name='factor-ml', log_level=logging.INFO, log_file=None):
@@ -88,8 +87,8 @@ def get_env_info():
     Currently, only log the software version.
     """
 
-    #from basicsr.version import __version__
-    __version__ = '2.0.0'
+    __version__ = '2.0.1'
+
     msg = r"""
           ______ ____             _      _____  ____  
          |  ____/ __ \      /\   | |    / ____|/ __ \ 
@@ -99,12 +98,13 @@ def get_env_info():
          |______\___\_\ /_/    \_\______\_____|\____/ 
                                               
     """
-    # msg += ('\nVersion Information: '
-    #         f'\n\tBasicSR: {__version__}'
-    #         f'\n\tPyTorch: {torch.__version__}'
-    #         f'\n\tTorchVision: {torchvision.__version__}')
+    msg += ('\nVersion Information: '
+            f'\n\tBasicAlgo: {__version__}'
+            #f'\n\tPyTorch: {torch.__version__}'
+            #f'\n\tTorchVision: {torchvision.__version__}'
+             )
 
     msg += ('\nVersion Information: '
-            f'\n\tFactor-ML: {__version__}')
+            f'\n\tBasic-ALgo: {__version__}')
     return msg
 

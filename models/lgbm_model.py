@@ -6,10 +6,12 @@ import pandas as pd
 
 from utils.misc import mkdir
 from utils.logger import get_root_logger
+from utils.registry import MODEL_REGISTRY
 
+@MODEL_REGISTRY.register()
 class LgbmModel():
     """
-    LGBM model for training
+    LGBM models for training
 
     Args:
         opt(dict): option for dataset, includes following keys:
@@ -48,7 +50,7 @@ class LgbmModel():
                 'bagging_fraction': 1,
                 'bagging_freq': 0,
                 'seed':  self.opt['manual_seed'],
-                'nthread': self.opt['network']['n_cpus'],
+                'nthread': self.opt['model']['n_cpus'],
                 'verbose': -1,
             }
         if self.class_num == 2:
@@ -67,13 +69,14 @@ class LgbmModel():
                 # 'min_sum_hessian_in_leaf': 3.0,
 
                 "verbosity": -1,
-                'n_jobs': self.opt['network']['n_cpus'],
+                'n_jobs': self.opt['model']['n_cpus'],
             }
 
         self.model = lgb.train(params, train_set=train_matrix, num_boost_round=self.num_epoch)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
 
-    def save_ckpt(self):
+
+    def save(self):
         # save model file
         ckpt_folder = self.opt['path']['model_path'][self.test_month]
         ckpt_name = 'lgbm_indus{}.txt'.format(self.indus_type)

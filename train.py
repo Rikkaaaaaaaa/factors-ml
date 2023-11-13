@@ -2,10 +2,10 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 
-from dataset import FactorDataset, FactorDataset2
-from dataset import check_indus
-from dataset.factor_names import *
-from model.lgbm_model import LgbmModel
+
+from dataset.check_data import check_indus
+from dataset import build_dataset
+from models import build_model
 from backtester import BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
@@ -24,20 +24,25 @@ def train_pipeline(train_args):
     logger_name = f"month{test_month}_indus{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
+    # log some env/code version and option info
+    # if enable this line, it will output to all .log files
     #logger.info(get_env_info())
     #logger.info(dict2str(opt))
 
     # get data set from test month
-    dataset = FactorDataset2(opt, test_month, indus_type)
+    dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
     dataset.load_data()
     if dataset.is_empty:
         return
-    # train lgbm model
-    x_train, y_train = dataset.train_data[dataset.factor_names], dataset.train_data['class_label']
-    model = LgbmModel(opt, test_month, indus_type)
+
+    # train lgbm models
+    x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
+    model = build_model(opt, test_month=test_month, indus_type=indus_type)
     model.train(x_train, y_train)
-    model.save_ckpt()
-    # backtesting/realtime process
+    model.save()
+
+    # backtesting or realtime process
+    # it will record bound proba and report summay of models performance
     backtester = BackTester(opt, test_month, indus_type)
     if opt['is_runtime']:
         backtester.runtime(dataset, model)

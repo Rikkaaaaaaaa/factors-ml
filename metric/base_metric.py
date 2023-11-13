@@ -37,7 +37,7 @@ def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
     return summary
 
 
-def compute_metric_runtime(opt, pre_prob_train):
+def compute_runtime_metric(opt, pre_prob_train):
     """
     Compute bound, win rate , mean return, total sample .etc as performance
     :param pre_prob_train: train probability
