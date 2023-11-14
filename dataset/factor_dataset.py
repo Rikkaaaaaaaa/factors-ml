@@ -58,22 +58,22 @@ class FactorDataset():
 
 
     def load_data(self):
-        #---------------Ticker Selection-----------#
-        # Read tickers from mysql
+        # ingest ticker list
+        # read tickers from mysql
         self.tickers = self.load_ticker_list()
         if self.debug_mode:
             self.tickers = self.tickers[: min(len(self.tickers), 10)]
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(self.tickers)}")
 
-        # Check ticker list is null
+        # check ticker list is null
         self.is_empty = False
         if len(self.tickers) == 0:
             self.is_empty = True
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: No ticker data in {self.test_month} ")
             return
 
-        # ---------------Factor and return ingestion-----------#
-        # Read data from mysql
+        # ingest factor and return
+        # read data from mysql
         data = dict() # restore data by month
         for month in self.training_month:
             data[month] = self.load_data_from_sql(month)
@@ -81,20 +81,20 @@ class FactorDataset():
             data[self.test_month] = self.load_data_from_sql(self.test_month)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
 
-        #--------------Data Preprocessing-----------#
-        # Split data into train and test set
+        # data preprocessing
+        # split data into train and test set
         train_data, test_data = self.split_data(data)
-        # Make labels according to returns
+        # make labels according to returns
         train_data, test_data = self.make_label(train_data, test_data)
-        # Delete nan in train data
+        # delete nan in train data
         train_data = self.del_null_value(train_data)
-        # Transforming data, including std, clip, save params by ticker
+        # transforming data, including std, clip, save params by ticker
         if self.is_runtime:
-            # Cancel backtesting in test_data
+            # cancel backtesting in test_data
             self.transform_runtime(train_data)
         else:
             self.transform(train_data, test_data)
-        # Training data balancing
+        # rebalance training data
         self.rebalance_training_data()
         # logging
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data")
@@ -304,7 +304,7 @@ class FactorDataset():
         if self.class_num == 2 and self.opt['dataset']['balance'] == 'reverse':
             train_data_copy = self.train_data.copy()
             train_data_copy[self.reversed_factor_name] = -1 * train_data_copy[self.reversed_factor_name]
-            train_y = train_data_copy['class_label']
+            train_y = train_data_copy['class_label'].values
             reversed_y = np.zeros_like(train_y)
             up_idx = (train_y==0)
             down_idx = (train_y==1)
@@ -312,8 +312,12 @@ class FactorDataset():
             reversed_y[down_idx] = 0
             #reversed_y = pd.DataFrame(reversed_y, columns='class_label')
             train_data_copy['class_label'] = reversed_y
-            train_data_copy['augment'] = 1
-            self.train_data['augment'] = 0
+            #train_data_copy['augment'] = 1
+            augment = pd.DataFrame(columns=['augment'], data=np.ones(len(reversed_y)))
+            train_data_copy = pd.concat([train_data_copy,augment], axis=1)
+            #self.train_data['augment'] = 0
+            augment = pd.DataFrame(columns=['augment'], data=np.zeros(len(reversed_y)))
+            self.train_data = pd.concat([self.train_data, augment], axis=1)
             self.train_data = pd.concat([self.train_data, train_data_copy], ignore_index=True)
 
         if self.class_num == 2 and self.opt['dataset']['balance'] == 'downsample':
@@ -325,5 +329,5 @@ if __name__ == '__main__':
 
     opt = parse_options('./')
     indus_type = 1
-    dataset = Factor2Dataset(opt, 202307, indus_type)
+    dataset = FactorDataset(opt, 202307, indus_type)
     dataset.load_data()
