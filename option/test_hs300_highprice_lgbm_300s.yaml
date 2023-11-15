@@ -12,7 +12,7 @@ dataset:
   std_factor_name: ['base_factor', 'slope_factor',]
   clip_factor_name: ['base_factor', 'ofl_factor', 'slope_factor']
   log_factor_name: ['log_factor']
-  reverse_factor_name: ['batch2_factor']
+  reversed_factor_name: ['batch2_factor']
   # data preprocessing options
   test_month: [ 202304 ]
   io_backend: sql # disk
