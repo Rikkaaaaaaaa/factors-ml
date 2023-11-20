@@ -11,18 +11,19 @@ sys.path.append('./')
 from dataset.check_data import get_ticker_list
 
 
-def summarize_report(pool_name, price_name, model_name='lgbm', root='/root/PycharmProjects/factors-ml', svg_path='./'):
+def summarize_report(prefix, pool_name, price_name, model_name='lgbm', root='/root/PycharmProjects/factors-ml', svg_path='./'):
     '''
     summary all window_size(15s, 60s, 120s, 300s) report into a csv file
     '''
-    if pool_name in ['zz500', 'hs300']:
-       report_pool_name = 'zz800'
+    # if pool_name in ['zz500', 'hs300']:
+    #    report_pool_name = 'zz800'
+    report_pool_name = pool_name
     cols = [ 'month', 'up_bound', 'down_bound', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
            'up_signal_rate', 'down_signal_rate', 'weighted_ret', 'total_sample', 'zero_rate']
     summary = []
     for ret_window in ['15s', '60s', '120s', '300s']:
-        #report_name = f'{report_pool_name}_{price_name}_{model_name}_{ret_window}'
-        report_name = f'all_factor_lgbm_{ret_window}_highprice_hs300'
+        report_name = f'{prefix}_{report_pool_name}_{price_name}_{model_name}_{ret_window}'
+        #report_name = f'all_factor_lgbm_{ret_window}_highprice_hs300'
         report_path = osp.join(root, 'experiments', report_name, report_name + '_report.csv')
         report = pd.read_csv(report_path)
         report['weighted_ret'] = report['up_mean_ret'] * report['up_signal_rate'] - report['down_mean_ret'] * report['down_signal_rate']
@@ -34,17 +35,18 @@ def summarize_report(pool_name, price_name, model_name='lgbm', root='/root/Pycha
             summary.append(_report)
 
     summary = pd.concat(summary)
-    summary.to_csv(osp.join(svg_path, f'summary_{pool_name}_{price_name}_{model_name}.csv'))
+    summary.to_csv(osp.join(svg_path, f'summary_{prefix}_{pool_name}_{price_name}_{model_name}.csv'))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='merge bt signal')
     parser.add_argument('-n_jobs', type=int, default=8, help="parallel num")
+    parser.add_argument('-prefix', type=str, default='basefactor', )
     parser.add_argument('-price_name', type=str, default='highprice', help='highprice or lowprice')
     parser.add_argument('-pool_name', type=str, default='hs300', help='hs300, zz500 or zz1000')
     config = parser.parse_args()
 
-    summarize_report(config.pool_name, config.price_name)
+    summarize_report(config.prefix, config.pool_name, config.price_name)
 
 
 
