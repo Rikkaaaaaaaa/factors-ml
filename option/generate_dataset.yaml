@@ -1,0 +1,44 @@
+name: generate_factor
+manual_seed: 2023
+n_jobs: 10
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_db: 'factor_test'
+  factor_table: 'all_factor'
+  training_factor_name: [ 'batch2_factor' ]
+  std_factor_name: [ 'base_factor', 'slope_factor', ]
+  clip_factor_name: [ 'base_factor', 'ofl_factor', 'slope_factor' ]
+  log_factor_name: [ 'log_factor' ]
+  reversed_factor_name: [ 'batch2_factor' ]
+
+  # data preprocessing options
+  type: 'SQLDataset'
+  test_month: [ 202304 ]
+  io_backend: sql # disk
+  pool_name: ['hs300']
+  indus_class: wind1
+  avg_price: 10
+  price_name: highprice
+  ret_name: 15s
+  std_type: default # trainingset std
+  alpha: 0.0005
+  class_num: 2
+  #balance: reverse
+
+factor_selection:
+  selected_factor_num: 140
+
+model:
+  type: 'LgbmModel'
+  n_cpus: 8
+
+train:
+  num_epoch: 200
+test:
+  bound_mode: by_ticker # indus/ticker
+  threshold_pct: 40
+
+
+
