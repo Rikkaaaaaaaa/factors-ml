@@ -13,6 +13,7 @@ dataset:
   clip_factor_name: ['base_factor', 'ofl_factor', 'slope_factor']
   log_factor_name: ['log_factor']
   reversed_factor_name: ['batch2_factor']
+
   # data preprocessing options
   test_month: [ 202304 ]
   io_backend: sql # disk
@@ -25,6 +26,9 @@ dataset:
   avg_price: 10
   alpha: 0.001
   class_num: 2
+
+factor_selection:
+  selected_factor_num: 128
 
 model:
   type: 'LgbmModel'

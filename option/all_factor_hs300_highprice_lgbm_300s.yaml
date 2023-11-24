@@ -1,4 +1,4 @@
-name: all_factor_lgbm_300s_highprice_hs300
+name: all_factor_hs300_highprice_lgbm_300s
 manual_seed: 2023
 n_jobs: 8
 
@@ -26,6 +26,9 @@ dataset:
   avg_price: 10
   alpha: 0.001
   class_num: 2
+
+factor_selection:
+  selected_factor_num: 140
 
 model:
   type: 'LgbmModel'
