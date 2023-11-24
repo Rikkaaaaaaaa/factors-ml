@@ -36,6 +36,9 @@ class BackTester():
         '''
         backtest data and save results. bound values and signals
          '''
+        if hasattr(factor_data, 'selected_factor'):
+            self.training_factor_name = factor_data.selected_factor
+
         try:
             self.tickers = factor_data.tickers
             if self.opt['test']['bound_mode'] == 'by_indus':

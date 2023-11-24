@@ -1,8 +1,10 @@
 import lightgbm as lgb
 import numpy as np
 import os.path as osp
-
+import os
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from utils.misc import mkdir
 from utils.logger import get_root_logger
@@ -87,6 +89,45 @@ class LgbmModel():
 
     def predict(self, data):
         return self.model.predict(data)
+
+
+    def select_factor(self, x_train, y_train):
+        # train first
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start training for factor selection...")
+        self.train(x_train, y_train)
+
+        selection_path = osp.join(self.opt['path']['experiments_root'], str(self.test_month), 'factor_selection')
+        selection_name = f"{self.opt['name']}_{self.test_month}_indus{self.indus_type}"
+        if not os.path.exists(selection_path):
+            os.makedirs(selection_path)
+
+        # save rank csv file
+        feature_importance = pd.DataFrame(data={'factor_name': self.model.feature_name(),
+                                                'score': self.model.feature_importance()})
+        feature_importance.to_csv(f"{selection_path}/{selection_name}.csv", index=False)
+        max_num_features = min(self.model.num_feature(), self.opt['factor_selection']['selected_factor_num'])
+        feature_importance = feature_importance.sort_values('score', ascending=False).iloc[:max_num_features, :]
+
+        # plot bar rank
+        fig, ax = plt.subplots(figsize=(16, 12))
+        sns.barplot(data=feature_importance, x='score', y='factor_name', orient='h', ax=ax)
+        plt.title(f"{self.opt['name']}_{self.test_month}_indus{self.indus_type}")
+        # plot data label
+        offset = 2  # for visual quality
+        for p in ax.patches:
+            ax.text(p.get_width() + offset, p.get_y() + p.get_height() / 2,
+                    '{:.1f}'.format(p.get_width()),
+                    va='center')  # center text
+        plt.savefig(f"{selection_path}/{selection_name}.jpg")
+
+        # restart training
+        self.selected_factor = list(feature_importance['factor_name'])
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish factor selection, restart training...")
+        return self.selected_factor
+
+
+
+
 
 
 

@@ -57,6 +57,10 @@ class FactorDataset():
         return training_month
 
 
+    def set_selected_factor(self, selected_factor):
+        self.selected_factor = selected_factor
+
+
     def load_data(self):
         # ingest ticker list
         # read tickers from mysql

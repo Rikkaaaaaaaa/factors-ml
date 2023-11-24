@@ -33,11 +33,16 @@ def train_pipeline(train_args):
     dataset.load_data()
     if dataset.is_empty:
         return
+    x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
 
     # train lgbm models
-    x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
     model = build_model(opt, test_month=test_month, indus_type=indus_type)
-    model.train(x_train, y_train)
+    if opt.get('factor_selection'):
+        selected_factor = model.select_factor(x_train, y_train)
+        dataset.set_selected_factor(selected_factor)
+        model.train(x_train[selected_factor], y_train)
+    else:
+        model.train(x_train, y_train)
     model.save()
 
     # backtesting or realtime process
@@ -69,10 +74,11 @@ def main(opt):
     pool.close()
     pool.join()
     print("Task time is {}".format(time_str(global_timer.item())))
+    save_report_disk(opt)
 
 
 if __name__ == '__main__':
     root_path = './'
     opt = parse_options(root_path)
     main(opt)
-    save_report_disk(opt)
+
