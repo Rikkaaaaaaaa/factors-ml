@@ -18,11 +18,11 @@ def save_report_disk(opt):
             report.append(pd.read_csv(r))
     report = pd.concat(report).reset_index(drop=True)
     report= report.reset_index(drop=True)
-    report_name = '{}_report.csv'.format(opt['name'])
+    report_name = 'report_{}.csv'.format(opt['name'])
     report.to_csv(os.path.join(opt['path']['experiments_root'], report_name), index=False)
     print(f"Backtesting report has been saved at {report_name}")
 
-def cat_signals(opt):
+def cat_signals(opt, save_local=False):
     signal_path = opt['path']['signal_path']
     signal = []
     for month in signal_path.keys():
@@ -36,14 +36,15 @@ def cat_signals(opt):
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
     # save all signals to csv
-    #signal_name = '{}_signal.csv'.format(opt['name'])
-    #signal.to_csv(os.path.join(opt['path']['experiments_root'], signal_name), index=False)
-    #print(f"Signals have been saved at {signal_name}")
+    if save_local:
+        signal_name = '{}_signal.csv'.format(opt['name'])
+        signal.to_csv(os.path.join(opt['path']['experiments_root'], signal_name), index=False)
+        print(f"Signals have been saved at {signal_name}")
 
     return signal
 
 def write_table_sql(opt, table_name, if_exists='replace'):
-    print(f"Writing signals to sql tabel \'{table_name}\' now...")
+    print(f"Writing signals to sql tabel '{table_name}' now...")
     signal = cat_signals(opt)
     engine = create_pd_engine('strategy')
     table_name = table_name
