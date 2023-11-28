@@ -38,6 +38,11 @@ class SQLDataset():
         self.log_factor_name = build_factor_name(self.opt['dataset']['log_factor_name'])
         self.reversed_factor_name = build_factor_name(self.opt['dataset']['reversed_factor_name'])
         self.training_month = self.get_training_month()
+        # ret
+        self.ret_15s = dict()
+        self.ret_60s = dict()
+        self.ret_120s = dict()
+        self.ret_300s = dict()
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -135,7 +140,7 @@ class SQLDataset():
                 is_rebalanced = False
             self.tickers = tuple(self.tickers)
             if is_rebalanced and month % 100 in [4, 5, 6, 10, 11, 12]:
-                factor = cx_read_sql('select * from factor_{}_index_rebalancing where ticker in {}'.format(month, self.tickers))
+                factor = cx_read_sql('select * from {}_{}_index_rebalancing where ticker in {}'.format(self.factor_table, month, self.tickers),database=self.factor_db)
 
             else:
                 factor = cx_read_sql('select * from {}_{} where ticker in {}'.format(self.factor_table, month, self.tickers), database=self.factor_db)
@@ -145,10 +150,10 @@ class SQLDataset():
                 tmp_label = cx_read_sql(
                     'select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format(r, month, self.tickers))
 
-                self.ret_15s = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('15s', month, self.tickers))
-                self.ret_60s = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('60s', month, self.tickers))
-                self.ret_120s = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('120s', month, self.tickers))
-                self.ret_300s = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('300s', month, self.tickers))
+                self.ret_15s[month] = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('15s', month, self.tickers))
+                self.ret_60s[month] = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('60s', month, self.tickers))
+                self.ret_120s[month] = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('120s', month, self.tickers))
+                self.ret_300s[month] = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format('300s', month, self.tickers))
 
             # log factor
             def get_log_factor_df(df_factors):

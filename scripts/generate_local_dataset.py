@@ -35,12 +35,13 @@ def train_pipeline(train_args):
     if dataset.is_empty:
         return
 
-    dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/train_data_{test_month}_indus_{indus_type}.csv")
-    dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/test_data_{test_month}_indus_{indus_type}.csv")
-    dataset.ret_15s.to_csv(f"{opt['path']['experiments_root']}/test_y_15s_{test_month}_indus_{indus_type}.csv")
-    dataset.ret_60s.to_csv(f"{opt['path']['experiments_root']}/test_y_60s_{test_month}_indus_{indus_type}.csv")
-    dataset.ret_120s.to_csv(f"{opt['path']['experiments_root']}/test_y_{test_month}_120s_indus_{indus_type}.csv")
-    dataset.ret_300s.to_csv(f"{opt['path']['experiments_root']}/test_y_{test_month}_300s_indus_{indus_type}.csv")
+    #dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/train_data_{test_month}_indus_{indus_type}.csv")
+    #dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/test_data_{test_month}_indus_{indus_type}.csv")
+    for month in  dataset.ret_15s.keys():
+        dataset.ret_15s[month].to_csv(f"{opt['path']['experiments_root']}/y_15s_{month}_indus_{indus_type}.csv")
+        dataset.ret_60s[month].to_csv(f"{opt['path']['experiments_root']}/y_60s_{month}_indus_{indus_type}.csv")
+        dataset.ret_120s[month].to_csv(f"{opt['path']['experiments_root']}/y_120s_{month}_indus_{indus_type}.csv")
+        dataset.ret_300s[month].to_csv(f"{opt['path']['experiments_root']}/y_300s_{month}_indus_{indus_type}.csv")
 
 
 def gen_mp_args(opt):
@@ -112,4 +113,4 @@ def check_data():
     print(len(train))
 
 if __name__ == '__main__':
-    check_data()
+    gen_factor()
