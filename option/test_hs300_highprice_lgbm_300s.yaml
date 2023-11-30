@@ -24,11 +24,12 @@ dataset:
   std_type: default # training set std
   balance: reverse
   avg_price: 10
-  alpha: 0.001
+  alpha: 0.001 # or dynamic_rolling
   class_num: 2
 
 factor_selection:
   selected_factor_num: 128
+
 
 model:
   type: 'LgbmModel'
