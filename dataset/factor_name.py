@@ -40,30 +40,38 @@ base_factor = factor_list[1:] + indus_factor_name + mkt_factor_name
 
 
 # orderflow factor
-ofl_factor =    ['ask1_ofl_std_3s', 'ask1_ofl_std_6s', 'ask1_ofl_std_9s', 'ask1_ofl_std_15s', 'ask1_ofl_std_30s',
-                 'bid1_ofl_std_3s', 'bid1_ofl_std_6s', 'bid1_ofl_std_9s', 'bid1_ofl_std_15s', 'bid1_ofl_std_30s',
-                 'ofl1_std_3s', 'ofl1_std_6s', 'ofl1_std_9s', 'ofl1_std_15s', 'ofl1_std_30s', 'ofl1_std_45s', 'ofl1_std_min',
-                 'ask1_order_dst_3s', 'ask2_order_dst_3s', 'ask3_order_dst_3s',
-                 'ask1_order_dst_6s', 'ask2_order_dst_6s', 'ask3_order_dst_6s',
-                 'ask1_order_dst_15s', 'ask2_order_dst_15s', 'ask3_order_dst_15s',
-                 'ask1_order_dst_min', 'ask2_order_dst_min', 'ask3_order_dst_min',
-                 'bid1_order_dst_3s', 'bid2_order_dst_3s', 'bid3_order_dst_3s',
-                 'bid1_order_dst_6s', 'bid2_order_dst_6s', 'bid3_order_dst_6s',
-                 'bid1_order_dst_15s', 'bid2_order_dst_15s', 'bid3_order_dst_15s',
-                 'bid1_order_dst_min', 'bid2_order_dst_min', 'bid3_order_dst_min',
-                 'depth_im1_3s', 'depth_im2_3s', 'depth_im3_3s', 'depth_im1_6s', 'depth_im2_6s', 'depth_im3_6s',
-                 'depth_im1_15s', 'depth_im2_15s', 'depth_im3_15s', 'depth_im1_30s', 'depth_im2_30s', 'depth_im3_30s',
-                 'depth_im1_min', 'depth_im2_min', 'depth_im3_min',
-                 'height_im3_3s', 'height_im2_3s', 'height_im1_3s',
-                 'press_3s', 'press_6s', 'press_9s', 'press_15s', 'press_30s', 'press_min']
+
+
+ofl_factor =  ['ask1_ofl_std_3s', 'ask1_ofl_std_15s', 'ask1_ofl_std_min', 'ask1_ofl_std_2min', 'ask1_ofl_std_5min', 'bid1_ofl_std_3s',
+                 'bid1_ofl_std_15s', 'bid1_ofl_std_min', 'bid1_ofl_std_2min', 'bid1_ofl_std_5min', 'ofl1_std_3s', 'ofl1_std_15s',
+                 'ofl1_std_min', 'ofl1_std_2min', 'ofl1_std_5min', 'ask2_ofl_std_3s', 'ask2_ofl_std_15s', 'ask2_ofl_std_min',
+                 'ask2_ofl_std_2min', 'ask2_ofl_std_5min', 'bid2_ofl_std_3s', 'bid2_ofl_std_15s', 'bid2_ofl_std_min',
+                 'bid2_ofl_std_2min', 'bid2_ofl_std_5min', 'ofl2_std_3s', 'ofl2_std_15s', 'ofl2_std_min', 'ofl2_std_2min',
+                 'ofl2_std_5min', 'ask1_order_dst_3s', 'ask1_order_dst_15s', 'ask1_order_dst_min', 'ask1_order_dst_2min',
+                 'ask1_order_dst_5min', 'bid1_order_dst_3s', 'bid1_order_dst_15s', 'bid1_order_dst_min', 'bid1_order_dst_2min',
+                 'bid1_order_dst_5min', 'depth_im1_3s', 'depth_im2_3s', 'depth_im1_15s', 'depth_im2_15s', 'depth_im1_min',
+                 'depth_im2_min', 'depth_im1_2min', 'depth_im2_2min', 'depth_im1_5min', 'depth_im2_5min', 'ask_press_3s',
+                 'ask_press_15s', 'ask_press_min', 'ask_press_2min', 'ask_press_5min', 'bid_press_3s', 'bid_press_15s',
+                 'bid_press_min', 'bid_press_2min', 'bid_press_5min', 'press_3s', 'press_15s', 'press_min', 'press_2min',
+                 'press_5min', 'close_versus_mid_3s', 'close_versus_mid_15s', 'close_versus_mid_min', 'close_versus_mid_2min',
+                 'close_versus_mid_5min', 'spread_tick_3s', 'spread_tick_15s', 'spread_tick_min', 'spread_tick_2min', 'spread_tick_5min',
+                 'ask_wap_versus_mid_3s', 'ask_wap_versus_mid_15s', 'ask_wap_versus_mid_min', 'ask_wap_versus_mid_2min',
+                 'ask_wap_versus_mid_5min', 'bid_wap_versus_mid_3s', 'bid_wap_versus_mid_15s', 'bid_wap_versus_mid_min',
+                 'bid_wap_versus_mid_2min', 'bid_wap_versus_mid_5min']
+
+slope_factor = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_15s', 'slope_ask3_min', 'slope_ask3_2min', 'slope_ask3_5min', 'slope_bid3_3s', 'slope_bid3_15s', 'slope_bid3_min', 'slope_bid3_2min', 'slope_bid3_5min', 'slope_diff3_3s', 'slope_diff3_15s', 'slope_diff3_min', 'slope_diff3_2min', 'slope_diff3_5min', 'slope_ask10_3s', 'slope_ask10_15s', 'slope_ask10_min', 'slope_ask10_2min', 'slope_ask10_5min', 'slope_bid10_15s', 'slope_bid10_3s', 'slope_bid10_min', 'slope_bid10_2min', 'slope_bid10_5min', 'slope_diff10_15s', 'slope_diff10_3s', 'slope_diff10_min', 'slope_diff10_2min', 'slope_diff10_5min', 'slope_askh2_15s', 'slope_askh2_3s', 'slope_askh2_min', 'slope_askh2_2min', 'slope_askh2_5min', 'slope_bidh2_15s', 'slope_bidh2_3s', 'slope_bidh2_min', 'slope_bidh2_2min', 'slope_bidh2_5min', 'EMA_15s', 'EMA_3s', 'EMA_30s', 'EMA_min', 'EMA_2min', 'EMA_5min', 'EMA_std_3s', 'EMA_std_15s', 'EMA_std_min', 'EMA_std_2min', 'EMA_std_5min', 'RSI_15s', 'RSI_3s', 'RSI_min', 'RSI_2min', 'RSI_5min', 'WILLR_15s', 'WILLR_3s', 'WILLR_min', 'WILLR_2min', 'WILLR_5min', 'QR1_2_15s', 'QR1_2_3s', 'QR1_2_min', 'QR1_2_2min', 'QR1_2_5min', 'QR1_3_15s', 'QR1_3_3s', 'QR1_3_min', 'QR1_3_2min', 'QR1_3_5min']
+
+genetic_factor = ['genetic_programming_1', 'genetic_programming_2', 'genetic_programming_3', 'genetic_programming_4',
+                     'genetic_programming_5', 'genetic_programming_6', 'genetic_programming_7', 'genetic_programming_8',
+                     'genetic_programming_9', 'genetic_programming_10']
+
+
+
 # fok factor
 fok_factor = ['fok_0.5s_9s', 'fok_0.5s_15s', 'fok_0.5s_30s', 'fok_0.5s_60s', 'fok_0.5s_120s', 'fok_0.5s_300s',
               'fok_2s_9s', 'fok_2s_15s', 'fok_2s_30s', 'fok_2s_60s', 'fok_2s_120s', 'fok_2s_300s', 'meta_15s',
               'meta_30s', 'meta_60s', 'meta_120s', 'meta_300s', 'limit_1']
              # ['fok_1', 'fok_2', 'fok_3', 'fok_4', 'fok_5', 'fok_6', 'fok_7', 'fok_8', 'fok_9', 'meta_1']
-
-# slope_factor
-slope_factor = ['QR1-2', 'press', 'skew15', 'skew60', 'skew120', 'slope_ask3', 'slope_bid3', 'Slope_diff3', 'slope_ask10', 'slope_bid10', 'Slope_diff10', 'slope_askh2', 'slope_bidh2', 'EMA', 'RSI', 'WILLR', ]
 
 # log format factor list
 log_factor = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
@@ -76,6 +84,7 @@ log_factor = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s
 
 # factor group
 batch2_factor = base_factor + ofl_factor + fok_factor + slope_factor
+batch3_factor = base_factor + ofl_factor + genetic_factor + slope_factor
 
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }

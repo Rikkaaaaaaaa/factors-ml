@@ -39,7 +39,7 @@ def cat_signals(opt, upload_month=[], save_local=False):
     signal = signal.reset_index(drop=True)
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
-    print(f"Concat signal in {upload_month}")
+    print(f"Concat signals in {upload_month}")
 
     # save all signals to csv
     if save_local:

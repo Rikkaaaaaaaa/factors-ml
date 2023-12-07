@@ -44,7 +44,7 @@ def summarize_report(prefix, pool_name, ticker_pool_name, price_name, model_name
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='merge bt signal')
     parser.add_argument('-n_jobs', type=int, default=8, help="parallel num")
-    parser.add_argument('-prefix', type=str, default='all_factor', )
+    parser.add_argument('-prefix', type=str, default='base_factor', )
     parser.add_argument('-price_name', type=str, default='highprice', help='highprice or lowprice')
     parser.add_argument('-pool_name', type=str, default='zz800', help='zz800 or zz1000')
     parser.add_argument('-ticker_pool_name', type=str, default='hs300', help='hs300, zz500 or zz1000')
