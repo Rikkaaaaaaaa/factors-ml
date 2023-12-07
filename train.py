@@ -23,15 +23,12 @@ def train_pipeline(train_args):
     logger_name = f"month{test_month}_indus{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
-    # log some env/code version and option info
-    # if enable this line, it will output to all .log files
-    #logger.info(get_env_info())
-    #logger.info(dict2str(opt))
 
     # get data set from test month
     dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
     dataset.load_data()
     if dataset.is_empty:
+        logger.info("Dataset is empty!")
         return
     x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
 
@@ -74,11 +71,13 @@ def main(opt):
     pool.close()
     pool.join()
     print("Task time is {}".format(time_str(global_timer.item())))
-    save_report_disk(opt)
+    if not opt['is_runtime']:
+        save_report_disk(opt)
 
 
 if __name__ == '__main__':
     root_path = './'
     opt = parse_options(root_path)
     main(opt)
+
 

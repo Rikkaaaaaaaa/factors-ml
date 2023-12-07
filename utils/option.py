@@ -102,6 +102,7 @@ def parse_options(root_path):
     # save path init
     if not opt.get('path'):
         opt['path'] = dict()
+
     # experiment path
     experiments_root = opt['path'].get('experiments_root')
     if experiments_root is None:

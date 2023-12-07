@@ -117,11 +117,12 @@ class BackTester():
         self.results.insert(2, 'indus_type', self.indus_type)
 
         # save results file
-        results_folder =  self.opt['path']['results_path'][self.test_month]
-        results_name = 'results_{}_indus{}.csv'.format(self.test_month, self.indus_type)
-        results_path = osp.join(results_folder, results_name)
-        self.results.reset_index(drop=True, inplace=True)
-        self.results.to_csv(results_path, index=False)
+        if not self.is_runtime:
+            results_folder =  self.opt['path']['results_path'][self.test_month]
+            results_name = 'results_{}_indus{}.csv'.format(self.test_month, self.indus_type)
+            results_path = osp.join(results_folder, results_name)
+            self.results.reset_index(drop=True, inplace=True)
+            self.results.to_csv(results_path, index=False)
 
 
     def save_bound(self):
