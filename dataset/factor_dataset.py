@@ -69,8 +69,8 @@ class FactorDataset():
         self.tickers = self.load_ticker_list()
         if self.debug_mode:
             self.tickers = self.tickers[: min(len(self.tickers), 10)]
-
         if len(self.tickers) == 0: # no ticker, return None
+            self.is_empty = True
             return
 
         # Ingest Factor and Return
@@ -82,9 +82,14 @@ class FactorDataset():
             data[self.test_month] = self.load_data_from_sql(self.test_month)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading data")
 
+
         # Data Preprocessing
         # split data into train and test set
         train_data, test_data = self.split_data(data)
+        if len(train_data) == 0:
+            self.is_empty = True
+            return
+
         # make labels according to returns
         train_data, test_data = self.make_label(train_data, test_data)
         # delete nan in train data
@@ -117,24 +122,37 @@ class FactorDataset():
                     indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool, self.test_month))
                     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(pool, self.opt['dataset']['avg_price'], self.test_month))
 
-                ticker = set(indus_table['ticker']) & set(price_table['ticker'])
-                # Align ticker list
-                for month in self.training_month + [self.test_month]:
-                    factor_ticker = cx_read_sql('select distinct ticker from {}_{}'.format(self.factor_table, month), database=self.factor_db)
-                    ticker = ticker & set(factor_ticker['ticker'])
-                ticker_list.extend(ticker)
+                cur_ticker = set(indus_table['ticker']) & set(price_table['ticker'])
+
+                # Align training and testing ticker list
+                if not self.is_runtime:
+                    check_ticker_month = self.training_month + [self.test_month]
+                else:
+                    check_ticker_month = self.training_month
+                for month in check_ticker_month:
+                    if self.test_month % 100 in [1, 2, 3, 7, 8, 9]:
+                        is_rebalanced = True
+                    else:
+                        is_rebalanced = False
+                    if is_rebalanced and month % 100 in [4, 5, 6, 10, 11, 12]:
+                        factor_ticker = cx_read_sql(f'select distinct ticker from {self.factor_table}_{month}_index_rebalancing', database=self.factor_db)
+                    else:
+                        factor_ticker = cx_read_sql(f'select distinct ticker from {self.factor_table}_{month}', database=self.factor_db)
+                    cur_ticker = cur_ticker & set(factor_ticker['ticker'])
+
+
+                ticker_list.extend(cur_ticker)
 
             # ordered ticker list
             ticker_list = sorted(ticker_list)
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(self.tickers)}")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(ticker_list)}")
             # delete some tickers
             if self.price_name == 'lowprice':
                 if '000540.SZ' in ticker_list:
                     ticker_list.remove('000540.SZ')
 
-            # check ticker list is null
+            # check whether ticker list is null
             if len(ticker_list) == 0:
-                self.is_empty = True
                 raise ValueError(f"{self.test_month}_indus_{self.indus_type}: No ticker list exists in SQL")
 
         except Exception as e:
@@ -147,11 +165,6 @@ class FactorDataset():
 
 
     def load_data_from_sql(self, month):
-        def get_log_factor_df(df_factors):
-            df_factors[df_factors > 0] = np.log(df_factors[df_factors > 0] + 1)
-            df_factors[df_factors < 0] = -np.log(-df_factors[df_factors < 0] + 1)
-            return df_factors
-
         try:
             if self.test_month % 100 in [1, 2, 3, 7, 8, 9]:
                 is_rebalanced = True
@@ -167,10 +180,15 @@ class FactorDataset():
                 labels = cx_read_sql('select ticker, date, time, ret_{}  from ret_{} where ticker in {}'.format(self.opt['dataset']['ret_name'], month, self.tickers))
 
             # log factor
+            def get_log_factor_df(df_factors):
+                df_factors[df_factors > 0] = np.log(df_factors[df_factors > 0] + 1)
+                df_factors[df_factors < 0] = -np.log(-df_factors[df_factors < 0] + 1)
+                return df_factors
             for log_factor in self.log_factor_name:
                 factor.loc[:, log_factor] = get_log_factor_df(factor[log_factor].values)
 
             # merge factors and labels by ticker, date, time
+            data = pd.DataFrame()
             data = pd.merge(factor, labels, on=['ticker', 'date', 'time'])
             data.rename(columns={'ret_' + self.opt['dataset']['ret_name']: 'ret'}, inplace=True)
 
@@ -181,8 +199,12 @@ class FactorDataset():
                 self.logger.warning(f'{self.test_month}_indus_{self.indus_type}: There are missing tickers in SQL!')
                 self.logger.warning(f'{self.test_month}_indus_{self.indus_type}: {list2str(missing_tickers)}')
 
+            # check Whether data is None
+            if len(data) == 0:
+                raise ValueError(f"{self.test_month}_indus_{self.indus_type}: No factor or return data exists in SQL")
+
         except Exception as e:
-            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error in fetching factor and ret from SQL')
+            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error in fetching factor and return from SQL')
             self.logger.info(traceback.format_exc())
 
         return data
@@ -212,14 +234,14 @@ class FactorDataset():
         # filter
         if self.class_num == 2:
             train_data =  train_data.query('class_label != 2')
-        self.logger(f"Select {len(train_data)/total_train_num * 100}% train data with return={alpha}.")
+        self.logger.info(f"Select {len(train_data)/total_train_num * 100:.2f}% train data with return={alpha}.")
 
         return train_data, test_data
 
 
     def del_null_value(self, train_data):
         data = train_data.dropna()
-        self.logger(f"Delete null {len(train_data)-len(data)} sample in train data.")
+        self.logger.info(f"Delete {(len(train_data)-len(data))/len(data):.2f} null samples in train data.")
         return data
 
 
@@ -293,42 +315,56 @@ class FactorDataset():
 
 
     def transform_runtime(self, train_data):
-        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']          # del columns in data
+        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']  # del columns in data
         self.train_data = train_data.reset_index()
-        self.transform_params = []
+
+        self.std_params = []
+        self.clip_params = []
 
         for ticker in self.tickers:
             _train_data = self.train_data.query('ticker==@ticker')
-            # split to x and y
-            transform_param = pd.DataFrame(columns=['factor_name', 'min', 'max', 'mean', 'std'])
-            train_x = _train_data[self.training_factor_name].values
+
+            # split data to train_x and test_x
+            train_x = _train_data[self.std_factor_name]
 
             # data std
-            factor_mean = np.mean(train_x, axis=0)
-            factor_std = np.std(train_x, axis=0)
+            std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
+            factor_mean = np.mean(train_x, axis=0).values
+            factor_std = np.std(train_x, axis=0).values
             train_x = (train_x - factor_mean) / factor_std
+            self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
 
             # data clip
-            factor_min = np.percentile(train_x, 5, axis=0,)
-            factor_max = np.percentile(train_x, 95, axis=0,)
+            clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
+            train_x = _train_data[self.clip_factor_name]
+            factor_min = np.percentile(train_x, 5, axis=0, )
+            factor_max = np.percentile(train_x, 95, axis=0, )
             train_x = np.clip(train_x, factor_min, factor_max)
+            self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
+
 
             # save transform params
-            transform_param['factor_name'] = self.training_factor_name
-            transform_param['mean'] = factor_mean
-            transform_param['std'] = factor_std
-            transform_param['min'] = factor_min
-            transform_param['max'] = factor_max
-            transform_param.insert(0, 'ticker',ticker)
-            self.transform_params.append(transform_param)
-            # restore data at original position
-            self.train_data.loc[_train_data.index, self.training_factor_name] = train_x
+            std_param['factor_name'] = self.std_factor_name
+            std_param['mean'] = factor_mean
+            std_param['std'] = factor_std
+            clip_param['factor_name'] = self.clip_factor_name
+            clip_param['min'] = factor_min
+            clip_param['max'] = factor_max
+            std_param.insert(0, 'ticker', ticker)
+            clip_param.insert(0, 'ticker', ticker)
+            self.std_params.append(std_param)
+            self.clip_params.append(clip_param)
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        svg_path = osp.join(save_folder, f"preprocess_params_indus{self.indus_type}.csv")
-        self.transform_params = pd.concat(self.transform_params)
-        self.transform_params.to_csv(svg_path, index=False)
+        # std
+        std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
+        self.std_params = pd.concat(self.std_params)
+        self.std_params.to_csv(std_path, index=False)
+        # clip
+        clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
+        self.clip_params = pd.concat(self.clip_params)
+        self.clip_params.to_csv(clip_path, index=False)
 
     def rebalance_training_data(self):
         # balance training data

@@ -22,19 +22,25 @@ def save_report_disk(opt):
     report.to_csv(os.path.join(opt['path']['experiments_root'], report_name), index=False)
     print(f"Backtesting report has been saved at {report_name}")
 
-def cat_signals(opt, save_local=False):
+def cat_signals(opt, upload_month=[], save_local=False):
     signal_path = opt['path']['signal_path']
     signal = []
-    for month in signal_path.keys():
+    if len(upload_month) == 0:
+        upload_month = list(signal_path.keys())
+    for month in upload_month:
         csv_folder = signal_path[month]
         res_csv = glob.glob(csv_folder.rstrip('/') + '/*csv')
         for r in res_csv:
             signal.append(pd.read_csv(r))
-
-    signal = pd.concat(signal).reset_index(drop=True)
+    if len(signal) == 1:
+        signal = signal[0]
+    else:
+        signal = pd.concat(signal)
     signal = signal.reset_index(drop=True)
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
+    print(f"Concat signal in {upload_month}")
+
     # save all signals to csv
     if save_local:
         signal_name = '{}_signal.csv'.format(opt['name'])
@@ -43,9 +49,8 @@ def cat_signals(opt, save_local=False):
 
     return signal
 
-def write_table_sql(opt, table_name, if_exists='replace'):
+def write_table_sql(signal, table_name, upload_month=[], if_exists='replace'):
     print(f"Writing signals to sql tabel '{table_name}' now...")
-    signal = cat_signals(opt)
     engine = create_pd_engine('strategy')
     table_name = table_name
     signal.to_sql(table_name, con=engine, index=False, if_exists=if_exists, chunksize=10000,
@@ -57,7 +62,7 @@ def write_table_sql(opt, table_name, if_exists='replace'):
     print(f"Write signals to sql tabel \'{table_name}\' successfully")
 
 
-def push_signal_sql(opt, suffix=''):
+def push_signal_sql(opt, suffix='', upload_month=[], if_exists='append'):
     if 'hs300' in opt['dataset']['pool_name'] and 'zz500' in opt['dataset']['pool_name']:
         pool_name = 'zz800'
     else:
@@ -68,7 +73,9 @@ def push_signal_sql(opt, suffix=''):
         table_name = f"signal_{pool_name}_lowprice_lgbm_{opt['dataset']['ret_name']}"
     if len(suffix) > 0:
         table_name + f'_{suffix}'
-    write_table_sql(opt, table_name)
+
+    signal = cat_signals(opt, upload_month=upload_month)
+    write_table_sql(signal, table_name, upload_month=upload_month, if_exists=if_exists)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
