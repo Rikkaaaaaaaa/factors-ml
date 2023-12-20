@@ -8,7 +8,7 @@ import shutil
 import pandas as pd
 
 from utils.misc import set_random_seed, ensure_path, mkdir
-from dataset.check_data import check_indus
+from dataset.sql_data import check_indus
 from dataset import build_dataset
 from utils.option import yaml_load
 from utils.logger import get_root_logger, get_env_info
@@ -35,13 +35,10 @@ def train_pipeline(train_args):
     if dataset.is_empty:
         return
 
-    #dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/train_data_{test_month}_indus_{indus_type}.csv")
-    #dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/test_data_{test_month}_indus_{indus_type}.csv")
-    for month in  dataset.ret_15s.keys():
-        dataset.ret_15s[month].to_csv(f"{opt['path']['experiments_root']}/y_15s_{month}_indus_{indus_type}.csv")
-        dataset.ret_60s[month].to_csv(f"{opt['path']['experiments_root']}/y_60s_{month}_indus_{indus_type}.csv")
-        dataset.ret_120s[month].to_csv(f"{opt['path']['experiments_root']}/y_120s_{month}_indus_{indus_type}.csv")
-        dataset.ret_300s[month].to_csv(f"{opt['path']['experiments_root']}/y_300s_{month}_indus_{indus_type}.csv")
+    dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv")
+    dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv")
+    dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}.csv")
+
 
 
 def gen_mp_args(opt):
@@ -70,7 +67,7 @@ def main(opt):
 
 def gen_factor():
     root_path = '../'
-    option_path = '../option/generate_dataset.yaml'
+    option_path = '../option/gen_factor/gen_factor_hs300_highprice.yaml'
     opt = yaml_load(option_path)
     # random seed
     seed = opt.get('manual_seed')
@@ -89,6 +86,11 @@ def gen_factor():
     experiments_root = osp.join(experiments_root, opt['name'])
     opt['path']['experiments_root'] = experiments_root
     ensure_path(experiments_root)
+
+    # month path
+    for test_month in opt['dataset']['test_month']:
+        test_month_path = osp.join(experiments_root, str(test_month))
+        mkdir(test_month_path)
 
 
     # log path

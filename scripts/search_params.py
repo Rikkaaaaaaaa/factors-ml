@@ -13,8 +13,7 @@ import time
 import optuna
 import pickle
 
-import utils
-from data_prepare import get_data
+
 
 SEED = 42
 N_TRIALS = 50

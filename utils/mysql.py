@@ -122,3 +122,65 @@ def create_index(database, table_name, index_cols):
         print('create index in table "{}" error: {}'.format(table_name, e))
 
 
+
+def delete_by_test_month_and_ticker_list(database, table_name, test_month, ticker_list):
+    ticker_list_str = list(map(lambda x: '"' + x + '"', ticker_list))
+    ticker_list_str = ','.join(ticker_list_str)
+    ticker_list_str = '(' + ticker_list_str + ')'
+    conn = pymysql.connect(host=host, port=port, user=user, passwd=password, db=database)
+    cursor = conn.cursor()
+    sql = 'delete from {}.{} where test_month={} and ticker in {}'.format(database, table_name, test_month, ticker_list_str)
+    try:
+        cursor.execute(sql)
+        conn.commit()
+        print(sql)
+    except Exception as e:
+        print('run query"{}" error: {}'.format(sql, e))
+    conn.close()
+
+
+def delete_by_date_and_ticker_list(database, table_name, date, ticker_list):
+    ticker_list_str = list(map(lambda x: '"' + x + '"', ticker_list))
+    ticker_list_str = ','.join(ticker_list_str)
+    ticker_list_str = '(' + ticker_list_str + ')'
+    conn = pymysql.connect(host=host, port=port, user=user, passwd=password, db=database)
+    cursor = conn.cursor()
+    sql = 'delete from {}.{} where date={} and ticker in {}'.format(database, table_name, date, ticker_list_str)
+    try:
+        cursor.execute(sql)
+        conn.commit()
+        print(sql)
+    except Exception as e:
+        print('run query"{}" error: {}'.format(sql, e))
+    conn.close()
+
+
+def delete_by_ticker_list(database, table_name, ticker_list):
+    ticker_list_str = list(map(lambda x: '"' + x + '"', ticker_list))
+    ticker_list_str = ','.join(ticker_list_str)
+    ticker_list_str = '(' + ticker_list_str + ')'
+    conn = pymysql.connect(host=host, port=port, user=user, passwd=password, db=database)
+    cursor = conn.cursor()
+    sql = 'delete from {}.{} where ticker in {}'.format(database, table_name, ticker_list_str)
+    try:
+        cursor.execute(sql)
+        conn.commit()
+        print(sql)
+    except Exception as e:
+        print('run query"{}" error: {}'.format(sql, e))
+    conn.close()
+
+
+def delete_by_month(database, table_name, month):
+
+    conn = pymysql.connect(host=host, port=port, user=user, passwd=password, db=database)
+    cursor = conn.cursor()
+    sql = 'delete from {}.{} where date>{} and date<{}'.format(database, table_name, month*100, (month+1)*100 )
+    try:
+        cursor.execute(sql)
+        conn.commit()
+        print(sql)
+    except Exception as e:
+        print('run query"{}" error: {}'.format(sql, e))
+    conn.close()
+

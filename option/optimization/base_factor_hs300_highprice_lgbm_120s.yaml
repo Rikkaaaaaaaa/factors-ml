@@ -1,33 +1,30 @@
-name: base_factor_zz800_lowprice_lgbm_120s
+name: opt_base_factor_hs300_highprice_lgbm_120s
 manual_seed: 2023
 n_jobs: 8
 
-
 # factor dataset
 dataset:
+  type: 'FactorDataset'
   # factor name options
-  factor_db: 'strategy'
-  factor_table: 'factor'
+  factor_table:
+    strategy: ['factor']
   training_factor_name: [ 'base_factor' ]
-  std_factor_name: [ 'base_factor', ]
+  std_factor_name: [ 'base_factor',  ]
   clip_factor_name: [ 'base_factor', ]
   log_factor_name: [ 'log_factor' ]
   reversed_factor_name: [ 'base_factor' ]
-
   # data preprocessing options
-  type: 'FactorDataset'
-  test_month: [202312 ]
+  test_month: [ 202304 ]
   io_backend: sql # disk
-  pool_name: ['hs300', 'zz500']
+  pool_name: ['hs300']
   indus_class: wind1
-  avg_price: 10
-  price_name: lowprice
+  price_name: highprice
   ret_name: 120s
-  std_type: default # trainingset std
-  alpha: 0.0005
-  class_num: 2
+  std_type: default # training set std
   balance: reverse
-
+  avg_price: 10
+  alpha:  0.0005 # or dynamic_rolling
+  class_num: 2
 
 model:
   type: 'LgbmModel'
@@ -35,10 +32,10 @@ model:
 
 train:
   num_epoch: 200
-test:
-  bound_mode: by_ticker # indus/ticker
-  threshold_pct: 10
 
+test:
+  bound_mode: by_ticker # indus or ticker
+  threshold_pct: 5
 
 
 

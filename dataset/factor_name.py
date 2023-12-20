@@ -2,10 +2,14 @@
 
 # all factor names
 __all__ = [ # factor names
-            'base_factor',
+           'base_factor',
            'ofl_factor',
+           'ofl_factor_std',
            'fok_factor',
-            'slope_factor',
+           'slope_factor',
+           'slope_factor_std',
+            'genetic_programming_factor_1',
+            'genetic_programming_factor_2',
            # factor collections
            'batch2_factor',
            # factors need to be preprocessed
@@ -57,21 +61,52 @@ ofl_factor =  ['ask1_ofl_std_3s', 'ask1_ofl_std_15s', 'ask1_ofl_std_min', 'ask1_
                  'close_versus_mid_5min', 'spread_tick_3s', 'spread_tick_15s', 'spread_tick_min', 'spread_tick_2min', 'spread_tick_5min',
                  'ask_wap_versus_mid_3s', 'ask_wap_versus_mid_15s', 'ask_wap_versus_mid_min', 'ask_wap_versus_mid_2min',
                  'ask_wap_versus_mid_5min', 'bid_wap_versus_mid_3s', 'bid_wap_versus_mid_15s', 'bid_wap_versus_mid_min',
+                 'bid_wap_versus_mid_2min', 'bid_wap_versus_mid_5min'
+                 ]
+ofl_factor_std = ['ask_wap_versus_mid_3s', 'ask_wap_versus_mid_15s', 'ask_wap_versus_mid_min', 'ask_wap_versus_mid_2min',
+                 'ask_wap_versus_mid_5min', 'bid_wap_versus_mid_3s', 'bid_wap_versus_mid_15s', 'bid_wap_versus_mid_min',
                  'bid_wap_versus_mid_2min', 'bid_wap_versus_mid_5min']
 
-slope_factor = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_15s', 'slope_ask3_min', 'slope_ask3_2min', 'slope_ask3_5min', 'slope_bid3_3s', 'slope_bid3_15s', 'slope_bid3_min', 'slope_bid3_2min', 'slope_bid3_5min', 'slope_diff3_3s', 'slope_diff3_15s', 'slope_diff3_min', 'slope_diff3_2min', 'slope_diff3_5min', 'slope_ask10_3s', 'slope_ask10_15s', 'slope_ask10_min', 'slope_ask10_2min', 'slope_ask10_5min', 'slope_bid10_15s', 'slope_bid10_3s', 'slope_bid10_min', 'slope_bid10_2min', 'slope_bid10_5min', 'slope_diff10_15s', 'slope_diff10_3s', 'slope_diff10_min', 'slope_diff10_2min', 'slope_diff10_5min', 'slope_askh2_15s', 'slope_askh2_3s', 'slope_askh2_min', 'slope_askh2_2min', 'slope_askh2_5min', 'slope_bidh2_15s', 'slope_bidh2_3s', 'slope_bidh2_min', 'slope_bidh2_2min', 'slope_bidh2_5min', 'EMA_15s', 'EMA_3s', 'EMA_30s', 'EMA_min', 'EMA_2min', 'EMA_5min', 'EMA_std_3s', 'EMA_std_15s', 'EMA_std_min', 'EMA_std_2min', 'EMA_std_5min', 'RSI_15s', 'RSI_3s', 'RSI_min', 'RSI_2min', 'RSI_5min', 'WILLR_15s', 'WILLR_3s', 'WILLR_min', 'WILLR_2min', 'WILLR_5min', 'QR1_2_15s', 'QR1_2_3s', 'QR1_2_min', 'QR1_2_2min', 'QR1_2_5min', 'QR1_3_15s', 'QR1_3_3s', 'QR1_3_min', 'QR1_3_2min', 'QR1_3_5min']
+fok_factor = ['fok_0.5s_9s', 'fok_0.5s_15s', 'fok_0.5s_30s', 'fok_0.5s_60s', 'fok_0.5s_120s',
+                'fok_0.5s_300s', 'fok_2s_9s', 'fok_2s_15s', 'fok_2s_30s', 'fok_2s_60s',
+                'fok_2s_120s', 'fok_2s_300s', 'meta_15s', 'meta_30s', 'meta_60s',
+                'meta_120s', 'meta_300s', 'limit1_15s', 'limit1_30s', 'limit1_60s',
+                'limit1_120s', 'limit1_300s', 'limit2_15s', 'limit2_30s', 'limit2_60s',
+                'limit2_120s', 'limit2_300s', 'trade1_15s', 'trade1_30s', 'trade1_60s',
+                'trade1_120s', 'trade1_300s', 'regret_15s', 'regret_30s', 'regret_60s',
+                'regret_120s', 'regret_300s']
 
-genetic_factor = ['genetic_programming_1', 'genetic_programming_2', 'genetic_programming_3', 'genetic_programming_4',
-                     'genetic_programming_5', 'genetic_programming_6', 'genetic_programming_7', 'genetic_programming_8',
-                     'genetic_programming_9', 'genetic_programming_10']
+
+slope_factor = [ 'skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_15s', 'slope_ask3_min',
+                    'slope_ask3_2min', 'slope_ask3_5min', 'slope_bid3_3s', 'slope_bid3_15s', 'slope_bid3_min',
+                    'slope_bid3_2min', 'slope_bid3_5min', 'slope_diff3_3s', 'slope_diff3_15s', 'slope_diff3_min',
+                    'slope_diff3_2min', 'slope_diff3_5min', 'slope_ask10_3s', 'slope_ask10_15s', 'slope_ask10_min',
+                    'slope_ask10_2min', 'slope_ask10_5min', 'slope_bid10_15s', 'slope_bid10_3s', 'slope_bid10_min',
+                    'slope_bid10_2min', 'slope_bid10_5min', 'slope_diff10_15s', 'slope_diff10_3s', 'slope_diff10_min',
+                    'slope_diff10_2min', 'slope_diff10_5min', 'slope_askh2_15s', 'slope_askh2_3s', 'slope_askh2_min',
+                    'slope_askh2_2min', 'slope_askh2_5min', 'slope_bidh2_15s', 'slope_bidh2_3s', 'slope_bidh2_min',
+                    'slope_bidh2_2min', 'slope_bidh2_5min', 'EMA_15s', 'EMA_std_15s', 'RSI_15s',
+                    'RSI_3s', 'RSI_min', 'RSI_2min', 'RSI_5min', 'WILLR_15s', 'WILLR_3s', 'WILLR_min', 'WILLR_2min',
+                    'WILLR_5min', 'QR1_2_15s', 'QR1_2_3s', 'QR1_2_min', 'QR1_2_2min', 'QR1_2_5min', 'QR1_3_15s',
+                    'QR1_3_3s', 'QR1_3_min', 'QR1_3_2min', 'QR1_3_5min']
+
+slope_factor_std = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_15s', 'slope_ask3_min',
+                    'slope_ask3_2min', 'slope_ask3_5min', 'slope_bid3_3s', 'slope_bid3_15s', 'slope_bid3_min',
+                    'slope_bid3_2min', 'slope_bid3_5min', 'slope_diff3_3s', 'slope_diff3_15s', 'slope_diff3_min',
+                    'slope_diff3_2min', 'slope_diff3_5min', 'slope_ask10_3s', 'slope_ask10_15s', 'slope_ask10_min',
+                    'slope_ask10_2min', 'slope_ask10_5min', 'slope_bid10_15s', 'slope_bid10_3s', 'slope_bid10_min',
+                    'slope_bid10_2min', 'slope_bid10_5min', 'slope_diff10_15s', 'slope_diff10_3s', 'slope_diff10_min',
+                    'slope_diff10_2min', 'slope_diff10_5min', 'slope_askh2_15s', 'slope_askh2_3s', 'slope_askh2_min',
+                    'slope_askh2_2min', 'slope_askh2_5min', 'slope_bidh2_15s', 'slope_bidh2_3s', 'slope_bidh2_min',
+                    'slope_bidh2_2min', 'slope_bidh2_5min', 'EMA_15s',]
+
+genetic_programming_factor_1 = ['genetic_programming_1', 'genetic_programming_2', 'genetic_programming_3', 'genetic_programming_4',
+                     'genetic_programming_5', 'genetic_programming_6', 'genetic_programming_7', 'genetic_programming_8',]
 
 
+genetic_programming_factor_2 = ['genetic_programming_{}'.format(x) for x in range(1, 37)]
 
-# fok factor
-fok_factor = ['fok_0.5s_9s', 'fok_0.5s_15s', 'fok_0.5s_30s', 'fok_0.5s_60s', 'fok_0.5s_120s', 'fok_0.5s_300s',
-              'fok_2s_9s', 'fok_2s_15s', 'fok_2s_30s', 'fok_2s_60s', 'fok_2s_120s', 'fok_2s_300s', 'meta_15s',
-              'meta_30s', 'meta_60s', 'meta_120s', 'meta_300s', 'limit_1']
-             # ['fok_1', 'fok_2', 'fok_3', 'fok_4', 'fok_5', 'fok_6', 'fok_7', 'fok_8', 'fok_9', 'meta_1']
+
 
 # log format factor list
 log_factor = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
@@ -83,8 +118,10 @@ log_factor = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s
                    'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s']
 
 # factor group
-batch2_factor = base_factor + ofl_factor + fok_factor + slope_factor
-batch3_factor = base_factor + ofl_factor + genetic_factor + slope_factor
+batch1_factor = base_factor + ofl_factor
+batch2_factor = base_factor + ofl_factor + fok_factor
+batch3_factor = base_factor + ofl_factor + fok_factor + slope_factor
+batch4_factor = base_factor + ofl_factor + fok_factor + slope_factor + genetic_programming_factor_1
 
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }
@@ -97,4 +134,5 @@ def build_factor_name(name):
             factor_name.extend(FACTOR_NAME[n])
     if isinstance(name, str):
         factor_name = name
+
     return factor_name

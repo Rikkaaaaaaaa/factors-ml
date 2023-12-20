@@ -2,7 +2,7 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 
-from dataset.check_data import check_indus
+from dataset.sql_data import check_indus
 from dataset import build_dataset
 from models import build_model
 from backtester import BackTester
@@ -28,7 +28,7 @@ def train_pipeline(train_args):
     dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
     dataset.load_data()
     if dataset.is_empty:
-        logger.info("Dataset is empty!")
+        logger.info(f"{test_month}_indus_{indus_type}: Dataset is empty!")
         return
     x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
 
@@ -55,6 +55,7 @@ def gen_mp_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         industry = check_indus(opt, test_month)
+        #industry = [10]
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
@@ -71,6 +72,7 @@ def main(opt):
     pool.close()
     pool.join()
     print("Task time is {}".format(time_str(global_timer.item())))
+    # save report
     if not opt['is_runtime']:
         save_report_disk(opt)
 
@@ -79,5 +81,6 @@ if __name__ == '__main__':
     root_path = './'
     opt = parse_options(root_path)
     main(opt)
+    #save_report_disk(opt)
 
 

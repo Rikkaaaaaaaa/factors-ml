@@ -41,11 +41,12 @@ if __name__ == '__main__':
     print(factor1)
     factor2 = get_factor_list('factor_test', 'factor_202301')
     print(factor2)
-    factor3 = get_factor_list('factor_test', 'batch3_factor_202301')
-    print(factor3)
     factor3 = get_factor_list('factor_test', 'fok_factor_202301')
     print(factor3)
-    factor4 = get_factor_list('factor_test', 'all_factor_202301')
-    print(factor4)
+    factor3 = get_factor_list('factor_test', 'slope_factor_202301')
+    print(factor3)
+    factor4 = get_factor_list('factor_test', 'ofl_factor_202301')
+    print(len(factor4))
+
 
 

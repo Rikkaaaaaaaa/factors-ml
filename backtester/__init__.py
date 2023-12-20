@@ -1,1 +1,2 @@
 from backtester.backtester import BackTester
+from backtester.search_backtester import SearchBackTester

@@ -126,6 +126,52 @@ class LgbmModel():
         return self.selected_factor
 
 
+    def search_params(self, x_train, y_train, x_test, y_test, callbacks=[]):
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LGBM model...")
+        train_matrix = lgb.Dataset(x_train, label=y_train)
+        valid_matrix = lgb.Dataset(x_test, label=y_test)
+        if self.class_num == 3:
+            params = {
+                'boosting_type': 'gbdt',
+                'objective': 'multiclass',
+                'metric': 'multi_logloss',
+                'learning_rate': 0.1,
+                'num_class': 3,
+                'min_child_weight': 1e-3,
+                'num_leaves': 30,
+                'max_depth': -1,
+                'lambda_l1': 0.4,
+                'lambda_l2': 0.5,
+                'feature_fraction': 1,
+                'bagging_fraction': 1,
+                'bagging_freq': 0,
+                'seed':  self.opt['manual_seed'],
+                'nthread': self.opt['model']['n_cpus'],
+                'verbose': -1,
+            }
+        if self.class_num == 2:
+            params = {
+                'seed': self.opt['manual_seed'],
+                "objective": "binary",
+                "metric": "auc",
+                "boosting_type": "gbdt",
+                'max_bin': 255,
+                "learning_rate": 0.1,
+                "max_depth": -1,
+                "num_leaves": 30,
+                "feature_fraction": 0.8,
+                "bagging_fraction": 0.8,
+                "bagging_freq": 5,
+                # 'min_sum_hessian_in_leaf': 3.0,
+
+                "verbosity": -1,
+                'n_jobs': self.opt['model']['n_cpus'],
+            }
+
+        self.model = lgb.train(params, train_set=train_matrix, valid_sets=[valid_matrix], callbacks=callbacks,num_boost_round=self.num_epoch)
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
+
+
 
 
 

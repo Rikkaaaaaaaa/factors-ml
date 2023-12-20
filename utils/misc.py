@@ -9,7 +9,7 @@ import os.path as osp
 def list2str(input_list):
     msg = ''
     for i in input_list:
-        msg += str(i)
+        msg += str(i) + ' '
     return msg
 
 
@@ -50,6 +50,12 @@ def ensure_path(path, remove=False):
     else:
         os.makedirs(path)
 
+def ensure_table_name(database, table_name):
+
+    if input('Saving to {}.{} (y/n)'.format(database, table_name)) == 'y':
+        pass
+    else:
+        pass
 
 def mkdir(path):
     if not os.path.exists(path):

@@ -41,7 +41,7 @@ class AvgTimer():
         return self.avg_time
 
 
-def get_root_logger(logger_name='factor-ml', log_level=logging.INFO, log_file=None):
+def get_root_logger(logger_name='', log_level=logging.INFO, log_file=None):
     """Get the root logger.
 
     The logger will be initialized if it has not been initialized. By default a
@@ -59,7 +59,10 @@ def get_root_logger(logger_name='factor-ml', log_level=logging.INFO, log_file=No
     Returns:
         logging.Logger: The root logger.
     """
-    logger = logging.getLogger(logger_name)
+    if logger_name:
+        logger = logging.getLogger(logger_name)
+    else:
+        logger = logging.getLogger()
     # if the logger has been initialized, just return it
     if logger_name in initialized_logger:
         return logger
@@ -98,11 +101,11 @@ def get_env_info():
          |______\___\_\ /_/    \_\______\_____|\____/ 
                                               
     """
-    msg += ('\nVersion Information: '
-            f'\n\tBasicAlgo: {__version__}'
-            #f'\n\tPyTorch: {torch.__version__}'
-            #f'\n\tTorchVision: {torchvision.__version__}'
-             )
+    # msg += ('\nVersion Information: '
+    #         f'\n\tBasicAlgo: {__version__}'
+    #         #f'\n\tPyTorch: {torch.__version__}'
+    #         #f'\n\tTorchVision: {torchvision.__version__}'
+    #          )
 
     msg += ('\nVersion Information: '
             f'\n\tBasic-ALgo: {__version__}')

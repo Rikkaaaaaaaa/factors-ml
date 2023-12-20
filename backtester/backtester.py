@@ -48,7 +48,11 @@ class BackTester():
             for ticker in tbar:
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
                 # load train and test array from dataframe
-                train_data = factor_data.train_data.query('ticker==@ticker and augment==0') # bound proba come from original data
+                if self.opt['dataset'].get('balance') == 'reverse':
+                    ticker_data_query = 'ticker==@ticker and augment==0'
+                else:
+                    ticker_data_query = 'ticker==@ticker'
+                train_data = factor_data.train_data.query(ticker_data_query) # bound proba come from original data
                 test_data = factor_data.test_data.query('ticker==@ticker')
                 x_train = train_data[self.training_factor_name]
                 x_test = test_data[self.training_factor_name]
@@ -65,7 +69,9 @@ class BackTester():
                 self._pre_proba = model.predict(x_test)
 
                 # compute null idx in test data
-                self._null_idx = np.isnan(test_data[self.training_factor_name + ['ret']].values).any(axis=1)
+                #self._null_idx = np.isnan(test_data[self.training_factor_name + ['ret']].values).any(axis=1)
+                training_factor_name = test_data.drop(['ticker', 'date', 'time', 'class_label', 'ret'], axis=1).columns
+                self._null_idx = np.isnan(test_data[list(training_factor_name) + ['ret']].values).any(axis=1)
                 #self._null_idx = np.isnan(test_data[self.training_factor_name].values).any(axis=1) # factor nan
 
                 # compute metric with not null data
@@ -189,7 +195,11 @@ class BackTester():
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
 
                 # load train and test array from df
-                train_data = factor_data.train_data.query('ticker==@ticker and augment==0')
+                if self.opt['dataset'].get('balance') == 'reverse':
+                    ticker_data_query = 'ticker==@ticker and augment==0'
+                else:
+                    ticker_data_query = 'ticker==@ticker'
+                train_data = factor_data.train_data.query(ticker_data_query)
                 x_train = train_data[self.training_factor_name]
                 self._ticker = ticker
 
