@@ -114,6 +114,6 @@ def main(opt):
 
 if __name__ == '__main__':
     root_path = './'
-    opt = parse_options(root_path)
+    opt, args = parse_options(root_path)
     main(opt)
 
