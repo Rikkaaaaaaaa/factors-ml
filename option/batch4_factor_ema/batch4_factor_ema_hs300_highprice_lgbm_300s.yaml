@@ -1,0 +1,42 @@
+name: batch4_factor_ema_hs300_highprice_lgbm_300s
+manual_seed: 2023
+n_jobs: 8
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_table:
+    strategy: ['factor']
+    factor_test: [ 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2']
+  training_factor_name: [ 'base_factor', 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2' ]
+  std_factor_name: [ 'base_factor', 'slope_factor_std', 'genetic_programming_factor_2']
+  clip_factor_name: [ 'base_factor', 'ofl_factor', 'slope_factor', 'genetic_programming_factor_2']
+  log_factor_name: [ 'log_factor' ]
+
+  # data preprocessing options
+  type: 'FactorDataset'
+  test_month: [202309, 202310, 202311]
+  training_month_num: 3
+  io_backend: sql # disk
+  pool_name: ['hs300']
+  indus_class: wind1
+  avg_price: 10
+  price_name: highprice
+  ret_name: 300s
+  std_type: default # trainingset std
+  alpha: 0.001
+  class_num: 2
+  balance: reverse
+
+model:
+  type: 'LgbmModel'
+  n_cpus: 8
+
+train:
+  num_epoch: 200
+test:
+  bound_mode: by_ticker # indus/ticker
+  threshold_pct: 20
+
+
+
