@@ -83,4 +83,5 @@ class Registry():
 # define register for different object
 DATASET_REGISTRY = Registry('dataset')
 MODEL_REGISTRY = Registry('models')
+SELECTOR_REGISTRY = Registry('selectors')
 
