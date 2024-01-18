@@ -4,7 +4,6 @@ import pandas as pd
 import os
 import sqlalchemy.types
 
-from utils.option import parse_options
 from utils.mysql import create_pd_engine, create_index
 from utils import ensure_table_name, delete_by_month
 
@@ -35,8 +34,11 @@ def cat_signals(opt, upload_month=[], save_local=False):
             signal.append(pd.read_csv(r))
     if len(signal) == 1:
         signal = signal[0]
-    else:
+    elif len(signal) > 1:
         signal = pd.concat(signal)
+    else:
+        raise ValueError("No signal exists, please check option path!")
+
     signal = signal.reset_index(drop=True)
     signal = signal[['ticker', 'date', 'time', 'signal', 'proba', 'up_bound', 'down_bound']]
     signal.rename(columns={'signal': 'signal_{}'.format(opt['dataset']['ret_name'])}, inplace=True)
@@ -69,9 +71,9 @@ def push_signal_sql(opt, suffix='', upload_month=[], database='strategy', if_exi
     else:
         pool_name = opt['dataset']['pool_name'][-1]
     if opt['dataset']['price_name'] == 'highprice':
-        table_name = f"signal_{pool_name}_highprice_lgbm_{opt['dataset']['ret_name']}"
+        table_name = f"signal_{pool_name}_highprice_{opt['model']['type'].lower()}_{opt['dataset']['ret_name']}"
     else:
-        table_name = f"signal_{pool_name}_lowprice_lgbm_{opt['dataset']['ret_name']}"
+        table_name = f"signal_{pool_name}_lowprice_{opt['model']['type'].lower()}_{opt['dataset']['ret_name']}"
     if suffix != '':
         table_name += f"_{suffix}"
 

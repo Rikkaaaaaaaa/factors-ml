@@ -78,9 +78,12 @@ def yaml_load(f):
 
 def parse_options(root_path):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='option/lr_test/slope_hs300_highprice_lr_300s.yaml', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='option/batch4_factor_select/batch4_factor_manual_select150_hs300_highprice_lgbm_300s.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_runtime', action='store_true', help='Whether the phase is backtesting or runtime')
     parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+
+    # for pushing signal
+    parser.add_argument('-suffix', type=str, default='', help='signal file name suffix')
     args = parser.parse_args()
 
     # parse yml to dict
@@ -117,6 +120,7 @@ def parse_options(root_path):
     opt['path']['preprocess_path'] = dict()
     opt['path']['inference_path'] = dict()
     opt['path']['signal_path'] = dict()
+    opt['path']['selection_path'] = dict()
     for test_month in opt['dataset']['test_month']:
         model_path = osp.join(experiments_root, str(test_month), 'ckpt')
         opt['path']['model_path'][test_month] = model_path
@@ -138,6 +142,11 @@ def parse_options(root_path):
         opt['path']['signal_path'][test_month] = signal_path
         mkdir(signal_path)
 
+        if opt.get('feature_selector'):
+            selection_path = osp.join(opt['path']['experiments_root'], str(test_month), 'factor_selection')
+            opt['path']['selection_path'][test_month] = selection_path
+            if not os.path.exists(selection_path):
+                os.makedirs(selection_path)
 
 
     # log path
@@ -150,5 +159,5 @@ def parse_options(root_path):
     # copy option
     shutil.copy2(args.option, opt['path']['experiments_root'])
 
-    return opt
+    return opt, args
 
