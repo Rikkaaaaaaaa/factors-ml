@@ -3,6 +3,7 @@ import os.path as osp
 import pandas as pd
 from tqdm import tqdm
 import traceback
+from sklearn.decomposition import PCA
 
 from dataset import build_factor_name
 from utils.logger import get_root_logger
@@ -36,7 +37,7 @@ class BackTester():
         '''
         backtest data and save results. bound values and signals
          '''
-        if hasattr(factor_data, 'selected_factor'):
+        if hasattr(factor_data, 'selected_factor') and self.opt['feature_selector']['type'] != 'PCASelector':
             self.training_factor_name = factor_data.selected_factor
 
         try:
@@ -54,8 +55,22 @@ class BackTester():
                     ticker_data_query = 'ticker==@ticker'
                 train_data = factor_data.train_data.query(ticker_data_query) # bound proba come from original data
                 test_data = factor_data.test_data.query('ticker==@ticker')
-                x_train = train_data[self.training_factor_name]
-                x_test = test_data[self.training_factor_name]
+                # PCA by indus
+                if hasattr(factor_data, 'selected_factor') and self.opt['feature_selector']['type'] == 'PCASelector':
+                    x_train = train_data[self.training_factor_name].copy()
+                    train_null_idx = np.isnan(x_train)
+                    x_train = x_train.fillna(0)
+                    x_train = factor_data.selected_factor.inverse_transform(factor_data.selected_factor.transform(x_train))
+                    x_train[train_null_idx] = np.nan
+
+                    x_test = test_data[self.training_factor_name].copy()
+                    test_null_idx = np.isnan(x_test)
+                    x_test = x_test.fillna(0)
+                    x_test = factor_data.selected_factor.inverse_transform(factor_data.selected_factor.transform(x_test))
+                    x_test[test_null_idx] = np.nan
+                else:
+                    x_train = train_data[self.training_factor_name]
+                    x_test = test_data[self.training_factor_name]
 
                 # test ret time date ticker used for signal record
                 self._ticker = ticker

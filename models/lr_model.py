@@ -26,7 +26,7 @@ class LRModel():
     def train(self, x_train, y_train):
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LR model...")
         # self.model = sm.Logit(y_train, sm.add_constant(x_train, has_constant='add')).fit(disp=False)
-        self.model = LogisticRegression()
+        self.model = LogisticRegression(fit_intercept=False, n_jobs=self.opt['model']['n_cpus'], random_state=self.opt['manual_seed'],)
         self.model.fit(sm.add_constant(x_train, has_constant='add'), y_train)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
 
