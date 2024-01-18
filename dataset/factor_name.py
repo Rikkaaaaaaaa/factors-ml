@@ -10,6 +10,7 @@ __all__ = [ # factor names
            'slope_factor_std',
             'genetic_programming_factor_1',
             'genetic_programming_factor_2',
+            'genetic_programming_factor_3',
            # factor collections
            'batch2_factor',
            # factors need to be preprocessed
@@ -44,8 +45,6 @@ base_factor = factor_list[1:] + indus_factor_name + mkt_factor_name
 
 
 # orderflow factor
-
-
 ofl_factor =  ['ask1_ofl_std_3s', 'ask1_ofl_std_15s', 'ask1_ofl_std_min', 'ask1_ofl_std_2min', 'ask1_ofl_std_5min', 'bid1_ofl_std_3s',
                  'bid1_ofl_std_15s', 'bid1_ofl_std_min', 'bid1_ofl_std_2min', 'bid1_ofl_std_5min', 'ofl1_std_3s', 'ofl1_std_15s',
                  'ofl1_std_min', 'ofl1_std_2min', 'ofl1_std_5min', 'ask2_ofl_std_3s', 'ask2_ofl_std_15s', 'ask2_ofl_std_min',
@@ -85,10 +84,12 @@ slope_factor = [ 'skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_
                     'slope_bid10_2min', 'slope_bid10_5min', 'slope_diff10_15s', 'slope_diff10_3s', 'slope_diff10_min',
                     'slope_diff10_2min', 'slope_diff10_5min', 'slope_askh2_15s', 'slope_askh2_3s', 'slope_askh2_min',
                     'slope_askh2_2min', 'slope_askh2_5min', 'slope_bidh2_15s', 'slope_bidh2_3s', 'slope_bidh2_min',
-                    'slope_bidh2_2min', 'slope_bidh2_5min', 'EMA_15s', 'EMA_std_15s', 'RSI_15s',
-                    'RSI_3s', 'RSI_min', 'RSI_2min', 'RSI_5min', 'WILLR_15s', 'WILLR_3s', 'WILLR_min', 'WILLR_2min',
-                    'WILLR_5min', 'QR1_2_15s', 'QR1_2_3s', 'QR1_2_min', 'QR1_2_2min', 'QR1_2_5min', 'QR1_3_15s',
-                    'QR1_3_3s', 'QR1_3_min', 'QR1_3_2min', 'QR1_3_5min']
+                    'slope_bidh2_2min', 'slope_bidh2_5min',  'RSI_15s','RSI_3s', 'RSI_min', 'RSI_2min', 'RSI_5min',
+                    'WILLR_15s', 'WILLR_3s', 'WILLR_min', 'WILLR_2min','WILLR_5min', 'QR1_2_15s', 'QR1_2_3s',
+                    'QR1_2_min', 'QR1_2_2min', 'QR1_2_5min', 'QR1_3_15s','QR1_3_3s', 'QR1_3_min', 'QR1_3_2min', 'QR1_3_5min',
+                    #'EMA_3s', 'EMA_15s', 'EMA_min', 'EMA_2min', 'EMA_5min',
+                    #'EMA_std_3s', 'EMA_std_15s', 'EMA_std_min', 'EMA_std_2min', 'EMA_std_5min'
+                 ]
 
 slope_factor_std = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_15s', 'slope_ask3_min',
                     'slope_ask3_2min', 'slope_ask3_5min', 'slope_bid3_3s', 'slope_bid3_15s', 'slope_bid3_min',
@@ -98,13 +99,17 @@ slope_factor_std = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_as
                     'slope_bid10_2min', 'slope_bid10_5min', 'slope_diff10_15s', 'slope_diff10_3s', 'slope_diff10_min',
                     'slope_diff10_2min', 'slope_diff10_5min', 'slope_askh2_15s', 'slope_askh2_3s', 'slope_askh2_min',
                     'slope_askh2_2min', 'slope_askh2_5min', 'slope_bidh2_15s', 'slope_bidh2_3s', 'slope_bidh2_min',
-                    'slope_bidh2_2min', 'slope_bidh2_5min', 'EMA_15s',]
+                    'slope_bidh2_2min', 'slope_bidh2_5min',
+                    #'EMA_3s', 'EMA_15s', 'EMA_min', 'EMA_2min', 'EMA_5min',
+                    #'EMA_std_3s', 'EMA_std_15s', 'EMA_std_min', 'EMA_std_2min', 'EMA_std_5min'
+                    ]
 
 genetic_programming_factor_1 = ['genetic_programming_1', 'genetic_programming_2', 'genetic_programming_3', 'genetic_programming_4',
                      'genetic_programming_5', 'genetic_programming_6', 'genetic_programming_7', 'genetic_programming_8',]
 
 
 genetic_programming_factor_2 = ['genetic_programming_{}'.format(x) for x in range(1, 37)]
+genetic_programming_factor_3 = ['genetic_programming_{}'.format(x) for x in range(37, 60)]
 
 
 

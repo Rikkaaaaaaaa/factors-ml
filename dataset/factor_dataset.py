@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 import os.path as osp
 import traceback
-import sys
+from sklearn.decomposition import PCA
 
 from utils import list2str
 from dataset import build_factor_name
-from dataset.sql_data import load_ticker_by_indus, align_factor_ticker, load_factor_by_table
+from dataset.sql_data import load_ticker_by_indus, align_factor_ticker, load_factor_by_table, check_rebalanced
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
@@ -28,11 +28,16 @@ class FactorDataset():
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
+        # logging file
+        logger_name = f"month{test_month}_indus{indus_type}"
+        self.logger = get_root_logger(logger_name=logger_name)
+        # init params
         self.ret_name = self.opt['dataset']['ret_name']
         self.price_name = self.opt['dataset']['price_name']
         self.avg_price = self.opt['dataset']['avg_price']
-        self.alpha = self.opt['dataset']['alpha']
         self.is_runtime = self.opt['is_runtime']
+        self.training_month = self.get_training_month()
+        self.training_month_num = len(self.training_month)
         self.indus_class = self.opt['dataset']['indus_class']
         self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
@@ -42,19 +47,15 @@ class FactorDataset():
         self.std_factor_name = build_factor_name(self.opt['dataset']['std_factor_name'])
         self.clip_factor_name = build_factor_name(self.opt['dataset']['clip_factor_name'])
         self.log_factor_name = build_factor_name(self.opt['dataset']['log_factor_name'])
-        # init attri
-        self.training_month = self.get_training_month()
-        self.is_rebalanced = self.get_rebalanced_index()
+
+        # bool params
         self.debug_mode = self.opt['debug']
         self.is_empty = False
-        # logging file
-        logger_name = f"month{test_month}_indus{indus_type}"
-        self.logger = get_root_logger(logger_name=logger_name)
+
 
 
 
     def load_data(self):
-
         # Ingest Ticker List
 
         # read tickers from mysql
@@ -68,6 +69,8 @@ class FactorDataset():
         # Ingest Factor and Return
 
         # read data from mysql
+        need_rebalanced_month = check_rebalanced(self.training_month, self.test_month)
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Checking need_rebalanced_month: {need_rebalanced_month} ")
         data = dict() # restore data by month
         for month in self.training_month:
             data[month] = self.load_data_from_sql(month)
@@ -83,12 +86,15 @@ class FactorDataset():
             self.is_empty = True
             return
 
+        # get alpha
+        self.alpha = self.get_alhpa(train_data)
         # make labels according to returns
         train_data, test_data = self.make_label(train_data, test_data)
         # filter train_data with return
-        train_data, test_data = self.filter_by_label(train_data, test_data)
+        train_data = self.filter_by_label(train_data)
         # delete nan in train data
         train_data = self.del_null_value(train_data)
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start transforming data and saving preprocess params")
         # transforming data, including std, clip, save params by ticker
         if self.is_runtime:
             # cancel backtesting in test_data
@@ -114,7 +120,7 @@ class FactorDataset():
             # align training and testing ticker list
             all_ticker = cur_ticker.copy()
             check_ticker_month = self.get_check_ticker_month()
-            align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month)
+            align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month, self.training_month_num)
 
             # check whether ticker list is null
             if len(ticker_list) == 0:
@@ -141,7 +147,7 @@ class FactorDataset():
             for i, database in enumerate(self.database_name):
                 for table in self.factor_table[database]:
                     # load factors from sql
-                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month)
+                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month, self.training_month_num)
                     # preprocess(log...)
                     self.preprocess(factor)
                     # merge factors from every table
@@ -199,6 +205,19 @@ class FactorDataset():
             test_data = data[self.test_month]
         return train_data, test_data
 
+    def get_alhpa(self, train_data):
+        if isinstance(self.opt['dataset']['alpha'], dict):
+            if self.opt['dataset']['alpha'].get('type') == 'dynamic':
+                if self.opt['dataset']['alpha'].get('quantile'):
+                    quantile = self.opt['dataset']['alpha'].get('quantile')
+                    alpha = np.quantile(train_data['ret'].dropna(), quantile)
+                    # if alpha == 0:
+                    #     alpha = 5e-4
+        else:
+            alpha = self.opt['dataset']['alpha']
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training with return threshold={alpha:.6f}")
+        return alpha
+
 
     def make_label(self, train_data, test_data):
         '''
@@ -224,14 +243,14 @@ class FactorDataset():
         return train_data, test_data
 
 
-    def filter_by_label(self, train_data, test_data):
+    def filter_by_label(self, train_data):
         # filter
         total_train_num = len(train_data)
         if self.class_num == 2:
             train_data = train_data.query('class_label != 2')
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Select {len(train_data) / total_train_num * 100:.2f}% train data with return={self.alpha} and class num is {self.class_num}.")
 
-        return train_data, test_data
+        return train_data
 
 
     def del_null_value(self, train_data):
@@ -247,11 +266,11 @@ class FactorDataset():
         self.clip_params = []
 
         for ticker in self.tickers:
-            _train_data = self.train_data.query('ticker==@ticker')
-            _test_data = self.test_data.query('ticker==@ticker')
 
             # data std
             if len(self.std_factor_name) > 0:
+                _train_data = self.train_data.query('ticker==@ticker')
+                _test_data = self.test_data.query('ticker==@ticker')
                 # split data to train_x and test_x
                 train_x = _train_data[self.std_factor_name]
                 test_x = _test_data[self.std_factor_name]
@@ -292,6 +311,24 @@ class FactorDataset():
                 clip_param.insert(0, 'ticker', ticker)
                 self.clip_params.append(clip_param)
 
+            # # pca by ticker
+            # pca_model = PCA(n_components=100)
+            # _train_data = self.train_data.query('ticker==@ticker').copy()
+            # _test_data = self.test_data.query('ticker==@ticker').copy()
+            # train_x = _train_data[self.training_factor_name]
+            # test_x = _test_data[self.training_factor_name]
+            # train_null_idx = np.isnan(train_x)
+            # test_null_idx = np.isnan(test_x)
+            # pca_model.fit(train_x[~train_null_idx.any(axis=1)])
+            #
+            # train_x= pca_model.inverse_transform(pca_model.transform(train_x.fillna(0)))
+            # test_x = pca_model.inverse_transform(pca_model.transform(test_x.fillna(0)))
+            # train_x[train_null_idx] = np.nan
+            # test_x[test_null_idx] = np.nan
+            #
+            # self.train_data.loc[_train_data.index, self.training_factor_name] = train_x
+            # self.test_data.loc[_test_data.index, self.training_factor_name] = test_x
+
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]
         # std
@@ -312,12 +349,13 @@ class FactorDataset():
         self.std_params = []
         self.clip_params = []
         for ticker in self.tickers:
-            _train_data = self.train_data.query('ticker==@ticker')
-            # split data to train_x and test_x
-            train_x = _train_data[self.std_factor_name]
 
             # data std
             if len(self.std_factor_name) > 0:
+                _train_data = self.train_data.query('ticker==@ticker')
+                # split data to train_x and test_x
+                train_x = _train_data[self.std_factor_name]
+
                 std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
                 factor_mean = np.mean(train_x, axis=0).values
                 factor_std = np.std(train_x, axis=0).values
@@ -332,8 +370,10 @@ class FactorDataset():
 
             # data clip
             if len(self.clip_factor_name) > 0:
-                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
+                _train_data = self.train_data.query('ticker==@ticker')
                 train_x = _train_data[self.clip_factor_name]
+
+                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
                 factor_min = np.percentile(train_x, 5, axis=0, )
                 factor_max = np.percentile(train_x, 95, axis=0, )
                 train_x = np.clip(train_x, factor_min, factor_max)
@@ -389,16 +429,28 @@ class FactorDataset():
         if self.class_num == 2 and self.opt['dataset'].get('balance') == 'downsample':
             self.train_data = self.down_sample(self.train_data)
 
+
     def get_training_month(self):
-        if self.test_month % 100 == 1:
-            training_month = [(self.test_month) - 100 + 9, (self.test_month) - 100 + 10, (self.test_month) - 100 + 11]
-        elif self.test_month % 100 == 2:
-            training_month = [(self.test_month) - 100 + 9, (self.test_month) - 100 + 10, self.test_month - 1]
-        elif self.test_month % 100 == 3:
-            training_month = [(self.test_month) - 100 + 9, self.test_month - 2, self.test_month - 1]
+        def get_pre_month(month, pre_num):
+            int_year = month // 100
+            int_month = month - int_year * 100
+            if int_month <= pre_num:
+                res_year = int_year - (pre_num - int_month) // 12 - 1
+                res_month = 12 - (pre_num - int_month) % 12
+                res = int(res_year * 100 + res_month)
+            else:
+                res = month - pre_num
+            return res
+
+        if isinstance(self.opt['dataset'].get('training_month_num'), int):
+            training_month_num = self.opt['dataset'].get('training_month_num')
         else:
-            training_month = [self.test_month - 3, self.test_month - 2, self.test_month - 1]
+            training_month_num = 3
+        training_month = [get_pre_month(self.test_month, training_month_num - i) for i in range(0, training_month_num)]
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training set include {training_month}")
+
         return training_month
+
 
     def get_check_ticker_month(self):
         if not self.is_runtime:
@@ -409,25 +461,14 @@ class FactorDataset():
         return check_ticker_month
 
 
-    def get_rebalanced_index(self):
-        if self.test_month % 100 in [1, 2, 3, 7, 8, 9]:
-            return True
-        else:
-            return False
-
-
     def set_selected_factor(self, selected_factor):
         self.selected_factor = selected_factor
-
-
-
-
 
 
 if __name__ == '__main__':
     from utils.option import parse_options
 
-    opt = parse_options('./')
+    opt, args = parse_options('./')
     indus_type = 1
     dataset = FactorDataset(opt, 202307, indus_type)
     dataset.load_data()

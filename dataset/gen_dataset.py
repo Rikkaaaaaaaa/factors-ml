@@ -399,7 +399,7 @@ class GenDataset():
 if __name__ == '__main__':
     from utils.option import parse_options
 
-    opt = parse_options('./')
+    opt, args = parse_options('./')
     indus_type = 1
-    dataset = FactorDataset(opt, 202307, indus_type)
+    dataset = GenDataset(opt, 202307, indus_type)
     dataset.load_data()

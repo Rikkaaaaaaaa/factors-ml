@@ -13,6 +13,7 @@ from dataset import build_dataset
 from utils.option import yaml_load
 from utils.logger import get_root_logger, get_env_info
 from utils.misc import Timer, time_str, get_time_str, exists_results
+import lightgbm as lgbm
 
 
 
@@ -35,10 +36,42 @@ def train_pipeline(train_args):
     if dataset.is_empty:
         return
 
-    dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv")
-    dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv")
-    dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}.csv")
+    # train_data_pred, test_data_pred = gen_lgbm_regression_pred_result(dataset)
+    # train_data_pred.to_csv(
+    #     f"{opt['path']['experiments_root']}/{test_month}/train_pred_result_{test_month}_indus_{indus_type}.csv")
+    # test_data_pred.to_csv(
+    #     f"{opt['path']['experiments_root']}/{test_month}/test_pred_result_{test_month}_indus_{indus_type}.csv")
 
+    #dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv")
+    #dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv")
+    dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}_indus_{indus_type}.csv")
+
+
+def gen_lgbm_regression_pred_result(dataset):
+    train_data = dataset.train_data.merge(dataset.labels, on=['ticker', 'date', 'time'], how='inner')
+    test_data = dataset.test_data.merge(dataset.labels, on=['ticker', 'date', 'time'], how='inner')
+    train_data = train_data.dropna(axis=0)
+    test_data = test_data.dropna(axis=0)
+    train_data_pred = train_data[['ticker', 'date', 'time']]
+    test_data_pred = test_data[['ticker', 'date', 'time']]
+
+    for pred_period in [15, 60, 120, 300]:
+        # train LGBM regression model
+        temp_train_data = train_data[train_data['ret_{}s'.format(pred_period)] != 0]
+        train_x = temp_train_data[dataset.training_factor_name]
+        train_y = temp_train_data['ret_{}s'.format(pred_period)]
+        model = lgbm.LGBMRegressor(n_jobs=8)
+        model.fit(train_x, train_y)
+
+        # use LGBM model to predict
+        train_x_orig = train_data[dataset.training_factor_name]
+        train_pred_y = model.predict(train_x_orig)
+        train_data_pred['pred_ret_{}s'.format(pred_period)] = train_pred_y
+
+        test_x = test_data[dataset.training_factor_name]
+        test_pred_y = model.predict(test_x)
+        test_data_pred['pred_ret_{}s'.format(pred_period)] = test_pred_y
+    return train_data_pred, test_data_pred
 
 
 def gen_mp_args(opt):

@@ -57,19 +57,57 @@ def load_ticker_by_indus(pool, price_name, indus_class, indus_type, test_month, 
     return tickers
 
 
-def is_rebalanced(test_month):
-    if test_month % 100 in [1, 2, 3, 7, 8, 9]:
-        return True
+def is_rebalanced(test_month, training_month_num):
+    # whether training months spread 01/07 month
+    training_month_num = training_month_num
+    int_month = test_month % 100
+    if int_month >= 7:
+        if (int_month - training_month_num) < 7:
+            return True
+        else:
+            return False
     else:
-        return False
+        if (int_month - training_month_num) < 1:
+            return True
+
+        else:
+            return False
+def need_rebalanced_factor(check_month, test_month):
+    '''
+    whether to use relanced factor
+    '''
+    status = False
+    test_year = test_month // 100
+    # test month in [7,12]
+    if test_month % 100 >= 7:
+        if check_month < test_year*100 + 7:
+            status = True
+    # test month in [1,6]
+    else:
+        if check_month < test_year*100 + 1:
+            status = True
+
+    return status
 
 
-def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month):
+def check_rebalanced(training_month, test_month):
+    is_rebalanced_flag = is_rebalanced(test_month, len(training_month))
+    need_rebalanced_month = []
+    for check_month in training_month:
+        status = need_rebalanced_factor(check_month, test_month)
+        if status and is_rebalanced_flag:
+            need_rebalanced_month.append(check_month)
+
+    return need_rebalanced_month
+
+
+
+def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month, training_month_num=3):
     cur_ticker = all_ticker.copy()
     for database in factor_table.keys():
         for table in factor_table[database]:
             for month in check_ticker_month:
-                if is_rebalanced(test_month) and month % 100 in [4, 5, 6, 10, 11, 12]:
+                if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(month, test_month) and table == 'factor':
                     factor_ticker = cx_read_sql(f'select distinct ticker from {table}_{month}_index_rebalancing',
                                                 database=database)
                 else:
@@ -84,8 +122,8 @@ def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month
     return cur_ticker
 
 
-def load_factor_by_table(database, table, tickers, loading_month, test_month):
-    if is_rebalanced(test_month) and loading_month % 100 in [4, 5, 6, 10, 11, 12] and table!='genetic_programming_factor_1':
+def load_factor_by_table(database, table, tickers, loading_month, test_month, training_month_num=3):
+    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and table == 'factor':
         factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where ticker in {tickers}',
                              database=database)
     else:

@@ -5,11 +5,12 @@ import logging
 from dataset.sql_data import check_indus
 from dataset import build_dataset
 from models import build_model
+from feature_selector import build_selector
 from backtester import BackTester
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
 from utils.publish import save_report_disk, push_signal_sql
-from utils.misc import Timer, time_str, get_time_str, exists_results
+from utils.misc import Timer, time_str, get_time_str, exists_results, ensure_path
 
 
 
@@ -34,10 +35,16 @@ def train_pipeline(train_args):
 
     # train lgbm models
     model = build_model(opt, test_month=test_month, indus_type=indus_type)
-    if opt.get('factor_selection'):
-        selected_factor = model.select_factor(x_train, y_train)
+    # factor selection
+    if opt.get('feature_selector'):
+        # selected_factor = model.select_factor(x_train, y_train)
+        feature_selector = build_selector(opt, test_month=test_month, indus_type=indus_type)
+        selected_factor = feature_selector.select_factor(x_train, y_train)
         dataset.set_selected_factor(selected_factor)
-        model.train(x_train[selected_factor], y_train)
+        if opt['feature_selector']['type'] == 'PCASelector':
+            model.train(selected_factor.inverse_transform(selected_factor.transform(x_train)), y_train)
+        else:
+            model.train(x_train[selected_factor], y_train)
     else:
         model.train(x_train, y_train)
     model.save()
@@ -51,11 +58,11 @@ def train_pipeline(train_args):
         backtester.backtest(dataset, model)
 
 
-def gen_mp_args(opt):
+def init_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         industry = check_indus(opt, test_month)
-        #industry = [10]
+        # industry = [11]
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
@@ -64,9 +71,10 @@ def gen_mp_args(opt):
 
 def main(opt):
     print(get_env_info())
+    # mp training
     pool = mp.Pool(processes=opt['n_jobs'], )
     global_timer = Timer()
-    args = gen_mp_args(opt)
+    args = init_args(opt)
     results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
     [result.get() for result in results]
     pool.close()
@@ -79,8 +87,8 @@ def main(opt):
 
 if __name__ == '__main__':
     root_path = './'
-    opt = parse_options(root_path)
+    opt, args = parse_options(root_path)
     main(opt)
-    #save_report_disk(opt)
+
 
 
