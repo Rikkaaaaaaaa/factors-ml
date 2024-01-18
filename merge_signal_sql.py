@@ -69,7 +69,7 @@ def merge_signal_ensemble(args):
     signal = sig_15s.merge(sig_60s, on=merge_keys).merge(sig_120s, on=merge_keys).merge(sig_300s, on=merge_keys)
 
     # core merge format
-    signal[signal_col_name] = (signal['proba'] - 0.5) * 4 + signal['signal_60s']*2 + \
+    signal[signal_col_name] = (signal['proba'] - 0.5) * 2 + signal['signal_60s']*2 + \
                                signal['signal_120s'] * 2 + signal['signal_300s'] * 2
     merge_signal = signal[['ticker', 'date', 'time', signal_col_name]]
 
@@ -107,8 +107,8 @@ if __name__ == '__main__':
     if config.signal_table_suffix != '':
         config.sig_15s += f"_{config.signal_table_suffix}"
         config.sig_60s += f"_{config.signal_table_suffix}"
-        config.sig_120s += f"_{config.signal_table_suffix}"
-        config.sig_300s += f"_{config.signal_table_suffix}"
+        config.sig_120s += f"_{config.signal_table_suffix}_pct20"
+        config.sig_300s += f"_{config.signal_table_suffix}_pct20"
 
     table_name = f"ensemble_{config.pool_name}_{config.price_name}_{config.merge_table_suffix}"
     ensure_table_name(database=config.database, table_name=table_name)
