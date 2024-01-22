@@ -11,6 +11,7 @@ __all__ = [ # factor names
             'genetic_programming_factor_1',
             'genetic_programming_factor_2',
             'genetic_programming_factor_3',
+            'genetic_programming_factor_2_div_open',
            # factor collections
            'batch2_factor',
            # factors need to be preprocessed
@@ -109,6 +110,7 @@ genetic_programming_factor_1 = ['genetic_programming_1', 'genetic_programming_2'
 
 
 genetic_programming_factor_2 = ['genetic_programming_{}'.format(x) for x in range(1, 37)]
+genetic_programming_factor_2_div_open = ['genetic_programming_{}'.format(x) for x in range(1, 37)]
 genetic_programming_factor_3 = ['genetic_programming_{}'.format(x) for x in range(37, 60)]
 
 
@@ -126,7 +128,7 @@ log_factor = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s
 batch1_factor = base_factor + ofl_factor
 batch2_factor = base_factor + ofl_factor + fok_factor
 batch3_factor = base_factor + ofl_factor + fok_factor + slope_factor
-batch4_factor = base_factor + ofl_factor + fok_factor + slope_factor + genetic_programming_factor_1
+batch4_factor = base_factor + ofl_factor + fok_factor + slope_factor + genetic_programming_factor_2
 
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }
