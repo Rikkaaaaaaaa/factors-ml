@@ -101,7 +101,6 @@ def check_rebalanced(training_month, test_month):
     return need_rebalanced_month
 
 
-
 def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month, training_month_num=3):
     cur_ticker = all_ticker.copy()
     for database in factor_table.keys():

@@ -53,8 +53,6 @@ class FactorDataset():
         self.is_empty = False
 
 
-
-
     def load_data(self):
         # Ingest Ticker List
 
@@ -266,7 +264,6 @@ class FactorDataset():
         self.clip_params = []
 
         for ticker in self.tickers:
-
             # data std
             if len(self.std_factor_name) > 0:
                 _train_data = self.train_data.query('ticker==@ticker')
@@ -294,17 +291,30 @@ class FactorDataset():
                 # split data to train_x and test_x
                 _train_data = self.train_data.query('ticker==@ticker')
                 _test_data = self.test_data.query('ticker==@ticker')
-
-                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
                 train_x = _train_data[self.clip_factor_name]
                 test_x = _test_data[self.clip_factor_name]
-                factor_min = np.percentile(train_x, 5, axis=0,)
-                factor_max = np.percentile(train_x, 95, axis=0,)
+                # clip type
+                if isinstance(self.opt['dataset'].get('clip'), dict):
+                    if self.opt['dataset']['clip'].get('type') == '3sigma':
+                        factor_mean = np.mean(train_x, axis=0).values
+                        factor_std = np.std(train_x, axis=0).values
+                        factor_min = factor_mean - 3 * factor_std
+                        factor_max = factor_mean + 3 * factor_std
+                    elif self.opt['dataset']['clip'].get('type') == 'quantile':
+                        min_quantile = self.opt['dataset']['clip'].get('min_quantile')
+                        max_quantile = self.opt['dataset']['clip'].get('max_quantile')
+                        factor_min = np.percentile(train_x, min_quantile, axis=0, )
+                        factor_max = np.percentile(train_x, max_quantile, axis=0, )
+                    else:
+                        factor_min = np.percentile(train_x, 5, axis=0, )
+                        factor_max = np.percentile(train_x, 95, axis=0, )
+
                 train_x = np.clip(train_x, factor_min, factor_max)
                 test_x = np.clip(test_x, factor_min, factor_max)
                 self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
                 self.test_data.loc[_test_data.index, self.clip_factor_name] = test_x
                 # save transform params
+                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
                 clip_param['factor_name'] = self.clip_factor_name
                 clip_param['min'] = factor_min
                 clip_param['max'] = factor_max
@@ -463,6 +473,9 @@ class FactorDataset():
 
     def set_selected_factor(self, selected_factor):
         self.selected_factor = selected_factor
+
+
+
 
 
 if __name__ == '__main__':

@@ -42,9 +42,9 @@ def train_pipeline(train_args):
     # test_data_pred.to_csv(
     #     f"{opt['path']['experiments_root']}/{test_month}/test_pred_result_{test_month}_indus_{indus_type}.csv")
 
-    #dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv")
-    #dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv")
-    dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}_indus_{indus_type}.csv")
+    # dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv", index=False)
+    # dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv",index=False)
+    dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}_indus_{indus_type}.csv", index=False)
 
 
 def gen_lgbm_regression_pred_result(dataset):

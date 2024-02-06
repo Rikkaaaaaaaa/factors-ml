@@ -28,7 +28,6 @@ class GenDataset():
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
-        self.ret_name = self.opt['dataset']['ret_name']
         self.price_name = self.opt['dataset']['price_name']
         self.avg_price = self.opt['dataset']['avg_price']
         self.indus_class = self.opt['dataset']['indus_class']
@@ -108,7 +107,7 @@ class GenDataset():
             # align training and testing ticker list
             all_ticker = cur_ticker.copy()
             check_ticker_month = self.get_check_ticker_month()
-            #align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month)
+            align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month)
 
             # check whether ticker list is null
             if len(ticker_list) == 0:
@@ -228,12 +227,10 @@ class GenDataset():
             _train_data = self.train_data.query('ticker==@ticker')
             _test_data = self.test_data.query('ticker==@ticker')
 
-            # split data to train_x and test_x
-            train_x = _train_data[self.std_factor_name]
-            test_x = _test_data[self.std_factor_name]
-
             # data std
             if len(self.std_factor_name) > 0:
+                train_x = _train_data[self.std_factor_name]
+                test_x = _test_data[self.std_factor_name]
                 std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
                 factor_mean = np.mean(train_x, axis=0).values
                 factor_std = np.std(train_x, axis=0).values
@@ -375,9 +372,7 @@ class GenDataset():
         return training_month
 
     def get_check_ticker_month(self):
-
-        check_ticker_month = self.training_month
-
+        check_ticker_month = self.training_month + [self.test_month]
         return check_ticker_month
 
 
