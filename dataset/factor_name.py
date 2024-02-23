@@ -6,6 +6,7 @@ __all__ = [ # factor names
            'ofl_factor',
            'ofl_factor_std',
            'fok_factor',
+            'no_fok_factor',
            'slope_factor',
            'slope_factor_std',
             'genetic_programming_factor_1',
@@ -75,6 +76,7 @@ fok_factor = ['fok_0.5s_9s', 'fok_0.5s_15s', 'fok_0.5s_30s', 'fok_0.5s_60s', 'fo
                 'limit2_120s', 'limit2_300s', 'trade1_15s', 'trade1_30s', 'trade1_60s',
                 'trade1_120s', 'trade1_300s', 'regret_15s', 'regret_30s', 'regret_60s',
                 'regret_120s', 'regret_300s']
+no_fok_factor = ['limit2_15s', 'limit2_30s', 'limit2_60s','limit2_120s', 'limit2_300s','trade1_15s', 'trade1_30s', 'trade1_60s', 'trade1_120s', 'trade1_300s']
 
 
 slope_factor = [ 'skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slope_ask3_15s', 'slope_ask3_min',

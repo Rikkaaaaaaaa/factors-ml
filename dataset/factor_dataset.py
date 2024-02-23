@@ -308,7 +308,10 @@ class FactorDataset():
                     else:
                         factor_min = np.percentile(train_x, 5, axis=0, )
                         factor_max = np.percentile(train_x, 95, axis=0, )
-
+                else:
+                    # fefault 5%~95%
+                    factor_min = np.percentile(train_x, 5, axis=0, )
+                    factor_max = np.percentile(train_x, 95, axis=0, )
                 train_x = np.clip(train_x, factor_min, factor_max)
                 test_x = np.clip(test_x, factor_min, factor_max)
                 self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
