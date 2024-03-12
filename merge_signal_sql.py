@@ -94,21 +94,22 @@ if __name__ == '__main__':
     parser.add_argument('-n_jobs', type=int, default=8, help="parallel num")
     parser.add_argument('-price_name', type=str, default='highprice', help='highprice or lowprice')
     parser.add_argument('-pool_name', type=str, default='zz800', help='hs300, zz500 or zz1000')
+    parser.add_argument('-model_name', type=str, default='lgbmmodel')
     parser.add_argument('-signal_table_suffix', type=str, default='')
     parser.add_argument('-merge_table_suffix', type=str, default='ml')
     parser.add_argument('-database', type=str, default='strategy')
-    test_month = [202304, 202305,202306,202307,202308, 202309, 202310, 202311]
+    test_month = [202309]#[202304, 202305,202306,202307,202308, 202309, 202310, 202311]
 
     config = parser.parse_args()
-    config.sig_15s = f'signal_{config.pool_name}_{config.price_name}_lgbm_15s'
-    config.sig_60s = f'signal_{config.pool_name}_{config.price_name}_lgbm_60s'
-    config.sig_120s = f'signal_{config.pool_name}_{config.price_name}_lgbm_120s'
-    config.sig_300s = f'signal_{config.pool_name}_{config.price_name}_lgbm_300s'
+    config.sig_15s = f'signal_{config.pool_name}_{config.price_name}_{config.model_name}_15s'
+    config.sig_60s = f'signal_{config.pool_name}_{config.price_name}_{config.model_name}_60s'
+    config.sig_120s = f'signal_{config.pool_name}_{config.price_name}_{config.model_name}_120s'
+    config.sig_300s = f'signal_{config.pool_name}_{config.price_name}_{config.model_name}_300s'
     if config.signal_table_suffix != '':
         config.sig_15s += f"_{config.signal_table_suffix}"
         config.sig_60s += f"_{config.signal_table_suffix}"
-        config.sig_120s += f"_{config.signal_table_suffix}_pct20"
-        config.sig_300s += f"_{config.signal_table_suffix}_pct20"
+        config.sig_120s += f"_{config.signal_table_suffix}"
+        config.sig_300s += f"_{config.signal_table_suffix}"
 
     table_name = f"ensemble_{config.pool_name}_{config.price_name}_{config.merge_table_suffix}"
     ensure_table_name(database=config.database, table_name=table_name)
