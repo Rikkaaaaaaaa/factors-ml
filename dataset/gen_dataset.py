@@ -51,7 +51,6 @@ class GenDataset():
     def load_data(self):
 
         # Ingest Ticker List
-
         # read tickers from mysql
         self.tickers = self.load_ticker_list()
         if len(self.tickers) == 0: # no ticker, return None
@@ -59,15 +58,12 @@ class GenDataset():
             return
 
         # Ingest Factor and Return
-
         # read data from mysql
         data = dict() # restore data by month
         for month in self.training_month + [self.test_month]:
             data[month] = self.load_data_from_sql(month)
 
-
         # Data Preprocessing
-
         # split data into train and test set
         train_data, test_data = self.split_data(data)
         if len(train_data) == 0:
@@ -75,8 +71,6 @@ class GenDataset():
             return
 
         # transforming data, including std, clip, save params by ticker
-
-
         self.transform(train_data, test_data)
 
         # load labels
@@ -85,9 +79,7 @@ class GenDataset():
         for month in self.training_month + [self.test_month]:
             label.append(cx_read_sql(
                 f'select ticker, date, time, ret_15s,ret_60s,ret_120s,ret_300s  from ret_{month} where ticker in {self.tickers}'))
-
         self.labels = pd.concat(label)
-
 
         # logging
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data and saving preprocess params")
