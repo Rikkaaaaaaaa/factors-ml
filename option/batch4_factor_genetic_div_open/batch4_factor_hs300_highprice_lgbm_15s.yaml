@@ -15,7 +15,7 @@ dataset:
 
   # data preprocessing options
   type: 'FactorDataset'
-  test_month: [202309, 202310, 202311]
+  test_month: [202304,202305,202306,202307,202308, 202309, 202310, 202311, 202312, 202401]
   io_backend: sql # disk
   pool_name: ['hs300']
   indus_class: wind1
