@@ -22,13 +22,11 @@ def init(args):
     lock = args[0]
 
 def train_pipeline(train_args):
-    folder_name = './folder'
     opt, test_month, indus_type = train_args
     # logger init
     logger_name = f"month{test_month}_indus{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
-
 
     # get data set from test month
     dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
@@ -42,8 +40,8 @@ def train_pipeline(train_args):
     # test_data_pred.to_csv(
     #     f"{opt['path']['experiments_root']}/{test_month}/test_pred_result_{test_month}_indus_{indus_type}.csv")
 
-    # dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv", index=False)
-    # dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv",index=False)
+    dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv", index=False)
+    dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv",index=False)
     dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}_indus_{indus_type}.csv", index=False)
 
 
@@ -101,6 +99,8 @@ def main(opt):
 def gen_factor():
     root_path = '../'
     option_path = '../option/gen_factor/gen_factor_hs300_highprice.yaml'
+    if not osp.exists(option_path):
+        raise FileExistsError(f"No such option file named", option_path)
     opt = yaml_load(option_path)
     # random seed
     seed = opt.get('manual_seed')
