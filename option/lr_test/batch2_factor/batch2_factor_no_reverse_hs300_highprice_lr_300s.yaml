@@ -1,4 +1,4 @@
-name: base_factor_pct20_hs300_highprice_lgbm_300s
+name: batch2_factor_no_reverse_hs300_highprice_lr_300s
 manual_seed: 2023
 n_jobs: 8
 
@@ -7,14 +7,15 @@ dataset:
   # factor name options
   factor_table:
     strategy: ['factor']
-  training_factor_name: [ 'base_factor',  ]
-  std_factor_name: [ 'base_factor',  ]
-  clip_factor_name: [ 'base_factor',  ]
+    factor_test: [ 'ofl_factor', 'fok_factor']
+  training_factor_name: [ 'base_factor', 'ofl_factor', 'fok_factor' ]
+  std_factor_name: [ 'base_factor', 'ofl_factor'  ]
+  clip_factor_name: [ 'base_factor', 'ofl_factor',]
   log_factor_name: [ 'log_factor' ]
 
   # data preprocessing options
   type: 'FactorDataset'
-  test_month: [202304, 202305, 202306, 202307,202308,202309, 202310, 202311, 202312]
+  test_month: [202304, 202305, 202306, 202307,202308,202309, 202310, 202311]
   io_backend: sql # disk
   pool_name: ['hs300']
   indus_class: wind1
@@ -24,17 +25,16 @@ dataset:
   std_type: default # trainingset std
   alpha: 0.001
   class_num: 2
-  balance: reverse
 
 model:
-  type: 'LgbmModel'
+  type: 'LRModel'
   n_cpus: 8
 
 train:
   num_epoch: 200
 test:
   bound_mode: by_ticker # indus/ticker
-  threshold_pct: 20
+  threshold_pct: 5
 
 
 

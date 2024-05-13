@@ -52,7 +52,7 @@ def ensure_path(path, remove=False):
 
 def ensure_table_name(database, table_name):
 
-    if input('Saving to {}.{} (y/n)'.format(database, table_name)) == 'y':
+    if input('Signals will be saved to {}.{} (y/n)'.format(database, table_name)) == 'y':
         pass
     else:
         pass

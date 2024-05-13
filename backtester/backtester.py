@@ -37,7 +37,7 @@ class BackTester():
         '''
         backtest data and save results. bound values and signals
          '''
-        if hasattr(factor_data, 'selected_factor') and self.opt['feature_selector']['type'] != 'PCASelector':
+        if hasattr(factor_data, 'selected_factor'):
             self.training_factor_name = factor_data.selected_factor
 
         try:
@@ -48,29 +48,18 @@ class BackTester():
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
+
                 # load train and test array from dataframe
                 if self.opt['dataset'].get('balance') == 'reverse':
                     ticker_data_query = 'ticker==@ticker and augment==0'
                 else:
                     ticker_data_query = 'ticker==@ticker'
+
+                # select factor
                 train_data = factor_data.train_data.query(ticker_data_query) # bound proba come from original data
                 test_data = factor_data.test_data.query('ticker==@ticker')
-                # PCA by indus
-                if hasattr(factor_data, 'selected_factor') and self.opt['feature_selector']['type'] == 'PCASelector':
-                    x_train = train_data[self.training_factor_name].copy()
-                    train_null_idx = np.isnan(x_train)
-                    x_train = x_train.fillna(0)
-                    x_train = factor_data.selected_factor.inverse_transform(factor_data.selected_factor.transform(x_train))
-                    x_train[train_null_idx] = np.nan
-
-                    x_test = test_data[self.training_factor_name].copy()
-                    test_null_idx = np.isnan(x_test)
-                    x_test = x_test.fillna(0)
-                    x_test = factor_data.selected_factor.inverse_transform(factor_data.selected_factor.transform(x_test))
-                    x_test[test_null_idx] = np.nan
-                else:
-                    x_train = train_data[self.training_factor_name]
-                    x_test = test_data[self.training_factor_name]
+                x_train = train_data[self.training_factor_name]
+                x_test = test_data[self.training_factor_name]
 
                 # test ret time date ticker used for signal record
                 self._ticker = ticker
@@ -84,13 +73,12 @@ class BackTester():
                 self._pre_proba = model.predict(x_test)
 
                 # compute null idx in test data
-                #self._null_idx = np.isnan(test_data[self.training_factor_name + ['ret']].values).any(axis=1)
                 training_factor_name = test_data.drop(['ticker', 'date', 'time', 'class_label', 'ret'], axis=1).columns
                 self._null_idx = np.isnan(test_data[list(training_factor_name) + ['ret']].values).any(axis=1)
                 #self._null_idx = np.isnan(test_data[self.training_factor_name].values).any(axis=1) # factor nan
 
                 # compute metric with not null data
-                self.compute_results()
+                self.compute_metrics()
 
                 # push signal dataframe into self.signals
                 self.compute_signal()
@@ -106,7 +94,7 @@ class BackTester():
             self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
 
 
-    def compute_results(self):
+    def compute_metrics(self):
         '''
         compute metric to summary for every ticker
         '''
@@ -151,7 +139,7 @@ class BackTester():
         save bound values for all toickers
         '''
         if not hasattr(self, 'results'):
-            print('Please run compute_results before saving boundary values!')
+            print('Please run compute_metrics before saving boundary values!')
         # save bound file
         inference_folder = self.opt['path']['inference_path'][self.test_month]
         bound_name = 'bound_indus{}.csv'.format(self.indus_type)
@@ -223,7 +211,7 @@ class BackTester():
                     self._train_proba = model.predict(x_train)
 
                 # compute runtime metric with train data
-                self.compute_results()
+                self.compute_metrics()
 
             # save bound values
             self.save_results()

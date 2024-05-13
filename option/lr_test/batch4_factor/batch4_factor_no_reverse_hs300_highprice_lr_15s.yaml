@@ -1,4 +1,4 @@
-name: batch4_factor_train3_hs300_highprice_lgbm_15s
+name: batch4_factor_no_reverse_hs300_highprice_lr_15s
 manual_seed: 2023
 n_jobs: 8
 
@@ -7,16 +7,15 @@ dataset:
   # factor name options
   factor_table:
     strategy: ['factor']
-    factor_test: [ 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
-  training_factor_name: [ 'base_factor', 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open' ]
-  std_factor_name: [ 'base_factor', 'slope_factor_std', 'genetic_programming_factor_2_div_open']
-  clip_factor_name: [ 'base_factor', 'ofl_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
+    factor_test: [ 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2']
+  training_factor_name: [ 'base_factor', 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2' ]
+  std_factor_name: [ 'base_factor', 'ofl_factor' , 'slope_factor', 'genetic_programming_factor_2']
+  clip_factor_name: [ 'base_factor', 'ofl_factor', 'slope_factor', 'genetic_programming_factor_2']
   log_factor_name: [ 'log_factor' ]
 
   # data preprocessing options
   type: 'FactorDataset'
   test_month: [202309, 202310, 202311]
-  training_month_num: 3
   io_backend: sql # disk
   pool_name: ['hs300']
   indus_class: wind1
@@ -26,12 +25,10 @@ dataset:
   std_type: default # trainingset std
   alpha: 0.0005
   class_num: 2
-  balance: reverse
-
 
 
 model:
-  type: 'LgbmModel'
+  type: 'LRModel'
   n_cpus: 8
 
 train:

@@ -14,14 +14,13 @@ dataset:
   log_factor_name: [ 'log_factor' ]
 
   # data preprocessing options
-  test_month: [ 202304 ]
+  test_month: [ 202304,202305,202306,202307,202308,202309,202310,202311 ]
   io_backend: sql # disk
   pool_name: ['hs300']
   indus_class: wind1
   price_name: highprice
   ret_name: 300s
   std_type: default # training set std
-  balance: reverse
   avg_price: 10
   alpha:  0.001 # or dynamic_rolling
   class_num: 2

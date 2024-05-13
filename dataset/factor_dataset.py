@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import os.path as osp
 import traceback
-from sklearn.decomposition import PCA
 
 from utils import list2str
 from dataset import build_factor_name
@@ -209,8 +208,7 @@ class FactorDataset():
                 if self.opt['dataset']['alpha'].get('quantile'):
                     quantile = self.opt['dataset']['alpha'].get('quantile')
                     alpha = np.quantile(train_data['ret'].dropna(), quantile)
-                    # if alpha == 0:
-                    #     alpha = 5e-4
+
         else:
             alpha = self.opt['dataset']['alpha']
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training with return threshold={alpha:.6f}")
@@ -323,24 +321,6 @@ class FactorDataset():
                 clip_param['max'] = factor_max
                 clip_param.insert(0, 'ticker', ticker)
                 self.clip_params.append(clip_param)
-
-            # # pca by ticker
-            # pca_model = PCA(n_components=100)
-            # _train_data = self.train_data.query('ticker==@ticker').copy()
-            # _test_data = self.test_data.query('ticker==@ticker').copy()
-            # train_x = _train_data[self.training_factor_name]
-            # test_x = _test_data[self.training_factor_name]
-            # train_null_idx = np.isnan(train_x)
-            # test_null_idx = np.isnan(test_x)
-            # pca_model.fit(train_x[~train_null_idx.any(axis=1)])
-            #
-            # train_x= pca_model.inverse_transform(pca_model.transform(train_x.fillna(0)))
-            # test_x = pca_model.inverse_transform(pca_model.transform(test_x.fillna(0)))
-            # train_x[train_null_idx] = np.nan
-            # test_x[test_null_idx] = np.nan
-            #
-            # self.train_data.loc[_train_data.index, self.training_factor_name] = train_x
-            # self.test_data.loc[_test_data.index, self.training_factor_name] = test_x
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]

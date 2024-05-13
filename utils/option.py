@@ -76,7 +76,7 @@ def yaml_load(f):
     #     return yaml.load(f, Loader=yaml.FullLoader)
 
 
-def parse_options(root_path):
+def parse_options(root_path, ensure=True):
     parser = argparse.ArgumentParser()
     parser.add_argument('-option', type=str, default='option/batch4_factor_select/batch4_factor_manual_select150_hs300_highprice_lgbm_300s.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_runtime', action='store_true', help='Whether the phase is backtesting or runtime')
@@ -112,7 +112,8 @@ def parse_options(root_path):
         experiments_root = osp.join(root_path, 'experiments')
     experiments_root = osp.join(experiments_root, opt['name'])
     opt['path']['experiments_root'] = experiments_root
-    ensure_path(experiments_root)
+    if ensure:
+        ensure_path(experiments_root)
 
     # saving path
     opt['path']['model_path'] = dict()

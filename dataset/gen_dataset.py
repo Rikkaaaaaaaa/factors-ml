@@ -31,7 +31,10 @@ class GenDataset():
         self.price_name = self.opt['dataset']['price_name']
         self.avg_price = self.opt['dataset']['avg_price']
         self.indus_class = self.opt['dataset']['indus_class']
-
+        if self.opt['dataset'].get('ret_name'):
+            self.ret_name = self.opt['dataset']['ret_name']
+        if self.opt['dataset'].get('class_num'):
+            self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
         self.database_name = list(self.factor_table.keys())
@@ -69,13 +72,19 @@ class GenDataset():
         if len(train_data) == 0:
             self.is_empty = True
             return
+        # get return threshold
+        if self.opt['dataset'].get('alpha'):
+            self.alpha = self.opt['dataset']['alpha']
+            # classification labels
+            train_data, test_data = self.make_label(train_data, test_data)
+            # filter train_data with return
+            train_data = self.filter_by_label(train_data)
 
         # transforming data, including std, clip, save params by ticker
         self.transform(train_data, test_data)
 
         # load labels
         label = []
-
         for month in self.training_month + [self.test_month]:
             label.append(cx_read_sql(
                 f'select ticker, date, time, ret_15s,ret_60s,ret_120s,ret_300s  from ret_{month} where ticker in {self.tickers}'))
@@ -135,6 +144,19 @@ class GenDataset():
                     else:
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
 
+            # load return
+            ret = cx_read_sql(
+                f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where ticker in {self.tickers}')
+            # merge factors and labels by ticker, date, time
+            data = pd.merge(data, ret, on=['ticker', 'date', 'time'])
+            data.rename(columns={'ret_' + self.ret_name: 'ret'}, inplace=True)
+
+            # check missing tickers between return and factors
+            missing_tickers = set(self.tickers) - set(data['ticker'].unique())
+            # assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
+            if len(missing_tickers) > 0:
+                raise ValueError(
+                    f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
 
             # check Whether data is null
             if len(data) == 0:
@@ -177,7 +199,7 @@ class GenDataset():
         classification of return, 0 for down, 1 for up and 2 for stable
         '''
         def add_label(df):
-            df['class_label'] = df['ret'].mask(df['ret'] <= -1 * self.alpha, 0).mask(df['ret'] >= self.avg_price, 1) \
+            df['class_label'] = df['ret'].mask(df['ret'] <= -1 * self.alpha, 0).mask(df['ret'] >= self.alpha, 1) \
                 .mask((-1 * self.alpha < df['ret']) & (df['ret'] < self.alpha), 2)
 
         add_label(train_data)

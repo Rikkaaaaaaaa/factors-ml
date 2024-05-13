@@ -16,7 +16,7 @@ dataset:
 
 
   # data preprocessing options
-  test_month: [ 202304 ]
+  test_month: [202304, 202305, 202306, 202307,202308,202309, 202310, 202311]
   io_backend: sql # disk
   pool_name: ['hs300']
   indus_class: wind1

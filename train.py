@@ -33,24 +33,20 @@ def train_pipeline(train_args):
         return
     x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
 
-    # train lgbm models
-    model = build_model(opt, test_month=test_month, indus_type=indus_type)
     # factor selection
+    training_factor_name = dataset.training_factor_name
     if opt.get('feature_selector'):
-        # selected_factor = model.select_factor(x_train, y_train)
         feature_selector = build_selector(opt, test_month=test_month, indus_type=indus_type)
         selected_factor = feature_selector.select_factor(x_train, y_train)
         dataset.set_selected_factor(selected_factor)
-        if opt['feature_selector']['type'] == 'PCASelector':
-            model.train(selected_factor.inverse_transform(selected_factor.transform(x_train)), y_train)
-        else:
-            model.train(x_train[selected_factor], y_train)
-    else:
-        model.train(x_train, y_train)
+        training_factor_name = selected_factor
+
+    # train model
+    model = build_model(opt, test_month=test_month, indus_type=indus_type)
+    model.train(x_train[training_factor_name], y_train)
     model.save()
 
-    # backtesting or realtime process
-    # it will record bound proba and report summay of models performance
+    # backtesting or reactive process: it will record bound proba and report summay of models performance
     backtester = BackTester(opt, test_month, indus_type)
     if opt['is_runtime']:
         backtester.runtime(dataset, model)
@@ -62,7 +58,7 @@ def init_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         industry = check_indus(opt, test_month)
-        # industry = [11]
+        industry = [9]
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
