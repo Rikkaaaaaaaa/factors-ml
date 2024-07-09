@@ -15,7 +15,7 @@ dataset:
 
   # data preprocessing options
   type: 'GenDataset'
-  test_month: [202311]
+  test_month: [202401]
   io_backend: sql # disk
   pool_name: ['hs300']
   indus_class: wind1

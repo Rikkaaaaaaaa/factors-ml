@@ -262,27 +262,6 @@ class FactorDataset():
         self.clip_params = []
 
         for ticker in self.tickers:
-            # data std
-            if len(self.std_factor_name) > 0:
-                _train_data = self.train_data.query('ticker==@ticker')
-                _test_data = self.test_data.query('ticker==@ticker')
-                # split data to train_x and test_x
-                train_x = _train_data[self.std_factor_name]
-                test_x = _test_data[self.std_factor_name]
-
-                std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
-                factor_mean = np.mean(train_x, axis=0).values
-                factor_std = np.std(train_x, axis=0).values
-                train_x = (train_x - factor_mean) / factor_std
-                test_x = (test_x - factor_mean) / factor_std
-                self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
-                self.test_data.loc[_test_data.index, self.std_factor_name] = test_x.values
-                # save transform params
-                std_param['factor_name'] = self.std_factor_name
-                std_param['mean'] = factor_mean
-                std_param['std'] = factor_std
-                std_param.insert(0, 'ticker', ticker)
-                self.std_params.append(std_param)
 
             # data clip
             if len(self.clip_factor_name) > 0:
@@ -321,6 +300,29 @@ class FactorDataset():
                 clip_param['max'] = factor_max
                 clip_param.insert(0, 'ticker', ticker)
                 self.clip_params.append(clip_param)
+
+            # data std
+            if len(self.std_factor_name) > 0:
+                _train_data = self.train_data.query('ticker==@ticker')
+                _test_data = self.test_data.query('ticker==@ticker')
+                # split data to train_x and test_x
+                train_x = _train_data[self.std_factor_name]
+                test_x = _test_data[self.std_factor_name]
+
+                std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
+                factor_mean = np.mean(train_x, axis=0).values
+                factor_std = np.std(train_x, axis=0).values
+                train_x = (train_x - factor_mean) / factor_std
+                test_x = (test_x - factor_mean) / factor_std
+                self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
+                self.test_data.loc[_test_data.index, self.std_factor_name] = test_x.values
+                # save transform params
+                std_param['factor_name'] = self.std_factor_name
+                std_param['mean'] = factor_mean
+                std_param['std'] = factor_std
+                std_param.insert(0, 'ticker', ticker)
+                self.std_params.append(std_param)
+
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]

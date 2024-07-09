@@ -31,10 +31,10 @@ class GenDataset():
         self.price_name = self.opt['dataset']['price_name']
         self.avg_price = self.opt['dataset']['avg_price']
         self.indus_class = self.opt['dataset']['indus_class']
-        if self.opt['dataset'].get('ret_name'):
-            self.ret_name = self.opt['dataset']['ret_name']
-        if self.opt['dataset'].get('class_num'):
-            self.class_num = self.opt['dataset']['class_num']
+        # if self.opt['dataset'].get('ret_name'):
+        #     self.ret_name = self.opt['dataset']['ret_name']
+        # if self.opt['dataset'].get('class_num'):
+        #     self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
         self.database_name = list(self.factor_table.keys())
@@ -72,13 +72,13 @@ class GenDataset():
         if len(train_data) == 0:
             self.is_empty = True
             return
-        # get return threshold
-        if self.opt['dataset'].get('alpha'):
-            self.alpha = self.opt['dataset']['alpha']
-            # classification labels
-            train_data, test_data = self.make_label(train_data, test_data)
-            # filter train_data with return
-            train_data = self.filter_by_label(train_data)
+        # # get return threshold
+        # if self.opt['dataset'].get('alpha'):
+        #     self.alpha = self.opt['dataset']['alpha']
+        #     # classification labels
+        #     train_data, test_data = self.make_label(train_data, test_data)
+        #     # filter train_data with return
+        #     train_data = self.filter_by_label(train_data)
 
         # transforming data, including std, clip, save params by ticker
         self.transform(train_data, test_data)
@@ -144,19 +144,19 @@ class GenDataset():
                     else:
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
 
-            # load return
-            ret = cx_read_sql(
-                f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where ticker in {self.tickers}')
-            # merge factors and labels by ticker, date, time
-            data = pd.merge(data, ret, on=['ticker', 'date', 'time'])
-            data.rename(columns={'ret_' + self.ret_name: 'ret'}, inplace=True)
-
-            # check missing tickers between return and factors
-            missing_tickers = set(self.tickers) - set(data['ticker'].unique())
-            # assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
-            if len(missing_tickers) > 0:
-                raise ValueError(
-                    f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
+            # # load return
+            # ret = cx_read_sql(
+            #     f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where ticker in {self.tickers}')
+            # # merge factors and labels by ticker, date, time
+            # data = pd.merge(data, ret, on=['ticker', 'date', 'time'])
+            # data.rename(columns={'ret_' + self.ret_name: 'ret'}, inplace=True)
+            #
+            # # check missing tickers between return and factors
+            # missing_tickers = set(self.tickers) - set(data['ticker'].unique())
+            # # assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
+            # if len(missing_tickers) > 0:
+            #     raise ValueError(
+            #         f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
 
             # check Whether data is null
             if len(data) == 0:
@@ -238,13 +238,53 @@ class GenDataset():
         self.clip_params = []
 
         for ticker in self.tickers:
-            _train_data = self.train_data.query('ticker==@ticker')
-            _test_data = self.test_data.query('ticker==@ticker')
+
+            # data clip
+            if len(self.clip_factor_name) > 0:
+                # split data to train_x and test_x
+                _train_data = self.train_data.query('ticker==@ticker')
+                _test_data = self.test_data.query('ticker==@ticker')
+                train_x = _train_data[self.clip_factor_name]
+                test_x = _test_data[self.clip_factor_name]
+                # clip type
+                if isinstance(self.opt['dataset'].get('clip'), dict):
+                    if self.opt['dataset']['clip'].get('type') == '3sigma':
+                        factor_mean = np.mean(train_x, axis=0).values
+                        factor_std = np.std(train_x, axis=0).values
+                        factor_min = factor_mean - 3 * factor_std
+                        factor_max = factor_mean + 3 * factor_std
+                    elif self.opt['dataset']['clip'].get('type') == 'quantile':
+                        min_quantile = self.opt['dataset']['clip'].get('min_quantile')
+                        max_quantile = self.opt['dataset']['clip'].get('max_quantile')
+                        factor_min = np.percentile(train_x, min_quantile, axis=0, )
+                        factor_max = np.percentile(train_x, max_quantile, axis=0, )
+                    else:
+                        factor_min = np.percentile(train_x, 5, axis=0, )
+                        factor_max = np.percentile(train_x, 95, axis=0, )
+                else:
+                    # fefault 5%~95%
+                    factor_min = np.percentile(train_x, 5, axis=0, )
+                    factor_max = np.percentile(train_x, 95, axis=0, )
+                train_x = np.clip(train_x, factor_min, factor_max)
+                test_x = np.clip(test_x, factor_min, factor_max)
+                self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
+                self.test_data.loc[_test_data.index, self.clip_factor_name] = test_x
+                # save transform params
+                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
+                clip_param['factor_name'] = self.clip_factor_name
+                clip_param['min'] = factor_min
+                clip_param['max'] = factor_max
+                clip_param.insert(0, 'ticker', ticker)
+                self.clip_params.append(clip_param)
 
             # data std
             if len(self.std_factor_name) > 0:
+                _train_data = self.train_data.query('ticker==@ticker')
+                _test_data = self.test_data.query('ticker==@ticker')
+                # split data to train_x and test_x
                 train_x = _train_data[self.std_factor_name]
                 test_x = _test_data[self.std_factor_name]
+
                 std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
                 factor_mean = np.mean(train_x, axis=0).values
                 factor_std = np.std(train_x, axis=0).values
@@ -259,36 +299,19 @@ class GenDataset():
                 std_param.insert(0, 'ticker', ticker)
                 self.std_params.append(std_param)
 
-            # data clip
-            if len(self.clip_factor_name) > 0:
-                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
-                train_x = _train_data[self.clip_factor_name]
-                test_x = _test_data[self.clip_factor_name]
-                factor_min = np.percentile(train_x, 5, axis=0,)
-                factor_max = np.percentile(train_x, 95, axis=0,)
-                train_x = np.clip(train_x, factor_min, factor_max)
-                test_x = np.clip(test_x, factor_min, factor_max)
-                self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
-                self.test_data.loc[_test_data.index, self.clip_factor_name] = test_x
-                # save transform params
-                clip_param['factor_name'] = self.clip_factor_name
-                clip_param['min'] = factor_min
-                clip_param['max'] = factor_max
-                clip_param.insert(0, 'ticker', ticker)
-                self.clip_params.append(clip_param)
 
-        # # save preprocess params
-        # save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        # # std
-        # if len(self.std_params) > 0:
-        #     std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
-        #     self.std_params = pd.concat(self.std_params)
-        #     self.std_params.to_csv(std_path, index=False)
-        # # clip
-        # if len(self.clip_params) > 0:
-        #     clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
-        #     self.clip_params = pd.concat(self.clip_params)
-        #     self.clip_params.to_csv(clip_path, index=False)
+        # save preprocess params
+        save_folder = self.opt['path']['preprocess_path'][self.test_month]
+        # std
+        if len(self.std_params) > 0:
+            std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
+            self.std_params = pd.concat(self.std_params)
+            self.std_params.to_csv(std_path, index=False)
+        # clip
+        if len(self.clip_params) > 0:
+            clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
+            self.clip_params = pd.concat(self.clip_params)
+            self.clip_params.to_csv(clip_path, index=False)
 
 
     def transform_runtime(self, train_data):
