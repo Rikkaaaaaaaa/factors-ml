@@ -1,0 +1,41 @@
+name: batch4_factor_old_fok_hs300_highprice_lgbm_120s
+manual_seed: 2023
+n_jobs: 8
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_table:
+    strategy: ['factor']
+    factor_test: [ 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
+  training_factor_name: [ 'base_factor', 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open' ]
+  std_factor_name: [ 'base_factor', 'slope_factor_std', 'genetic_programming_factor_2_div_open']
+  clip_factor_name: [ 'base_factor', 'ofl_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
+  log_factor_name: [ 'log_factor' ]
+
+  # data preprocessing options
+  type: 'FactorDataset'
+  test_month: [202311, 202312, 202401]
+  io_backend: sql # disk
+  pool_name: ['hs300']
+  indus_class: wind1
+  avg_price: 10
+  price_name: highprice
+  ret_name: 120s
+  std_type: default # trainingset std
+  alpha: 0.0005
+  class_num: 2
+  balance: reverse
+
+model:
+  type: 'LgbmModel'
+  n_cpus: 8
+
+train:
+  num_epoch: 200
+test:
+  bound_mode: by_ticker # indus/ticker
+  threshold_pct: 20
+
+
+
