@@ -300,18 +300,18 @@ class GenDataset():
                 self.std_params.append(std_param)
 
 
-        # save preprocess params
-        save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        # std
-        if len(self.std_params) > 0:
-            std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
-            self.std_params = pd.concat(self.std_params)
-            self.std_params.to_csv(std_path, index=False)
-        # clip
-        if len(self.clip_params) > 0:
-            clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
-            self.clip_params = pd.concat(self.clip_params)
-            self.clip_params.to_csv(clip_path, index=False)
+        # # save preprocess params
+        # save_folder = self.opt['path']['preprocess_path'][self.test_month]
+        # # std
+        # if len(self.std_params) > 0:
+        #     std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
+        #     self.std_params = pd.concat(self.std_params)
+        #     self.std_params.to_csv(std_path, index=False)
+        # # clip
+        # if len(self.clip_params) > 0:
+        #     clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
+        #     self.clip_params = pd.concat(self.clip_params)
+        #     self.clip_params.to_csv(clip_path, index=False)
 
 
     def transform_runtime(self, train_data):
