@@ -249,22 +249,22 @@ class GenDataset():
                 # clip type
                 if isinstance(self.opt['dataset'].get('clip'), dict):
                     if self.opt['dataset']['clip'].get('type') == '3sigma':
-                        factor_mean = np.mean(train_x, axis=0).values
-                        factor_std = np.std(train_x, axis=0).values
+                        factor_mean = np.mean(train_x.dropna(), axis=0).values
+                        factor_std = np.std(train_x.dropna(), axis=0).values
                         factor_min = factor_mean - 3 * factor_std
                         factor_max = factor_mean + 3 * factor_std
                     elif self.opt['dataset']['clip'].get('type') == 'quantile':
                         min_quantile = self.opt['dataset']['clip'].get('min_quantile')
                         max_quantile = self.opt['dataset']['clip'].get('max_quantile')
-                        factor_min = np.percentile(train_x, min_quantile, axis=0, )
-                        factor_max = np.percentile(train_x, max_quantile, axis=0, )
+                        factor_min = np.percentile(train_x.dropna(), min_quantile, axis=0, )
+                        factor_max = np.percentile(train_x.dropna(), max_quantile, axis=0, )
                     else:
-                        factor_min = np.percentile(train_x, 5, axis=0, )
-                        factor_max = np.percentile(train_x, 95, axis=0, )
+                        factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
+                        factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
                 else:
                     # fefault 5%~95%
-                    factor_min = np.percentile(train_x, 5, axis=0, )
-                    factor_max = np.percentile(train_x, 95, axis=0, )
+                    factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
+                    factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
                 train_x = np.clip(train_x, factor_min, factor_max)
                 test_x = np.clip(test_x, factor_min, factor_max)
                 self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
