@@ -153,7 +153,11 @@ class FactorDataset():
                     else:
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
             # load labels
-            labels = cx_read_sql(f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where ticker in {self.tickers}')
+            if len(self.tickers) == 1:
+                ticker_condition = f'ticker="{self.tickers[0]}"'
+            else:
+                ticker_condition = f'ticker in {self.tickers}'
+            labels = cx_read_sql(f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where {ticker_condition}')
 
             # merge factors and labels by ticker, date, time
             data = pd.merge(data, labels, on=['ticker', 'date', 'time'])

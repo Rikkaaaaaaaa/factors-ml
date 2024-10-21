@@ -122,10 +122,15 @@ def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month
 
 
 def load_factor_by_table(database, table, tickers, loading_month, test_month, training_month_num=3):
-    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and table == 'factor':
-        factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where ticker in {tickers}',
-                             database=database)
+    if len(tickers) == 1:
+        ticker_condition = f'ticker="{tickers[0]}"'
     else:
-        factor = cx_read_sql(f'select * from {table}_{loading_month} where ticker in {tickers}', database=database)
+        ticker_condition = f'ticker in {tickers}'
+
+    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and table == 'factor':
+        factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where {ticker_condition}',
+                                 database=database)
+    else:
+        factor = cx_read_sql(f'select * from {table}_{loading_month} where {ticker_condition}', database=database)
 
     return factor
