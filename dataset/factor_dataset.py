@@ -7,6 +7,7 @@ from utils import list2str
 from dataset import build_factor_name
 from dataset.sql_data import load_ticker_by_indus, align_factor_ticker, load_factor_by_table, check_rebalanced
 from utils.mysql import cx_read_sql
+from utils.ddb import read_ddb_return
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
 
@@ -31,26 +32,36 @@ class FactorDataset():
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
         # init params
+        self.io_backend = self.opt['dataset']['io_backend']
         self.ret_name = self.opt['dataset']['ret_name']
         self.price_name = self.opt['dataset']['price_name']
         self.avg_price = self.opt['dataset']['avg_price']
-        self.is_runtime = self.opt['is_runtime']
+        self.is_realtime = self.opt['is_realtime']
         self.training_month = self.get_training_month()
         self.training_month_num = len(self.training_month)
         self.indus_class = self.opt['dataset']['indus_class']
         self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
-        self.database_name = list(self.factor_table.keys())
+        if self.opt['dataset'].get('eval_factor_table'):
+            self.eval_factor_table = self.opt['dataset']['eval_factor_table']
+        self.rebalancing_tables = self.opt['dataset']['rebalancing_tables']
+
         self.training_factor_name =  build_factor_name(self.opt['dataset']['training_factor_name']) # list(set(_train_data.columns) - set(del_column))
         self.std_factor_name = build_factor_name(self.opt['dataset']['std_factor_name'])
         self.clip_factor_name = build_factor_name(self.opt['dataset']['clip_factor_name'])
         self.log_factor_name = build_factor_name(self.opt['dataset']['log_factor_name'])
 
         # bool params
+        self.eval_rt = self.opt['eval_rt']
         self.debug_mode = self.opt['debug']
         self.is_empty = False
 
+        # init logging
+        if self.eval_rt:
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running eval rt mode!")
+        else:
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running training mode!")
 
     def load_data(self):
         # Ingest Ticker List
@@ -66,13 +77,14 @@ class FactorDataset():
         # Ingest Factor and Return
 
         # read data from mysql
-        need_rebalanced_month = check_rebalanced(self.training_month, self.test_month)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Checking need_rebalanced_month: {need_rebalanced_month} ")
+        #need_rebalanced_month = check_rebalanced(self.training_month, self.test_month) # for debug
+        #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Checking need_rebalanced_month: {need_rebalanced_month} ")
         data = dict() # restore data by month
         for month in self.training_month:
             data[month] = self.load_data_from_sql(month)
-        if not self.is_runtime:
-            data[self.test_month] = self.load_data_from_sql(self.test_month)
+        if not self.is_realtime:
+            data[self.test_month] = self.load_data_from_sql(self.test_month, eval_rt=self.eval_rt)
+
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading factor and return ")
 
         # Data Preprocessing
@@ -93,11 +105,12 @@ class FactorDataset():
         train_data = self.del_null_value(train_data)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start transforming data and saving preprocess params")
         # transforming data, including std, clip, save params by ticker
-        if self.is_runtime:
+        if self.is_realtime:
             # cancel backtesting in test_data
-            self.transform_runtime(train_data)
+            self.save_transform_params(train_data)
         else:
             self.transform(train_data, test_data)
+
         # rebalance training data
         self.rebalance_training_data()
 
@@ -117,15 +130,15 @@ class FactorDataset():
             # align training and testing ticker list
             all_ticker = cur_ticker.copy()
             check_ticker_month = self.get_check_ticker_month()
-            align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month, self.training_month_num)
-
-            # check whether ticker list is null
-            if len(ticker_list) == 0:
-                raise FileExistsError(f"{self.test_month}_indus_{self.indus_type}: No ticker list exists in SQL")
+            ticker_list = align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month, self.rebalancing_tables, self.training_month_num, self.io_backend)
 
             # ordered ticker list
             ticker_list = sorted(ticker_list)
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Total ticker number is {len(ticker_list)}")
+
+            # check whether ticker list is null
+            if len(ticker_list) == 0:
+                raise FileExistsError(f"{self.test_month}_indus_{self.indus_type}: No ticker list exists in SQL")
 
         except Exception as e:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Error in fetching ticker list: {e}")
@@ -137,14 +150,23 @@ class FactorDataset():
         return ticker_list
 
 
-    def load_data_from_sql(self, month):
+    def load_data_from_sql(self, month, eval_rt=False):
         try:
             self.tickers = tuple(self.tickers)
             data = [pd.DataFrame()]
-            for i, database in enumerate(self.database_name):
-                for table in self.factor_table[database]:
+            # training phase / eval phase
+            if eval_rt:
+                database_name = list(self.eval_factor_table.keys())
+                factor_table_name = self.eval_factor_table
+            else:
+                database_name = list(self.factor_table.keys())
+                factor_table_name = self.factor_table
+
+            i = 0
+            for database in database_name:
+                for table in factor_table_name[database]:
                     # load factors from sql
-                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month, self.training_month_num)
+                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month, self.rebalancing_tables, self.training_month_num, self.io_backend)
                     # preprocess(log...)
                     self.preprocess(factor)
                     # merge factors from every table
@@ -152,13 +174,19 @@ class FactorDataset():
                         data = factor
                     else:
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
+                    i += 1
             # load labels
-            if len(self.tickers) == 1:
-                ticker_condition = f'ticker="{self.tickers[0]}"'
-            else:
-                ticker_condition = f'ticker in {self.tickers}'
-            labels = cx_read_sql(f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where {ticker_condition}')
-
+            if self.io_backend =='sql':
+                if len(self.tickers) == 1:
+                    ticker_condition = f'ticker="{self.tickers[0]}"'
+                else:
+                    ticker_condition = f'ticker in {self.tickers}'
+                labels = cx_read_sql(f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where {ticker_condition}')
+            if self.io_backend =='ddb':
+                labels = read_ddb_return(month, self.tickers)
+                labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
+                # del null return data
+                labels = labels.dropna()
             # merge factors and labels by ticker, date, time
             data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
             data.rename(columns={'ret_' + self.ret_name: 'ret'}, inplace=True)
@@ -200,7 +228,7 @@ class FactorDataset():
     def split_data(self, data):
         # split month data to train/test
         train_data = pd.concat([data[m] for m in self.training_month])
-        if self.is_runtime:
+        if self.is_realtime:
             test_data = pd.DataFrame()
         else:
             test_data = data[self.test_month]
@@ -233,7 +261,7 @@ class FactorDataset():
                      2: (train_data['class_label'] == 2).sum()}
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Train label number is {train_num}")
 
-        if not self.is_runtime:
+        if not self.is_realtime:
             add_label(test_data)
             test_num = {0: (test_data['class_label'] == 0).sum(),
                         1: (test_data['class_label'] == 1).sum(),
@@ -342,7 +370,7 @@ class FactorDataset():
             self.clip_params.to_csv(clip_path, index=False)
 
 
-    def transform_runtime(self, train_data):
+    def save_transform_params(self, train_data):
         del_column = ['time', 'ticker', 'date', 'class_label', 'ret']  # del columns in data
         self.train_data = train_data.reset_index()
         self.std_params = []
@@ -452,7 +480,7 @@ class FactorDataset():
 
 
     def get_check_ticker_month(self):
-        if not self.is_runtime:
+        if not self.is_realtime:
             check_ticker_month = self.training_month + [self.test_month]
         else:
             check_ticker_month = self.training_month
