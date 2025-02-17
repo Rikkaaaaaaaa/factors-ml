@@ -79,12 +79,11 @@ class LgbmModel():
 
 
     def save(self):
-        # save model file
         ckpt_folder = self.opt['path']['model_path'][self.test_month]
         ckpt_name = 'lgbm_indus{}.txt'.format(self.indus_type)
         ckpt_path = osp.join(ckpt_folder, ckpt_name)
-        self.model.save_model(ckpt_path)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Saving model at {ckpt_path}")
+        self.model.save_model(ckpt_path)
 
 
     def predict(self, data):
