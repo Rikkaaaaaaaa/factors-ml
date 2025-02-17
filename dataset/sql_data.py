@@ -1,6 +1,7 @@
 import pandas as pd
 from utils.mysql import cx_read_sql
 from utils import list2str
+from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb
 
 
 
@@ -53,6 +54,8 @@ def load_ticker_by_indus(pool, price_name, indus_class, indus_type, test_month, 
         price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(pool, avg_price, test_month))
 
     tickers = set(indus_table['ticker']) & set(price_table['ticker'])
+    if len(tickers) == 0:
+        raise FileExistsError(f"{test_month}_indus_{indus_type}: The number of tickers(average price > 10) is 0")
 
     return tickers
 
@@ -101,19 +104,30 @@ def check_rebalanced(training_month, test_month):
     return need_rebalanced_month
 
 
-def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month, training_month_num=3):
+def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month, rebalancing_tables, training_month_num=3, io_backend="sql"):
+
     cur_ticker = all_ticker.copy()
     for database in factor_table.keys():
         for table in factor_table[database]:
             for month in check_ticker_month:
-                if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(month, test_month) and table == 'factor':
-                    factor_ticker = cx_read_sql(f'select distinct ticker from {table}_{month}_index_rebalancing',
-                                                database=database)
+                ddb_month = str(month)[0:4] + '.' + str(month)[4:] + 'M'
+
+                if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(month, test_month) and table in rebalancing_tables:
+                    if io_backend == "sql":
+                        factor_ticker = cx_read_sql(f'select distinct ticker from {table}_{month}_index_rebalancing', database=database)
+                    if io_backend == "ddb":
+                        factor_ticker = read_ddb(f'select distinct(securityCode) as ticker from loadTable("{database}", "{table}_index_rebalancing") where month(time)={ddb_month}')
+
                 else:
-                    factor_ticker = cx_read_sql(f'select distinct ticker from {table}_{month}', database=database)
-                cur_ticker = cur_ticker & set(factor_ticker['ticker'])
+                    if io_backend == "sql":
+                        factor_ticker = cx_read_sql(f'select distinct ticker from {table}_{month}', database=database)
+                    if io_backend == "ddb":
+                        factor_ticker = read_ddb(f'select distinct(securityCode) as ticker from loadTable("{database}", "{table}") where month(time)={ddb_month}')
+
+                factor_ticker = factor_ticker['ticker']
+                cur_ticker = cur_ticker & set(factor_ticker)
                 # check missing tickers
-                missing_tickers = set(all_ticker) - set(factor_ticker['ticker'])
+                missing_tickers = set(all_ticker) - set(cur_ticker)
 
                 if len(missing_tickers) > 0:
                     raise ValueError(f"There are missing tickers in {database}.{table} in {month}:  {list2str(missing_tickers)}")
@@ -121,16 +135,24 @@ def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month
     return cur_ticker
 
 
-def load_factor_by_table(database, table, tickers, loading_month, test_month, training_month_num=3):
+def load_factor_by_table(database, table, tickers, loading_month, test_month, rebalancing_tables, training_month_num=3, io_backend='sql'):
     if len(tickers) == 1:
         ticker_condition = f'ticker="{tickers[0]}"'
     else:
         ticker_condition = f'ticker in {tickers}'
 
-    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and table == 'factor':
-        factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where {ticker_condition}',
+    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and  table in rebalancing_tables :
+        if io_backend == "sql":
+            factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where {ticker_condition}',
                                  database=database)
+        if io_backend == "ddb":
+            tickers = list(tickers)
+            factor = read_ddb_factor(database, f'{table}_index_rebalancing', loading_month, tickers)
     else:
-        factor = cx_read_sql(f'select * from {table}_{loading_month} where {ticker_condition}', database=database)
+        if io_backend == "sql":
+            factor = cx_read_sql(f'select * from {table}_{loading_month} where {ticker_condition}', database=database)
+        if io_backend == "ddb":
+            tickers = list(tickers)
+            factor = read_ddb_factor(database, table, loading_month, tickers)
 
     return factor
