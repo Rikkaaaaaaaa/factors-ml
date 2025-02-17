@@ -2,6 +2,6 @@
 /experiments/
 /.idea/
 /experiment*
-/lgbm_data/*
+/data/lgbm_data/*
 /summary_zz500_highprice*
 /*csv
