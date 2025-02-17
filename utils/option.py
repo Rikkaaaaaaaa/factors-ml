@@ -78,12 +78,9 @@ def yaml_load(f):
 
 def parse_options(root_path, ensure=True):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='option/batch4_factor_select/batch4_factor_manual_select150_hs300_highprice_lgbm_300s.yaml', help='Path to option YAML file.')
-    parser.add_argument('-is_runtime', action='store_true', help='Whether the phase is backtesting or runtime')
+    parser.add_argument('-option', type=str, default='option/ddb_factor_eval/ddb_factor_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
     parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
-
-    # for pushing signal
-    parser.add_argument('-suffix', type=str, default='', help='signal file name suffix')
     args = parser.parse_args()
 
     # parse yml to dict
@@ -92,7 +89,7 @@ def parse_options(root_path, ensure=True):
     opt = yaml_load(args.option)
 
     # parse cmd flag
-    opt['is_runtime'] = args.is_runtime
+    opt['is_realtime'] = args.is_realtime
     opt['debug'] = args.debug
 
     # random seed
@@ -110,10 +107,14 @@ def parse_options(root_path, ensure=True):
     experiments_root = opt['path'].get('experiments_root')
     if experiments_root is None:
         experiments_root = osp.join(root_path, 'experiments')
+        # eval experiments path
+        if  opt['eval_rt']:
+            experiments_root = osp.join(root_path, 'eval_experiments')
     experiments_root = osp.join(experiments_root, opt['name'])
     opt['path']['experiments_root'] = experiments_root
     if ensure:
         ensure_path(experiments_root)
+
 
     # saving path
     opt['path']['model_path'] = dict()
