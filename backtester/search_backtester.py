@@ -6,7 +6,7 @@ import traceback
 
 from dataset import build_factor_name
 from utils.logger import get_root_logger
-from metric.base_metric import compute_metric, compute_runtime_metric
+from metric.base_metric import compute_metric, compute_realtime_metric
 
 class SearchBackTester():
     """
@@ -24,7 +24,7 @@ class SearchBackTester():
         self.test_month = test_month
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
-        self.is_runtime = self.opt['is_runtime']
+        self.is_realtime = self.opt['is_realtime']
         self.training_factor_name = build_factor_name(self.opt['dataset']['training_factor_name'])
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
@@ -89,8 +89,8 @@ class SearchBackTester():
             self.results = []  # results summary
 
         # compute performance dict
-        if self.is_runtime:
-            self._metric = compute_runtime_metric(self.opt, self._train_proba)
+        if self.is_realtime:
+            self._metric = compute_realtime_metric(self.opt, self._train_proba)
         else:
             # filter null data
             self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
