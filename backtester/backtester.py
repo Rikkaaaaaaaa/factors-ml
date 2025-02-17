@@ -7,7 +7,7 @@ from sklearn.decomposition import PCA
 
 from dataset import build_factor_name
 from utils.logger import get_root_logger
-from metric.base_metric import compute_metric, compute_runtime_metric
+from metric.base_metric import compute_metric, compute_realtime_metric
 
 class BackTester():
     """
@@ -25,7 +25,7 @@ class BackTester():
         self.test_month = test_month
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
-        self.is_runtime = self.opt['is_runtime']
+        self.is_realtime = self.opt['is_realtime']
         self.training_factor_name = build_factor_name(self.opt['dataset']['training_factor_name'])
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
@@ -41,7 +41,7 @@ class BackTester():
             self.training_factor_name = factor_data.selected_factor
 
         try:
-            self.tickers = factor_data.tickers
+            self.tickers = factor_data.test_data["ticker"].unique() #factor_data.tickers # change
             if self.opt['test']['bound_mode'] == 'by_indus':
                 self._train_proba = model.predict(factor_data.train_data[self.training_factor_name])
 
@@ -58,6 +58,7 @@ class BackTester():
                 # select factor
                 train_data = factor_data.train_data.query(ticker_data_query) # bound proba come from original data
                 test_data = factor_data.test_data.query('ticker==@ticker')
+
                 x_train = train_data[self.training_factor_name]
                 x_test = test_data[self.training_factor_name]
 
@@ -74,7 +75,8 @@ class BackTester():
 
                 # compute null idx in test data
                 training_factor_name = test_data.drop(['ticker', 'date', 'time', 'class_label', 'ret'], axis=1).columns
-                self._null_idx = np.isnan(test_data[list(training_factor_name) + ['ret']].values).any(axis=1)
+                # self._null_idx = np.isnan(test_data[list(self.training_factor_name) + ['ret']].values).any(axis=1)
+                self._null_idx = np.isnan(test_data['ret'].values)
                 #self._null_idx = np.isnan(test_data[self.training_factor_name].values).any(axis=1) # factor nan
 
                 # compute metric with not null data
@@ -103,8 +105,8 @@ class BackTester():
             self.results = []  # results summary
 
         # compute performance dict
-        if self.is_runtime:
-            self._metric = compute_runtime_metric(self.opt, self._train_proba)
+        if self.is_realtime:
+            self._metric = compute_realtime_metric(self.opt, self._train_proba)
         else:
             # filter null data
             self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
@@ -126,7 +128,7 @@ class BackTester():
         self.results.insert(2, 'indus_type', self.indus_type)
 
         # save results file
-        if not self.is_runtime:
+        if not self.is_realtime:
             results_folder =  self.opt['path']['results_path'][self.test_month]
             results_name = 'results_{}_indus{}.csv'.format(self.test_month, self.indus_type)
             results_path = osp.join(results_folder, results_name)
@@ -167,7 +169,8 @@ class BackTester():
         signal_array = np.zeros(len(self._pre_proba))
         signal_array[signal['proba'] > self._metric['up_bound']] = 1
         signal_array[1 - signal['proba'] > self._metric['down_bound']] = -1
-        signal_array[self._null_idx] = np.nan
+        # set signal to nan when null factor
+        # signal_array[self._null_idx] = np.nan
         signal['signal'] = signal_array
         self.signals.append(signal)
 
@@ -184,9 +187,9 @@ class BackTester():
         self.signals.to_csv(signal_path, index=False)
 
 
-    def runtime(self, factor_data, model):
+    def realtime(self, factor_data, model):
         '''
-        backtest data and save results. bound values and signals
+        realtime data and save results. bound values and signals
          '''
         try:
             self.tickers = factor_data.tickers
@@ -210,13 +213,13 @@ class BackTester():
                 if self.opt['test']['bound_mode'] == 'by_ticker':
                     self._train_proba = model.predict(x_train)
 
-                # compute runtime metric with train data
+                # compute realtime metric with train data
                 self.compute_metrics()
 
             # save bound values
             self.save_results()
             self.save_bound()
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Runtime params saving finish with {len(self.tickers)} tickers")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Realtime params saving finish with {len(self.tickers)} tickers")
 
         except Exception as e:
             traceback.print_exc()

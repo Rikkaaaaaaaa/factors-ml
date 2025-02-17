@@ -55,7 +55,6 @@ def save_signal_sql(database, table_name, merge_signal):
                                })
 
 def merge_signal_ensemble(args):
-    # zz800 高价股
     config, month, table_name, signal_col_name = args[0], args[1], args[2], args[3]
     print(f'Merging {month} signals to {table_name}...')
     s = time.time()
@@ -90,6 +89,7 @@ def init(args):
     lock = args[0]
 
 if __name__ == '__main__':
+    test_month = [202403,202404, 202405,202406, 202407, 202408, 202409, 202410, 202411,202412]#[202304, 202305,202306,202307,202308, 202309, 202310, 202311]
     parser = argparse.ArgumentParser(description='merge bt signal')
     parser.add_argument('-n_jobs', type=int, default=8, help="parallel num")
     parser.add_argument('-price_name', type=str, default='highprice', help='highprice or lowprice')
@@ -98,7 +98,6 @@ if __name__ == '__main__':
     parser.add_argument('-signal_table_suffix', type=str, default='')
     parser.add_argument('-merge_table_suffix', type=str, default='ml')
     parser.add_argument('-database', type=str, default='strategy')
-    test_month = [202309]#[202304, 202305,202306,202307,202308, 202309, 202310, 202311]
 
     config = parser.parse_args()
     config.sig_15s = f'signal_{config.pool_name}_{config.price_name}_{config.model_name}_15s'
