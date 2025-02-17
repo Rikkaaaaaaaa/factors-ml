@@ -48,8 +48,8 @@ def train_pipeline(train_args):
 
     # backtesting or reactive process: it will record bound proba and report summay of models performance
     backtester = BackTester(opt, test_month, indus_type)
-    if opt['is_runtime']:
-        backtester.runtime(dataset, model)
+    if opt['is_realtime']:
+        backtester.realtime(dataset, model)
     else:
         backtester.backtest(dataset, model)
 
@@ -76,7 +76,7 @@ def main(opt):
     pool.join()
     print("Task time is {}".format(time_str(global_timer.item())))
     # save report
-    if not opt['is_runtime']:
+    if not opt['is_realtime']:
         save_report_disk(opt)
 
 
