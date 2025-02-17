@@ -6,5 +6,7 @@ from utils.option import parse_options
 if __name__ == '__main__':
     root_path = './'
     opt, args = parse_options(root_path, ensure=False)
-    upload_month = [202304,202305,202306,202307,202308, 202309, 202310,202311,202312, 202401]
-    push_signal_sql(opt, suffix=args.suffix, upload_month=upload_month, if_exists='append')
+    # note that upload_month must equals to yaml
+    upload_month = [202403, 202404, 202405, 202406, 202407, 202408, 202409, 202410, 202411, 202412]
+    signal_file_name_suffix = "ddb_with_nan"
+    push_signal_sql(opt, suffix=signal_file_name_suffix, upload_month=upload_month, if_exists='append')
