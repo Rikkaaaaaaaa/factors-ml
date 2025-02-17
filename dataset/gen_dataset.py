@@ -314,58 +314,6 @@ class GenDataset():
         #     self.clip_params.to_csv(clip_path, index=False)
 
 
-    def transform_runtime(self, train_data):
-        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']  # del columns in data
-        self.train_data = train_data.reset_index()
-        self.std_params = []
-        self.clip_params = []
-        for ticker in self.tickers:
-            _train_data = self.train_data.query('ticker==@ticker')
-            # split data to train_x and test_x
-            train_x = _train_data[self.std_factor_name]
-
-            # data std
-            if len(self.std_factor_name) > 0:
-                std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
-                factor_mean = np.mean(train_x, axis=0).values
-                factor_std = np.std(train_x, axis=0).values
-                train_x = (train_x - factor_mean) / factor_std
-                self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
-                # save transform params
-                std_param['factor_name'] = self.std_factor_name
-                std_param['mean'] = factor_mean
-                std_param['std'] = factor_std
-                std_param.insert(0, 'ticker', ticker)
-                self.std_params.append(std_param)
-
-            # data clip
-            if len(self.clip_factor_name) > 0:
-                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
-                train_x = _train_data[self.clip_factor_name]
-                factor_min = np.percentile(train_x, 5, axis=0, )
-                factor_max = np.percentile(train_x, 95, axis=0, )
-                train_x = np.clip(train_x, factor_min, factor_max)
-                self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
-                # save transform params
-                clip_param['factor_name'] = self.clip_factor_name
-                clip_param['min'] = factor_min
-                clip_param['max'] = factor_max
-                clip_param.insert(0, 'ticker', ticker)
-                self.clip_params.append(clip_param)
-
-        # save preprocess params
-        save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        # std
-        if len(self.std_params) > 0:
-            std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
-            self.std_params = pd.concat(self.std_params)
-            self.std_params.to_csv(std_path, index=False)
-        # clip
-        if len(self.clip_params) > 0:
-            clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
-            self.clip_params = pd.concat(self.clip_params)
-            self.clip_params.to_csv(clip_path, index=False)
-
     def rebalance_training_data(self):
         # balance training data
         if self.class_num == 2 and self.opt['dataset'].get('balance') == 'reverse':
