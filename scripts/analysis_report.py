@@ -20,7 +20,7 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
     ticker_pool_name = config.ticker_pool_name
     price_name = config.price_name
     model_name = config.model_name
-    report_pool_name = report_pool_name
+    experiment_path = config.experiment_path
     cols = [ 'month', 'up_bound', 'down_bound', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
            'up_signal_rate', 'down_signal_rate', 'weighted_ret', 'total_sample', 'zero_rate']
     summary = []
@@ -28,7 +28,7 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
         report_folder = f'{prefix}_{report_pool_name}_{price_name}_{model_name}_{ret_window}'
         report_name = f'report_{prefix}_{report_pool_name}_{price_name}_{model_name}_{ret_window}'
         #report_name = f'all_factor_lgbm_{ret_window}_highprice_hs300'
-        report_path = osp.join(root, 'experiments', report_folder, report_name + '.csv')
+        report_path = osp.join(root, experiment_path, report_folder, report_name + '.csv')
         report = pd.read_csv(report_path)
         report['weighted_ret'] = report['up_mean_ret'] * report['up_signal_rate'] - report['down_mean_ret'] * report['down_signal_rate']
         test_month_list = sorted(report['month'].unique())
@@ -48,9 +48,10 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='merge bt signal')
+    parser = argparse.ArgumentParser(description='ddb_factor')
+    parser.add_argument('-experiment_path', type=str, default='experiments', help='experiment folder name')
     parser.add_argument('-n_jobs', type=int, default=8, help="parallel num")
-    parser.add_argument('-prefix', type=str, default='base_factor', )
+    parser.add_argument('-prefix', type=str, default='ddb_factor', )
     parser.add_argument('-price_name', type=str, default='highprice', help='highprice or lowprice')
     parser.add_argument('-report_pool_name', type=str, default='hs300', help='hs300, zz800 or zz1000')
     parser.add_argument('-ticker_pool_name', type=str, default='hs300', help='hs300, zz500 or zz1000')
