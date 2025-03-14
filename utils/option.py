@@ -78,7 +78,7 @@ def yaml_load(f):
 
 def parse_options(root_path, ensure=True):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='option/ddb_factor_eval/ddb_factor_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='option/ddb_factor_new_GP_20250314/ddb_factor_new_GP_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
     parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()

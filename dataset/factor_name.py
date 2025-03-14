@@ -23,7 +23,7 @@ __all__ = [ # factor names
             "ddb_gp_factor",
             "ddb_fok_factor",
             "ddb_base_factor",
-
+            "ddb_gp_factors_batch2",
             ]
 
 factor_list = ['time', 'close_ret_15s', 'close_ret_30s', 'close_ret_60s', 'ma_close_ret_1', 'ma_close_ret_2', 'ma_close_ret_5',
@@ -232,6 +232,8 @@ ddb_slope_std_factor = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slop
                     'slope_bidh2_2min', 'slope_bidh2_5min',
                     'EMA_std_3s', 'EMA_std_15s', 'EMA_std_min', 'EMA_std_2min', 'EMA_std_5min'
 ]
+
+ddb_gp_factors_batch2 = ['gp_{}'.format(x) for x in range(37, 73)]  # 20250314 new GP factors (37~72)
 
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }

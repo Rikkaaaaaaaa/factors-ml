@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import glob
 
+import utils
+
 
 def get_gru_signal(signal_root):
     signals = []
@@ -77,6 +79,15 @@ def compute_overlap(signal1, signal1_col, signal2, signal2_col):
     overlap.reset_index(inplace=True)
     return overlap
 
+
+def count_signals(table_name, database='strategy'):
+    date = 20240618
+    signal = utils.cx_read_sql('select * from {} where date={} '.format(table_name, date))
+    drop_signal = signal.drop_duplicates(subset = ["date","ticker","time"],keep="first")
+    ticker_num = len(signal["ticker"].unique())
+    print(ticker_num, len(signal), len(signal)/ticker_num)
+    print(len(drop_signal)/ticker_num)
+    return  signal
 
 def main():
     '''
@@ -168,3 +179,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    #signal_1 = count_signals("signal_hs300_highprice_gru_15s")
+    #signal_2 = count_signals("ensemble_hs300_highprice_ddb_with_nan")

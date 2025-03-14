@@ -35,7 +35,6 @@ def cx_read_sql(query, database='strategy'):
 def create_pd_engine(database):
     return create_engine('mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8'.format(user, password, host, port, database))
 
-
 def read_table(database, query):
     try:
         conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)

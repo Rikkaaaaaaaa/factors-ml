@@ -88,7 +88,7 @@ def parse_option(root_path = '../', option_path='../option/gen_factor/gen_factor
 
 
 if __name__ == '__main__':
-    option_path = '../option/gen_factor/gen_factor_20240709.yaml'
+    option_path = '../option/gen_factor/gen_factor_no_std_for_rl_20240724.yaml'
     run_function = train_pipeline
 
     opt = parse_option(option_path=option_path)
