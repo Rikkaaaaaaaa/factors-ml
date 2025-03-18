@@ -2,20 +2,33 @@ import glob
 import argparse
 import pandas as pd
 import os
+import os.path as osp
 import sqlalchemy.types
+import traceback
 
 from utils.mysql import create_pd_engine, create_index
 from utils import ensure_table_name, delete_by_month
 
 
 def save_report_disk(opt):
-    res_path = opt['path']['results_path']
     report = []
-    for month in res_path.keys():
-        csv_folder = res_path[month]
-        res_csv = glob.glob(csv_folder.rstrip('/') + '/*csv')
-        for r in res_csv:
-            report.append(pd.read_csv(r))
+    res_path = opt['path']['results_path']
+    root_path = opt['path']['experiments_root']
+    # list all dirs and filter month folder like 202406
+    all_items = os.listdir(root_path)
+    month_folders = [item for item in all_items if osp.isdir(osp.join(root_path, item)) and item.isdigit() and len(item)==6]
+    # concat all results.csv
+    for month in month_folders:
+        try:
+            csv_folder = osp.join(root_path, month, "results")
+            res_csv = glob.glob(csv_folder.rstrip('/') + '/*csv')
+            if len(res_csv) == 0:
+                raise FileNotFoundError(f"There are no result files in {csv_folder}")
+            for r in res_csv:
+                report.append(pd.read_csv(r))
+        except Exception as e:
+            print(traceback.format_exc())
+
     report = pd.concat(report).reset_index(drop=True)
     report= report.reset_index(drop=True)
     report_name = 'report_{}.csv'.format(opt['name'])
