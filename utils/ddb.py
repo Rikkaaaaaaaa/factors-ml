@@ -1,0 +1,138 @@
+import dolphindb as ddb
+import pandas as pd
+import numpy as np
+
+log_factor_name = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
+              'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
+              'lower_ask_amt_60s',
+              'net_bid_amt_delta_15s', 'net_bid_amt_delta_30s', 'net_bid_amt_delta_60s', 'indus_book_pressure_15s',
+              'indus_book_pressure_delta_15s', 'indus_higher_bid_amt_15s', 'indus_higher_bid_amt_30s',
+              'indus_higher_bid_amt_60s',
+              'indus_lower_ask_amt_15s', 'indus_lower_ask_amt_30s', 'indus_lower_ask_amt_60s',
+              'indus_net_bid_amt_delta_15s',
+              'indus_net_bid_amt_delta_30s', 'indus_net_bid_amt_delta_60s', 'mkt_book_pressure_15s',
+              'mkt_higher_bid_amt_15s',
+              'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s']
+
+
+def preprocess(factor):
+    # preprocessing after fetcing from sql
+    # log factor
+    def get_log_factor_df(df_factors):
+        df_factors[df_factors > 0] = np.log(df_factors[df_factors > 0] + 1)
+        df_factors[df_factors < 0] = -np.log(-df_factors[df_factors < 0] + 1)
+        return df_factors
+
+    for log_factor in log_factor_name:
+        if log_factor in factor.columns:
+            factor.loc[:, log_factor] = get_log_factor_df(factor[log_factor].values)
+    # other ops
+    # ......
+    return factor
+
+DDB_config = { "server": "10.95.145.91",
+               "port": 8993,
+               "userName": "quantStrat",
+               "userKey": "eqalgo_2024"
+            }
+
+class DDB_connector():
+    def __init__(self, DDB_config):
+        self.ddb_session = ddb.session(DDB_config["server"], DDB_config["port"], DDB_config["userName"], DDB_config["userKey"])
+
+    def query_data(self, query):
+        res = self.ddb_session.run(query)
+
+        return res
+
+    def close(self):
+        self.ddb_session.close()
+
+def read_ddb(query):
+    ddb = DDB_connector(DDB_config)
+    res = ddb.query_data(query)
+    ddb.close()
+
+    return res
+
+def read_ddb_factor(data_base, table_name, test_month, tickers):
+    test_month = str(test_month)
+    test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
+    ddb_reader = DDB_connector(DDB_config)
+
+    # select wide table
+    scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
+    ddb_reader.ddb_session.run(scripts)
+    scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
+    ddb_reader.ddb_session.run(scripts)
+    scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
+    factor = ddb_reader.ddb_session.run(scripts)
+
+    # transfer to ticker date time format like sql
+    factor.rename(columns={"securityCode": "ticker"}, inplace=True)
+    factor.insert(0, 'date', factor["time"].apply(lambda x: int(x.strftime('%Y%m%d'))))
+    factor["time"] = factor["time"].apply(lambda x:x.second*1000 + x.minute*100000 +x.hour*10000000)
+
+    factor = factor.query("time>= 94000000 and time <= 145700000")
+    ddb_reader.close()
+
+    return factor
+
+def read_ddb_return(test_month, tickers):
+    test_month = str(test_month)
+    test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
+    ddb_reader = DDB_connector(DDB_config)
+    data_base = "dfs://DDB_Returns"
+    table_name = "Returns"
+
+    # select wide table
+    scripts = "retTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
+    ddb_reader.ddb_session.run(scripts)
+    scripts =  "select * from retTable where month(time)={} and securityCode in {}".format(test_month, tickers)
+    ret = ddb_reader.ddb_session.run(scripts)
+
+    # transfer to ticker date time format like sql
+    ret.rename(columns={"securityCode": "ticker"}, inplace=True)
+    ret.insert(0, 'date', ret["time"].apply(lambda x: int(x.strftime('%Y%m%d'))))
+    ret["time"] = ret["time"].apply(lambda x:x.second*1000 + x.minute*100000 +x.hour*10000000)
+    ret = ret.query("time>= 94000000 and time <= 145700000")
+
+    ddb_reader.close()
+
+    return ret
+
+if __name__ == "__main__":
+    ddb_reader = DDB_connector(DDB_config)
+    res = ddb_reader.query_data("license()")
+    tickers = tuple(["600519.SH", "300750.SZ"])
+
+    factor_tables = ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+    factor_database = { "dfs://DDB_Factor_15s":factor_tables}
+    test_month = 202401
+    ret_name = "15s"
+
+    data = [pd.DataFrame()]
+    i = 0
+    for database in factor_database:
+        for table in factor_database[database]:
+            # load factors
+            factor = read_ddb_factor(database, table, test_month, tickers)
+            # preprocess(log...)
+            preprocess(factor)
+            # merge factors from every table
+            if i == 0:
+                data = factor
+            else:
+                data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
+            i += 1
+
+
+    labels = read_ddb_return(test_month, tickers)
+    labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
+    # merge factors and labels by ticker, date, time
+    data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
+    data.rename(columns={'ret_' + ret_name: 'ret'}, inplace=True)
+    print(len(data))
+
+
+

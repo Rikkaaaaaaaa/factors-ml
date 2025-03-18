@@ -1,0 +1,194 @@
+import multiprocessing as mp
+import os.path as osp
+import logging
+import random
+import os.path as osp
+import shutil
+
+import pandas as pd
+
+from utils.misc import set_random_seed, ensure_path, mkdir
+from dataset.sql_data import check_indus
+from dataset import build_dataset
+from utils.option import yaml_load
+from utils.logger import get_root_logger, get_env_info
+from utils.misc import Timer, time_str, get_time_str, exists_results
+import lightgbm as lgbm
+
+
+
+def init(args):
+    global lock
+    lock = args[0]
+
+def train_pipeline(train_args):
+    opt, test_month, indus_type = train_args
+    # logger init
+    logger_name = f"month{test_month}_indus{indus_type}"
+    log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
+    logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
+
+    # get data set from test month
+    dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
+    dataset.load_data()
+    if dataset.is_empty:
+        return
+
+    # train_data_pred, test_data_pred = gen_lgbm_regression_pred_result(dataset)
+    # train_data_pred.to_csv(
+    #     f"{opt['path']['experiments_root']}/{test_month}/train_pred_result_{test_month}_indus_{indus_type}.csv")
+    # test_data_pred.to_csv(
+    #     f"{opt['path']['experiments_root']}/{test_month}/test_pred_result_{test_month}_indus_{indus_type}.csv")
+
+    dataset.train_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/train_data_{test_month}_indus_{indus_type}.csv", index=False)
+    dataset.test_data.to_csv(f"{opt['path']['experiments_root']}/{test_month}/test_data_{test_month}_indus_{indus_type}.csv",index=False)
+    dataset.labels.to_csv(f"{opt['path']['experiments_root']}/{test_month}/ret_{test_month}_indus_{indus_type}.csv", index=False)
+
+
+def gen_lgbm_regression_pred_result(dataset):
+    train_data = dataset.train_data.merge(dataset.labels, on=['ticker', 'date', 'time'], how='inner')
+    test_data = dataset.test_data.merge(dataset.labels, on=['ticker', 'date', 'time'], how='inner')
+    train_data = train_data.dropna(axis=0)
+    test_data = test_data.dropna(axis=0)
+    train_data_pred = train_data[['ticker', 'date', 'time']]
+    test_data_pred = test_data[['ticker', 'date', 'time']]
+
+    for pred_period in [15, 60, 120, 300]:
+        # train LGBM regression model
+        temp_train_data = train_data[train_data['ret_{}s'.format(pred_period)] != 0]
+        train_x = temp_train_data[dataset.training_factor_name]
+        train_y = temp_train_data['ret_{}s'.format(pred_period)]
+        model = lgbm.LGBMRegressor(n_jobs=8)
+        model.fit(train_x, train_y)
+
+        # use LGBM model to predict
+        train_x_orig = train_data[dataset.training_factor_name]
+        train_pred_y = model.predict(train_x_orig)
+        train_data_pred['pred_ret_{}s'.format(pred_period)] = train_pred_y
+
+        test_x = test_data[dataset.training_factor_name]
+        test_pred_y = model.predict(test_x)
+        test_data_pred['pred_ret_{}s'.format(pred_period)] = test_pred_y
+    return train_data_pred, test_data_pred
+
+
+def gen_lgbm_classification_result(train_args):
+    opt, test_month, indus_type = train_args
+    # logger init
+    logger_name = f"month{test_month}_indus{indus_type}"
+    log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
+    logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
+
+    # get data set from test month
+    dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
+    dataset.load_data()
+    if dataset.is_empty:
+        return
+
+    train_data = dataset.train_data.merge(dataset.labels, on=['ticker', 'date', 'time'], how='inner')
+    test_data = dataset.test_data.merge(dataset.labels, on=['ticker', 'date', 'time'], how='inner')
+    train_data = train_data.dropna(axis=0)
+    test_data = test_data.dropna(axis=0)
+    train_data_pred = train_data[['ticker', 'date', 'time']]
+    test_data_pred = test_data[['ticker', 'date', 'time']]
+
+    params = {
+        "objective": "binary",
+        "metric": "auc",
+        "boosting_type": "gbdt",
+        'max_bin': 255,
+        "learning_rate": 0.1,
+        "max_depth": -1,
+        "num_leaves": 30,
+        "feature_fraction": 0.8,
+        "bagging_fraction": 0.8,
+        "bagging_freq": 5,
+        # 'min_sum_hessian_in_leaf': 3.0,
+        "verbosity": -1,
+        'n_jobs': 8,
+    }
+
+    train_x = train_data[dataset.training_factor_name]
+    train_y = train_data['ret_{}'.format(dataset.ret_name)]
+    train_matrix = lgbm.Dataset(train_x, label=train_y)
+    model = lgbm.train(params, train_set=train_matrix, num_boost_round=200)
+
+    # use LGBM model to predict
+    train_pred_y = model.predict(train_x)
+    train_data_pred['pred_ret_{}'.format(dataset.ret_name)] = train_pred_y
+
+    test_x = test_data[dataset.training_factor_name]
+    test_pred_y = model.predict(test_x)
+    test_data_pred['pred_ret_{}'.format(dataset.ret_name)] = test_pred_y
+
+    train_data_pred.to_csv(
+        f"{opt['path']['experiments_root']}/{test_month}/train_pred_result_{test_month}_indus_{indus_type}_{dataset.ret_name}.csv")
+    test_data_pred.to_csv(
+        f"{opt['path']['experiments_root']}/{test_month}/test_pred_result_{test_month}_indus_{indus_type}_{dataset.ret_name}.csv")
+    return
+
+
+def gen_mp_args(opt):
+    args = []
+    for test_month in opt['dataset']['test_month']:
+        industry = check_indus(opt, test_month)
+        # industry = [5]
+        for indus_type in industry:
+            if not exists_results(opt, test_month, indus_type):
+                args.append((opt, test_month, indus_type))
+    return args
+
+
+def parse_option(root_path = '../', option_path='../option/gen_factor/gen_factor_hs300_highprice.yaml'):
+    if not osp.exists(option_path):
+        raise FileExistsError(f"No such option file named", option_path)
+    opt = yaml_load(option_path)
+    # random seed
+    seed = opt.get('manual_seed')
+    if seed is None:
+        seed = random.randint(1, 10000)
+        opt['manual_seed'] = seed
+    set_random_seed(seed)
+
+    # save path init
+    if not opt.get('path'):
+        opt['path'] = dict()
+    # experiment path
+    experiments_root = opt['path'].get('experiments_root')
+    if experiments_root is None:
+        experiments_root = osp.join(root_path, 'experiments')
+    experiments_root = osp.join(experiments_root, opt['name'])
+    opt['path']['experiments_root'] = experiments_root
+    ensure_path(experiments_root)
+
+    # month path
+    for test_month in opt['dataset']['test_month']:
+        test_month_path = osp.join(experiments_root, str(test_month))
+        mkdir(test_month_path)
+
+    # log path
+    log_root = opt['path'].get('log_root')
+    if log_root is None:
+        log_root = osp.join(experiments_root, 'log')
+    opt['path']['log'] = log_root
+    mkdir(log_root)
+    # copy option
+    shutil.copy2(option_path, opt['path']['experiments_root'])
+
+    return opt
+
+
+if __name__ == '__main__':
+    option_path = '../option/gen_classification_result/gen_classification_result_300s.yaml'
+    run_function = gen_lgbm_classification_result
+
+    opt = parse_option(option_path=option_path)
+    print(get_env_info())
+    pool = mp.Pool(processes=opt['n_jobs'], )
+    global_timer = Timer()
+    args = gen_mp_args(opt)
+    results = [pool.apply_async(run_function, (arg,)) for arg in args] # main function
+    [result.get() for result in results]
+    pool.close()
+    pool.join()
+    print("Task time is {}".format(time_str(global_timer.item())))
