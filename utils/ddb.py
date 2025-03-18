@@ -1,6 +1,7 @@
 import dolphindb as ddb
 import pandas as pd
 import numpy as np
+import time
 
 log_factor_name = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
               'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
@@ -58,24 +59,27 @@ def read_ddb(query):
 def read_ddb_factor(data_base, table_name, test_month, tickers):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
-    ddb_reader = DDB_connector(DDB_config)
 
     # select wide table
+    # start_time = time.time()
+    ddb_reader = DDB_connector(DDB_config)
     scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
     ddb_reader.ddb_session.run(scripts)
     scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
     ddb_reader.ddb_session.run(scripts)
     scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
     factor = ddb_reader.ddb_session.run(scripts)
+    ddb_reader.close()
+    # print(f'load data time: {time.time() - start_time}')
 
     # transfer to ticker date time format like sql
+    # start_time = time.time()
     factor.rename(columns={"securityCode": "ticker"}, inplace=True)
-    factor.insert(0, 'date', factor["time"].apply(lambda x: int(x.strftime('%Y%m%d'))))
-    factor["time"] = factor["time"].apply(lambda x:x.second*1000 + x.minute*100000 +x.hour*10000000)
-
-    factor = factor.query("time>= 94000000 and time <= 145700000")
-    ddb_reader.close()
-
+    factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
+    factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
+                      factor["time"].dt.second * 1000)
+    factor = factor[(factor["time"] >= 94000000) & (factor["time"] <= 145700000)]
+    # print(f'load date time: {time.time() - start_time}')
     return factor
 
 def read_ddb_return(test_month, tickers):
@@ -90,15 +94,14 @@ def read_ddb_return(test_month, tickers):
     ddb_reader.ddb_session.run(scripts)
     scripts =  "select * from retTable where month(time)={} and securityCode in {}".format(test_month, tickers)
     ret = ddb_reader.ddb_session.run(scripts)
+    ddb_reader.close()
 
     # transfer to ticker date time format like sql
     ret.rename(columns={"securityCode": "ticker"}, inplace=True)
-    ret.insert(0, 'date', ret["time"].apply(lambda x: int(x.strftime('%Y%m%d'))))
-    ret["time"] = ret["time"].apply(lambda x:x.second*1000 + x.minute*100000 +x.hour*10000000)
-    ret = ret.query("time>= 94000000 and time <= 145700000")
-
-    ddb_reader.close()
-
+    ret.insert(0, 'date', ret["time"].dt.strftime('%Y%m%d').astype(int))
+    ret["time"] = (ret["time"].dt.hour * 10000000 + ret["time"].dt.minute * 100000 +
+                   ret["time"].dt.second * 1000)
+    ret = ret[(ret["time"] >= 94000000) & (ret["time"] <= 145700000)]
     return ret
 
 if __name__ == "__main__":

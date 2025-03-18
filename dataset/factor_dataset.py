@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os.path as osp
 import traceback
+import time
 
 from utils import list2str
 from dataset import build_factor_name
@@ -173,6 +174,8 @@ class FactorDataset():
                     if i == 0:
                         data = factor
                     else:
+                        if 'limitFlag' in factor.columns:
+                            del factor['limitFlag']
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
                     i += 1
             # load labels
@@ -288,18 +291,21 @@ class FactorDataset():
 
 
     def transform(self, train_data, test_data=None):
-        self.train_data = train_data.reset_index()
-        self.test_data = test_data.reset_index()
+        # time cost
+        # transform_start_time = time.time()
+        self.train_data_list = []
+        self.test_data_list = []
         self.std_params = []
         self.clip_params = []
 
         for ticker in self.tickers:
-
+            temp_ticker_start_time = time.time()
+            _train_data = train_data[train_data['ticker'] == ticker]
+            _test_data = test_data[test_data['ticker'] == ticker]
             # data clip
             if len(self.clip_factor_name) > 0:
                 # split data to train_x and test_x
-                _train_data = self.train_data.query('ticker==@ticker')
-                _test_data = self.test_data.query('ticker==@ticker')
+
                 train_x = _train_data[self.clip_factor_name]
                 test_x = _test_data[self.clip_factor_name]
                 # clip type
@@ -321,10 +327,12 @@ class FactorDataset():
                     # fefault 5%~95%
                     factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
                     factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
+
                 train_x = np.clip(train_x, factor_min, factor_max)
                 test_x = np.clip(test_x, factor_min, factor_max)
-                self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
-                self.test_data.loc[_test_data.index, self.clip_factor_name] = test_x
+                _train_data.loc[:, self.clip_factor_name] = train_x.values
+                _test_data.loc[:, self.clip_factor_name] = test_x.values
+
                 # save transform params
                 clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
                 clip_param['factor_name'] = self.clip_factor_name
@@ -335,8 +343,6 @@ class FactorDataset():
 
             # data std
             if len(self.std_factor_name) > 0:
-                _train_data = self.train_data.query('ticker==@ticker')
-                _test_data = self.test_data.query('ticker==@ticker')
                 # split data to train_x and test_x
                 train_x = _train_data[self.std_factor_name]
                 test_x = _test_data[self.std_factor_name]
@@ -346,8 +352,9 @@ class FactorDataset():
                 factor_std = np.std(train_x, axis=0).values
                 train_x = (train_x - factor_mean) / factor_std
                 test_x = (test_x - factor_mean) / factor_std
-                self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
-                self.test_data.loc[_test_data.index, self.std_factor_name] = test_x.values
+                _train_data.loc[:, self.std_factor_name] = train_x.values
+                _test_data.loc[:, self.std_factor_name] = test_x.values
+
                 # save transform params
                 std_param['factor_name'] = self.std_factor_name
                 std_param['mean'] = factor_mean
@@ -355,6 +362,13 @@ class FactorDataset():
                 std_param.insert(0, 'ticker', ticker)
                 self.std_params.append(std_param)
 
+            self.train_data_list.append(_train_data)
+            self.test_data_list.append(_test_data)
+            # print(f'transform time cost for ticker {ticker}: {time.time() - temp_ticker_start_time}')
+
+        self.train_data = pd.concat(self.train_data_list)
+        self.test_data = pd.concat(self.test_data_list)
+        # print(f'transform time cost for all tickers: {time.time() - transform_start_time}')
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]
@@ -438,11 +452,9 @@ class FactorDataset():
             reversed_y[down_idx] = 0
             train_data_copy['class_label'] = reversed_y
             # add column augment to indicate train data
-            augment = pd.DataFrame(columns=['augment'], data=np.ones(len(reversed_y)))
-            train_data_copy = pd.concat([train_data_copy,augment], axis=1)
-            augment = pd.DataFrame(columns=['augment'], data=np.zeros(len(reversed_y)))
-            self.train_data = pd.concat([self.train_data, augment], axis=1)
-            self.train_data = pd.concat([self.train_data, train_data_copy], ignore_index=True)
+            train_data_copy['augment'] = 1
+            self.train_data['augment'] = 0
+            self.train_data = pd.concat([self.train_data, train_data_copy])
 
         # downsample
         def down_sample(self, data):

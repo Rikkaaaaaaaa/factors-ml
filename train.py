@@ -58,6 +58,7 @@ def init_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         industry = check_indus(opt, test_month)
+        # industry = [2]
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
