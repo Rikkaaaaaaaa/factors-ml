@@ -133,7 +133,14 @@ log_factor = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s
                    'indus_book_pressure_delta_15s', 'indus_higher_bid_amt_15s', 'indus_higher_bid_amt_30s', 'indus_higher_bid_amt_60s',
                    'indus_lower_ask_amt_15s', 'indus_lower_ask_amt_30s', 'indus_lower_ask_amt_60s', 'indus_net_bid_amt_delta_15s',
                    'indus_net_bid_amt_delta_30s', 'indus_net_bid_amt_delta_60s', 'mkt_book_pressure_15s', 'mkt_higher_bid_amt_15s',
-                   'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s']
+                   'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s',
+    "hBidAmt_lAskAmt_diff_largeInst_15s", "hBidAmt_lAskAmt_diff_largeInst_30s", "hBidAmt_lAskAmt_diff_largeInst_60s",
+    "hBidAmt_lAskAmt_diff_largeRetail_15s", "hBidAmt_lAskAmt_diff_largeRetail_30s",
+    "hBidAmt_lAskAmt_diff_largeRetail_60s", "hBidAmt_lAskAmt_diff_smallInst_120s",
+    "hBidAmt_lAskAmt_diff_smallInst_15s", "hBidAmt_lAskAmt_diff_smallInst_30s", "hBidAmt_lAskAmt_diff_smallInst_60s",
+    "hBidAmt_lAskAmt_diff_smallRetail_120s", "hBidAmt_lAskAmt_diff_smallRetail_15s",
+    "hBidAmt_lAskAmt_diff_smallRetail_30s", "hBidAmt_lAskAmt_diff_smallRetail_60s"
+              ]
 
 # factor group
 batch1_factor = base_factor + ofl_factor
@@ -234,6 +241,21 @@ ddb_slope_std_factor = ['skew_15', 'skew_60', 'skew_120', 'slope_ask3_3s', 'slop
 ]
 
 ddb_gp_factors_batch2 = ['gp_{}'.format(x) for x in range(37, 73)]  # 20250314 new GP factors (37~72)
+
+long_order_factor = [
+    "amtSpread_2_3s", "amtSpread_7_3s", "amtSpread_large_3s_fixed_amt", "amtSpread_small_3s_fixed_amt",
+    "hBidAmt_lAskAmt_diff_largeInst_15s", "hBidAmt_lAskAmt_diff_largeInst_30s", "hBidAmt_lAskAmt_diff_largeInst_60s",
+    "hBidAmt_lAskAmt_diff_largeRetail_15s", "hBidAmt_lAskAmt_diff_largeRetail_30s",
+    "hBidAmt_lAskAmt_diff_largeRetail_60s", "hBidAmt_lAskAmt_diff_smallInst_120s",
+    "hBidAmt_lAskAmt_diff_smallInst_15s", "hBidAmt_lAskAmt_diff_smallInst_30s", "hBidAmt_lAskAmt_diff_smallInst_60s",
+    "hBidAmt_lAskAmt_diff_smallRetail_120s", "hBidAmt_lAskAmt_diff_smallRetail_15s",
+    "hBidAmt_lAskAmt_diff_smallRetail_30s", "hBidAmt_lAskAmt_diff_smallRetail_60s",
+    "netBuy_smallInst_120s", "netBuy_smallInst_15s", "netBuy_smallInst_300s", "netBuy_smallInst_30s",
+    "netBuy_smallInst_600s", "netBuy_smallInst_60s", "netBuy_smallInst_active_120s", "netBuy_smallInst_active_15s",
+    "netBuy_smallInst_active_30s", "netBuy_smallInst_active_60s", "netBuy_smallRetail_active_15s",
+    "netBuy_smallRetail_active_30s", "netBuy_smallRetail_active_60s", "newLong_120s", "newLong_15s",
+    "newLong_300s", "newLong_30s", "newLong_60s", "tox_06", "tox_15", "tox_30", "tox_60"
+]
 
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }
