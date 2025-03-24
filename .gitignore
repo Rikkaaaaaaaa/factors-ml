@@ -1,7 +1,10 @@
 
 /experiments/
+/eval_experiments/
 /.idea/
 /experiment*
-/data/lgbm_data/*
-/summary_zz500_highprice*
+/data
+/summary/
 /*csv
+/scripts/*.csv
+
