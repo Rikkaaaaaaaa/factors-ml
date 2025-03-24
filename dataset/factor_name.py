@@ -24,6 +24,7 @@ __all__ = [ # factor names
             "ddb_fok_factor",
             "ddb_base_factor",
             "ddb_gp_factors_batch2",
+            "long_order_factor"
             ]
 
 factor_list = ['time', 'close_ret_15s', 'close_ret_30s', 'close_ret_60s', 'ma_close_ret_1', 'ma_close_ret_2', 'ma_close_ret_5',

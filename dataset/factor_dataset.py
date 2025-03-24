@@ -191,6 +191,7 @@ class FactorDataset():
                 # del null return data
                 labels = labels.dropna()
             # merge factors and labels by ticker, date, time
+            data = data[['ticker', 'date', "time"] + self.training_factor_name]
             data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
             data.rename(columns={'ret_' + self.ret_name: 'ret'}, inplace=True)
 
@@ -286,8 +287,14 @@ class FactorDataset():
 
     def del_null_value(self, train_data):
         data = train_data.dropna()
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Delete {(len(train_data)-len(data))/len(data):.2f}% null samples in train data.")
-        return data
+        if self.opt['dataset'].get('drop_null_in_training') and self.opt['dataset']['drop_null_in_training']:
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Delete {(len(train_data)-len(data))/len(train_data)*100:.2f}% null samples in train data.")
+            return data
+        else:
+            # ignore nan by default
+            # 20250319: training without dropna, will improve performance
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: With nan in training data. There are {(len(train_data) - len(data)) / len(train_data)*100:.2f}% null samples in train data.")
+            return train_data
 
 
     def transform(self, train_data, test_data=None):
@@ -305,7 +312,6 @@ class FactorDataset():
             # data clip
             if len(self.clip_factor_name) > 0:
                 # split data to train_x and test_x
-
                 train_x = _train_data[self.clip_factor_name]
                 test_x = _test_data[self.clip_factor_name]
                 # clip type
