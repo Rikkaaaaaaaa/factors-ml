@@ -82,7 +82,7 @@ class BackTester():
                 # compute metric with not null data
                 self.compute_metrics()
 
-                # push signal dataframe into self.signals
+                # append signal dataframe into self.signals
                 self.compute_signal()
 
             # save all files
@@ -174,6 +174,13 @@ class BackTester():
         signal['signal'] = signal_array
         self.signals.append(signal)
 
+        # if we need to save training proba
+        if self.opt['train'].get('save_proba'):
+            if not hasattr(self, 'train_signals'):
+                self.train_signals = []
+            train_signal = pd.DataFrame({'ticker': [self._ticker]*len(self._train_proba), 'proba': self._train_proba})
+            self.train_signals.append(train_signal)
+
 
     def save_signals(self):
         '''
@@ -185,6 +192,14 @@ class BackTester():
         self.signals = pd.concat(self.signals, ignore_index=True)
         self.signals = self.signals[['ticker', 'time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]
         self.signals.to_csv(signal_path, index=False)
+
+        # save training proba to train_signal_path
+        if self.opt['train'].get('save_proba'):
+            train_signal_folder = self.opt['path']['train_signal_path'][self.test_month]
+            train_signal_name = 'train_signal_{}_indus{}.csv'.format(self.test_month, self.indus_type)
+            train_signal_path = osp.join(train_signal_folder, train_signal_name)
+            self.train_signals = pd.concat(self.train_signals, ignore_index=True)
+            self.train_signals.to_csv(train_signal_path, index=False)
 
 
     def realtime(self, factor_data, model):

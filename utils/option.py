@@ -78,7 +78,7 @@ def yaml_load(f):
 
 def parse_options(root_path, ensure=True):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='option/ddb_factor_new_GP_20250314/ddb_factor_new_GP_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('-option', type=str, default='option/ddb_factor_all_new_factors_batch1/ddb_factor_all_new_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
     parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
     parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()
@@ -122,6 +122,8 @@ def parse_options(root_path, ensure=True):
     opt['path']['preprocess_path'] = dict()
     opt['path']['inference_path'] = dict()
     opt['path']['signal_path'] = dict()
+    if opt['train'].get('save_proba'):
+        opt['path']['train_signal_path'] = dict()
     opt['path']['selection_path'] = dict()
     for test_month in opt['dataset']['test_month']:
         model_path = osp.join(experiments_root, str(test_month), 'ckpt')
@@ -143,6 +145,11 @@ def parse_options(root_path, ensure=True):
         signal_path = osp.join(experiments_root, str(test_month), 'signal')
         opt['path']['signal_path'][test_month] = signal_path
         mkdir(signal_path)
+
+        if opt['train'].get('save_proba'):
+            train_signal_path = osp.join(experiments_root, str(test_month), 'train_signal')
+            opt['path']['train_signal_path'][test_month] = train_signal_path
+            mkdir(train_signal_path)
 
         if opt.get('feature_selector'):
             selection_path = osp.join(opt['path']['experiments_root'], str(test_month), 'factor_selection')
