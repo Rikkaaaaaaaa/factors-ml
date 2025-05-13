@@ -1,12 +1,10 @@
 import numpy as np
-import os.path as osp
 import pandas as pd
 from tqdm import tqdm
 import traceback
 
-from dataset import build_factor_name
 from utils.logger import get_root_logger
-from metric.base_metric import compute_metric, compute_realtime_metric
+from metric.base_metric import compute_metric
 
 class SearchBackTester():
     """
@@ -24,8 +22,6 @@ class SearchBackTester():
         self.test_month = test_month
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
-        self.is_realtime = self.opt['is_realtime']
-        self.training_factor_name = build_factor_name(self.opt['dataset']['training_factor_name'])
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -36,13 +32,15 @@ class SearchBackTester():
         '''
         backtest data and save results. bound values and signals
          '''
-        if hasattr(factor_data, 'selected_factor'):
-            self.training_factor_name = factor_data.selected_factor
+        if hasattr(factor_data, 'selected_factor_name'):
+            backtest_factor_name = factor_data.selected_factor_name
+        else:
+            backtest_factor_name = factor_data.training_factor_name
 
         try:
             self.tickers = factor_data.tickers
             if self.opt['test']['bound_mode'] == 'by_indus':
-                self._train_proba = model.predict(factor_data.train_data[self.training_factor_name])
+                self._train_proba = model.predict(factor_data.train_data[backtest_factor_name])
 
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
@@ -50,8 +48,8 @@ class SearchBackTester():
                 # load train and test array from dataframe
                 train_data = factor_data.train_data.query('ticker==@ticker and augment==0') # bound proba come from original data
                 test_data = factor_data.test_data.query('ticker==@ticker')
-                x_train = train_data[self.training_factor_name]
-                x_test = test_data[self.training_factor_name]
+                x_train = train_data[backtest_factor_name]
+                x_test = test_data[backtest_factor_name]
 
                 # test ret time date ticker used for signal record
                 self._ticker = ticker
@@ -65,8 +63,9 @@ class SearchBackTester():
                 self._pre_proba = model.predict(x_test)
 
                 # compute null idx in test data
-                self._null_idx = np.isnan(test_data[self.training_factor_name + ['ret']].values).any(axis=1)
-                #self._null_idx = np.isnan(test_data[self.training_factor_name].values).any(axis=1) # factor nan
+                # self._null_idx = np.isnan(test_data[backtest_factor_name + ['ret']].values).any(axis=1)
+                self._null_idx = np.isnan(test_data['ret'].values)
+                #self._null_idx = np.isnan(test_data[backtest_factor_name].values).any(axis=1) # factor nan
 
                 # compute metric with not null data
                 self.compute_results()
@@ -89,12 +88,9 @@ class SearchBackTester():
             self.results = []  # results summary
 
         # compute performance dict
-        if self.is_realtime:
-            self._metric = compute_realtime_metric(self.opt, self._train_proba)
-        else:
-            # filter null data
-            self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
-            # self._metric = compute_metric(self.opt, self._pre_proba, self._train_proba, self._test_ret)
+        # filter null data
+        self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
+        # self._metric = compute_metric(self.opt, self._pre_proba, self._train_proba, self._test_ret)
         self.results.append(list(self._metric.values()))
 
         # get metric keys in summary

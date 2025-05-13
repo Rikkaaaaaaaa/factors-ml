@@ -3,7 +3,6 @@ import optuna
 import multiprocessing as mp
 import os.path as osp
 import logging
-import numpy as np
 
 from dataset.sql_data import check_indus
 from dataset import build_dataset
@@ -35,9 +34,9 @@ def objective_lgbm(trial, search_args, dataset):
     # prune
     pruning_callback = optuna.integration.LightGBMPruningCallback(trial, "auc") # binary_logloss
     if opt.get('factor_selection'):
-        selected_factor = model.select_factor(x_train, y_train)
-        dataset.set_selected_factor(selected_factor)
-        model.search_params(x_train[selected_factor], y_train, x_test, y_test, callback=pruning_callback)
+        selected_factor_name = model.select_factor(x_train, y_train)
+        dataset.set_selected_factor(selected_factor_name)
+        model.search_params(x_train[selected_factor_name], y_train, x_test, y_test, callback=pruning_callback)
     else:
         model.search_params(x_train, y_train, x_test, y_test, callbacks=[pruning_callback])
     model.save()

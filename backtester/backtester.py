@@ -3,9 +3,7 @@ import os.path as osp
 import pandas as pd
 from tqdm import tqdm
 import traceback
-from sklearn.decomposition import PCA
 
-from dataset import build_factor_name
 from utils.logger import get_root_logger
 from metric.base_metric import compute_metric, compute_realtime_metric
 
@@ -26,7 +24,6 @@ class BackTester():
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
         self.is_realtime = self.opt['is_realtime']
-        self.training_factor_name = build_factor_name(self.opt['dataset']['training_factor_name'])
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
@@ -37,58 +34,74 @@ class BackTester():
         '''
         backtest data and save results. bound values and signals
          '''
-        if hasattr(factor_data, 'selected_factor'):
-            self.training_factor_name = factor_data.selected_factor
+        if hasattr(factor_data, 'selected_factor_name'):
+            backtest_factor_name = factor_data.selected_factor_name
+        else:
+            backtest_factor_name = factor_data.training_factor_name
 
         try:
-            self.tickers = factor_data.test_data["ticker"].unique() #factor_data.tickers # change
-            if self.opt['test']['bound_mode'] == 'by_indus':
-                self._train_proba = model.predict(factor_data.train_data[self.training_factor_name])
+            # get ticker list
+            if self.is_realtime:
+                self.tickers = factor_data.tickers
+            else:
+                # Some tickers may be not consistent with static data, such as realtime data whose tickers are not incomplete
+                self.tickers = factor_data.test_data["ticker"].unique()
 
+            # bound_mode = 'by_indus'
+            if self.opt['test']['bound_mode'] == 'by_indus':
+                self._train_proba = model.predict(factor_data.train_data[backtest_factor_name])
+
+            # bound_mode = 'by_ticker'
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
-
-                # load train and test array from dataframe
+                # load train data
                 if self.opt['dataset'].get('balance') == 'reverse':
                     ticker_data_query = 'ticker==@ticker and augment==0'
                 else:
                     ticker_data_query = 'ticker==@ticker'
 
-                # select factor
+                # select factor from train_data
                 train_data = factor_data.train_data.query(ticker_data_query) # bound proba come from original data
-                test_data = factor_data.test_data.query('ticker==@ticker')
+                x_train = train_data[backtest_factor_name]
 
-                x_train = train_data[self.training_factor_name]
-                x_test = test_data[self.training_factor_name]
-
-                # test ret time date ticker used for signal record
-                self._ticker = ticker
-                self._test_ret = test_data['ret']
-                self._test_time = test_data['time']
-                self._test_date = test_data['date']
-
-                # get proba from prediction
+                # get train proba for bound computation
                 if self.opt['test']['bound_mode'] == 'by_ticker':
                     self._train_proba = model.predict(x_train)
-                self._pre_proba = model.predict(x_test)
 
-                # compute null idx in test data
-                training_factor_name = test_data.drop(['ticker', 'date', 'time', 'class_label', 'ret'], axis=1).columns
-                # self._null_idx = np.isnan(test_data[list(self.training_factor_name) + ['ret']].values).any(axis=1)
-                self._null_idx = np.isnan(test_data['ret'].values)
-                #self._null_idx = np.isnan(test_data[self.training_factor_name].values).any(axis=1) # factor nan
+                # BT mode: run inference
+                if not self.is_realtime:
+                    test_data = factor_data.test_data.query('ticker==@ticker')
+                    x_test = test_data[backtest_factor_name]
+                    # test ret time date ticker used for signal record
+                    self._ticker = ticker
+                    self._test_ret = test_data['ret']
+                    self._test_time = test_data['time']
+                    self._test_date = test_data['date']
+                    self._pre_proba = model.predict(x_test)
 
-                # compute metric with not null data
+                    # compute null idx in test data
+                    # self._null_idx = np.isnan(test_data[list(backtest_factor_name) + ['ret']].values).any(axis=1)
+                    #self._null_idx = np.isnan(test_data[list(backtest_factor_name) + ['ret']].values).all(axis=1) # del all nan
+                    factor_null_idx = np.isnan(test_data[list(backtest_factor_name)].values).all(axis=1) # facor is all nan
+                    ret_null_idx = np.isnan(test_data['ret'].values) # del return nan
+                    # self._null_idx = factor_null_idx + ret_null_idx
+                    self._null_idx = ret_null_idx
+                    #self._null_idx = np.isnan(test_data[backtest_factor_name].values).any(axis=1) # factor nan
+
+                # compute metric
                 self.compute_metrics()
 
-                # append signal dataframe into self.signals
-                self.compute_signal()
+                # BT mode: append signal dataframe into self.signals
+                if not self.is_realtime:
+                    self.compute_signal()
 
-            # save all files
+            # save result and bound both in rt and bt
             self.save_results()
             self.save_bound()
-            self.save_signals()
+            # BT mode: save train and test signals
+            if not self.is_realtime:
+                self.save_signals()
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Backtesting finish with {len(self.tickers)} tickers")
 
         except Exception as e:
@@ -104,7 +117,7 @@ class BackTester():
         if not hasattr(self, 'results'):
             self.results = []  # results summary
 
-        # compute performance dict
+        # compute bound and performance metrics
         if self.is_realtime:
             self._metric = compute_realtime_metric(self.opt, self._train_proba)
         else:
@@ -128,12 +141,11 @@ class BackTester():
         self.results.insert(2, 'indus_type', self.indus_type)
 
         # save results file
-        if not self.is_realtime:
-            results_folder =  self.opt['path']['results_path'][self.test_month]
-            results_name = 'results_{}_indus{}.csv'.format(self.test_month, self.indus_type)
-            results_path = osp.join(results_folder, results_name)
-            self.results.reset_index(drop=True, inplace=True)
-            self.results.to_csv(results_path, index=False)
+        results_folder =  self.opt['path']['results_path'][self.test_month]
+        results_name = 'results_{}_indus{}.csv'.format(self.test_month, self.indus_type)
+        results_path = osp.join(results_folder, results_name)
+        self.results.reset_index(drop=True, inplace=True)
+        self.results.to_csv(results_path, index=False)
 
 
     def save_bound(self):
@@ -152,7 +164,7 @@ class BackTester():
 
     def compute_signal(self):
         '''
-        compute signals for one tickers
+        compute signals for one ticker
         '''
         # init signals df list
         if not hasattr(self, 'signals'):
@@ -170,8 +182,10 @@ class BackTester():
         signal_array[signal['proba'] > self._metric['up_bound']] = 1
         signal_array[1 - signal['proba'] > self._metric['down_bound']] = -1
         # set signal to nan when null factor
-        # signal_array[self._null_idx] = np.nan
+        # signal_array[self._null_idx] = 0
         signal['signal'] = signal_array
+        #signal['ret'] = self._test_ret.values
+
         self.signals.append(signal)
 
         # if we need to save training proba
@@ -201,42 +215,4 @@ class BackTester():
             self.train_signals = pd.concat(self.train_signals, ignore_index=True)
             self.train_signals.to_csv(train_signal_path, index=False)
 
-
-    def realtime(self, factor_data, model):
-        '''
-        realtime data and save results. bound values and signals
-         '''
-        try:
-            self.tickers = factor_data.tickers
-            if self.opt['test']['bound_mode'] == 'by_indus':
-                self._train_proba = model.predict(factor_data.train_data[self.training_factor_name])
-
-            tbar = tqdm(self.tickers, leave=False)
-            for ticker in tbar:
-                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
-
-                # load train and test array from df
-                if self.opt['dataset'].get('balance') == 'reverse':
-                    ticker_data_query = 'ticker==@ticker and augment==0'
-                else:
-                    ticker_data_query = 'ticker==@ticker'
-                train_data = factor_data.train_data.query(ticker_data_query)
-                x_train = train_data[self.training_factor_name]
-                self._ticker = ticker
-
-                # get proba from prediction
-                if self.opt['test']['bound_mode'] == 'by_ticker':
-                    self._train_proba = model.predict(x_train)
-
-                # compute realtime metric with train data
-                self.compute_metrics()
-
-            # save bound values
-            self.save_results()
-            self.save_bound()
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Realtime params saving finish with {len(self.tickers)} tickers")
-
-        except Exception as e:
-            traceback.print_exc()
-            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
 
