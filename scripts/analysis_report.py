@@ -11,7 +11,7 @@ sys.path.append('./')
 from dataset.sql_data import get_ticker_list
 
 
-def summarize_report(config, ret_windows=['15s', '60s', '120s', '300s'], root='/root/PycharmProjects/factors-ml', svg_path='./summary'):
+def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='./summary'):
     '''
     summary all window_size(15s, 60s, 120s, 300s) report into a csv file
     '''
@@ -20,6 +20,7 @@ def summarize_report(config, ret_windows=['15s', '60s', '120s', '300s'], root='/
     ticker_pool_name = config.ticker_pool_name
     price_name = config.price_name
     model_name = config.model_name
+    ret_windows = config.ret_windows
     experiment_path = config.experiment_path
     cols = [ 'month', 'up_bound', 'down_bound', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
            'up_signal_rate', 'down_signal_rate', 'weighted_ret', 'total_sample', 'zero_rate']
@@ -27,7 +28,7 @@ def summarize_report(config, ret_windows=['15s', '60s', '120s', '300s'], root='/
     for ret_window in ret_windows:
         report_folder = f'{prefix}_{report_pool_name}_{price_name}_{model_name}_{ret_window}'
         report_name = f'report_{prefix}_{report_pool_name}_{price_name}_{model_name}_{ret_window}'
-        #report_name = f'all_factor_lgbm_{ret_window}_highprice_hs300'
+
         report_path = osp.join(root, experiment_path, report_folder, report_name + '.csv')
         report = pd.read_csv(report_path)
         report['weighted_ret'] = report['up_mean_ret'] * report['up_signal_rate'] - report['down_mean_ret'] * report['down_signal_rate']
@@ -56,10 +57,10 @@ if __name__ == '__main__':
     parser.add_argument('-report_pool_name', type=str, default='hs300', help='hs300, zz800 or zz1000')
     parser.add_argument('-ticker_pool_name', type=str, default='hs300', help='hs300, zz500 or zz1000')
     parser.add_argument('-model_name', type=str, default='lgbm', help='lgbm or lr')
-    parser.add_argument('-ret_windows', nargs='+', default=['15s', '60s', '120s', '300s'], help='ret_windows in summary')
+    parser.add_argument('-ret_windows', nargs='+', type=str, default=['15s', '60s', '120s', '300s'], help='ret_windows in summary')
     config = parser.parse_args()
 
-    summarize_report(config)
+    summarize_report(config,)
 
 
 
