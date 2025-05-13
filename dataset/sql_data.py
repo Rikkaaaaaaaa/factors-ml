@@ -60,6 +60,22 @@ def load_ticker_by_indus(pool, price_name, indus_class, indus_type, test_month, 
     return tickers
 
 
+def load_ticker_by_group(pool, price_name , test_month, avg_price=10, group=1, total_group_num=1):
+    indus_type = f"group_{total_group_num}_{group}"
+    # fetch price he indus table from sql
+    if price_name == 'highprice':
+        price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
+                                   pool, avg_price, test_month))
+    if price_name == 'lowprice':
+        price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(pool, avg_price, test_month))
+
+    tickers = set(price_table['ticker'])
+    if len(tickers) == 0:
+        raise FileExistsError(f"{test_month}_indus_{indus_type}: The number of tickers(average price > 10) is 0")
+
+    return tickers
+
+
 def is_rebalanced(test_month, training_month_num):
     # whether training months spread 01/07 month
     training_month_num = training_month_num
