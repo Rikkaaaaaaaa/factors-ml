@@ -1,6 +1,6 @@
 name: ddb_factor_all_new_hs300_highprice_lgbm_15s
 manual_seed: 2023
-n_jobs: 8
+n_jobs: 1
 eval_rt: false
 
 # factor dataset
@@ -14,11 +14,11 @@ dataset:
   std_factor_name: [ 'ddb_base_factor', 'ddb_slope_std_factor', 'ddb_gp_factor', 'long_order_factor']
   clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor', 'long_order_factor']
   log_factor_name: [ 'log_factor' ]
-  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor', 'longOrderFactor']
+  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
 
   # data preprocessing options
   type: 'FactorDataset'
-  test_month: [202404, 202405, 202406]
+  test_month: [202404, 202405, 202406, 202407, 202408, 202409, 202410, 202411, 202412, 202501,202502,202503]
   io_backend: ddb # disk
   pool_name: ['hs300']
   indus_class: wind1
@@ -38,6 +38,7 @@ model:
 
 train:
   num_epoch: 200
+  save_proba: true
 test:
   bound_mode: by_ticker # indus/ticker
   threshold_pct: 40
