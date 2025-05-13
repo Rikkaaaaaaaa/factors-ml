@@ -1,5 +1,4 @@
 import multiprocessing as mp
-import os.path as osp
 import logging
 import random
 import os.path as osp
@@ -11,8 +10,6 @@ from dataset import build_dataset
 from utils.option import yaml_load
 from utils.logger import get_root_logger, get_env_info
 from utils.misc import Timer, time_str, get_time_str, exists_results
-import lightgbm as lgbm
-
 
 
 def init(args):

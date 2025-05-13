@@ -7,7 +7,7 @@ sys.path.append('../')
 sys.path.append('./')
 import seaborn as sns
 import matplotlib.pyplot as plt
-from utils.sql_query import get_return, get_ticker_list, get_indus_list
+from utils import get_return, get_ticker_list, get_indus_list
 
 
 def plot_dist():

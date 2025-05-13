@@ -1,11 +1,8 @@
 import multiprocessing as mp
-import os.path as osp
 import logging
 import random
 import os.path as osp
 import shutil
-
-import pandas as pd
 
 from utils.misc import set_random_seed, ensure_path, mkdir
 from dataset.sql_data import check_indus

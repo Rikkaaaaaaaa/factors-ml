@@ -1,9 +1,6 @@
 import utils
 import multiprocessing as mp
-import time
-import pandas as pd
 import os
-from tqdm import tqdm
 
 factor_table = { 'strategy': ['factor'],
                 'factor_test': ['ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
