@@ -368,8 +368,8 @@ class GenDataset():
             return False
 
 
-    def set_selected_factor(self, selected_factor):
-        self.selected_factor = selected_factor
+    def set_selected_factor(self, selected_factor_name):
+        self.selected_factor_name = list(set(selected_factor_name) & set(self.training_factor_name))
 
 
 
