@@ -78,14 +78,15 @@ class FactorDataset():
         # Ingest Factor and Return
 
         # read data from mysql
-        #need_rebalanced_month = check_rebalanced(self.training_month, self.test_month) # for debug
-        #self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Checking need_rebalanced_month: {need_rebalanced_month} ")
-        data = dict() # restore data by month
+        need_rebalanced_month = check_rebalanced(self.training_month, self.test_month) # for debug
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Checking need_rebalanced_month: {need_rebalanced_month} ")
+
+        # restore data by month
+        data = dict()
         for month in self.training_month:
             data[month] = self.load_data_from_sql(month)
         if not self.is_realtime:
             data[self.test_month] = self.load_data_from_sql(self.test_month, eval_rt=self.eval_rt)
-
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading factor and return ")
 
         # Data Preprocessing
@@ -98,19 +99,19 @@ class FactorDataset():
 
         # get alpha
         self.alpha = self.get_alhpa(train_data)
+
         # make labels according to returns
         train_data, test_data = self.make_label(train_data, test_data)
+
         # filter train_data with return
         train_data = self.filter_by_label(train_data)
+
         # delete nan in train data
         train_data = self.del_null_value(train_data)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start transforming data and saving preprocess params")
+
         # transforming data, including std, clip, save params by ticker
-        if self.is_realtime:
-            # cancel backtesting in test_data
-            self.save_transform_params(train_data)
-        else:
-            self.transform(train_data, test_data)
+        self.transform(train_data, test_data)
 
         # rebalance training data
         self.rebalance_training_data()
@@ -188,8 +189,15 @@ class FactorDataset():
             if self.io_backend =='ddb':
                 labels = read_ddb_return(month, self.tickers)
                 labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
-                # del null return data
-                labels = labels.dropna()
+
+                # #mix return
+                # labels = read_ddb_return(month, self.tickers)
+                # mixed_ret = (labels['ret_15s'].values + labels['ret_60s'].values + labels['ret_120s'].values + labels['ret_300s'].values)/4
+                # labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
+                # labels[f'ret_{self.ret_name}'] = mixed_ret
+
+            # del null return data
+            labels = labels.dropna()
             # merge factors and labels by ticker, date, time
             data = data[['ticker', 'date', "time"] + self.training_factor_name]
             data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
@@ -233,7 +241,7 @@ class FactorDataset():
         # split month data to train/test
         train_data = pd.concat([data[m] for m in self.training_month])
         if self.is_realtime:
-            test_data = pd.DataFrame()
+            test_data = pd.DataFrame(columns=train_data.columns)
         else:
             test_data = data[self.test_month]
         return train_data, test_data
@@ -265,12 +273,12 @@ class FactorDataset():
                      2: (train_data['class_label'] == 2).sum()}
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Train label number is {train_num}")
 
-        if not self.is_realtime:
-            add_label(test_data)
-            test_num = {0: (test_data['class_label'] == 0).sum(),
-                        1: (test_data['class_label'] == 1).sum(),
-                        2: (test_data['class_label'] == 2).sum()}
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Test label number is {test_num}")
+        # len(test_data) = 0
+        add_label(test_data)
+        test_num = {0: (test_data['class_label'] == 0).sum(),
+                    1: (test_data['class_label'] == 1).sum(),
+                    2: (test_data['class_label'] == 2).sum()}
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Test label number is {test_num}")
 
         return train_data, test_data
 
@@ -291,9 +299,10 @@ class FactorDataset():
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Delete {(len(train_data)-len(data))/len(train_data)*100:.2f}% null samples in train data.")
             return data
         else:
-            # ignore nan by default
+            # keep nan by default
             # 20250319: training without dropna, will improve performance
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: With nan in training data. There are {(len(train_data) - len(data)) / len(train_data)*100:.2f}% null samples in train data.")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Keep nan in training data. There are {(len(train_data) - len(data)) / len(train_data)*100:.2f}% null samples in train data.")
+            # null_idx = np.isnan(test_data[list(backtest_factor_name) + ['ret']].values).all(axis=1) # all nan index
             return train_data
 
 
@@ -390,61 +399,6 @@ class FactorDataset():
             self.clip_params.to_csv(clip_path, index=False)
 
 
-    def save_transform_params(self, train_data):
-        del_column = ['time', 'ticker', 'date', 'class_label', 'ret']  # del columns in data
-        self.train_data = train_data.reset_index()
-        self.std_params = []
-        self.clip_params = []
-        for ticker in self.tickers:
-
-            # data std
-            if len(self.std_factor_name) > 0:
-                _train_data = self.train_data.query('ticker==@ticker')
-                # split data to train_x and test_x
-                train_x = _train_data[self.std_factor_name]
-
-                std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
-                factor_mean = np.mean(train_x, axis=0).values
-                factor_std = np.std(train_x, axis=0).values
-                train_x = (train_x - factor_mean) / factor_std
-                self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
-                # save transform params
-                std_param['factor_name'] = self.std_factor_name
-                std_param['mean'] = factor_mean
-                std_param['std'] = factor_std
-                std_param.insert(0, 'ticker', ticker)
-                self.std_params.append(std_param)
-
-            # data clip
-            if len(self.clip_factor_name) > 0:
-                _train_data = self.train_data.query('ticker==@ticker')
-                train_x = _train_data[self.clip_factor_name]
-
-                clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
-                factor_min = np.percentile(train_x, 5, axis=0, )
-                factor_max = np.percentile(train_x, 95, axis=0, )
-                train_x = np.clip(train_x, factor_min, factor_max)
-                self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
-                # save transform params
-                clip_param['factor_name'] = self.clip_factor_name
-                clip_param['min'] = factor_min
-                clip_param['max'] = factor_max
-                clip_param.insert(0, 'ticker', ticker)
-                self.clip_params.append(clip_param)
-
-        # save preprocess params
-        save_folder = self.opt['path']['preprocess_path'][self.test_month]
-        # std
-        if len(self.std_params) > 0:
-            std_path = osp.join(save_folder, f"std_params_indus{self.indus_type}.csv")
-            self.std_params = pd.concat(self.std_params)
-            self.std_params.to_csv(std_path, index=False)
-        # clip
-        if len(self.clip_params) > 0:
-            clip_path = osp.join(save_folder, f"clip_params_indus{self.indus_type}.csv")
-            self.clip_params = pd.concat(self.clip_params)
-            self.clip_params.to_csv(clip_path, index=False)
-
     def rebalance_training_data(self):
         # balance training data
         if self.class_num == 2 and self.opt['dataset'].get('balance') == 'reverse':
@@ -506,11 +460,8 @@ class FactorDataset():
         return check_ticker_month
 
 
-    def set_selected_factor(self, selected_factor):
-        self.selected_factor = selected_factor
-
-
-
+    def set_selected_factor(self, selected_factor_name):
+        self.selected_factor_name = list(set(selected_factor_name) & set(self.training_factor_name))
 
 
 if __name__ == '__main__':
