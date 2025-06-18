@@ -4,16 +4,16 @@ import numpy as np
 import time
 
 log_factor_name = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
-              'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
-              'lower_ask_amt_60s',
-              'net_bid_amt_delta_15s', 'net_bid_amt_delta_30s', 'net_bid_amt_delta_60s', 'indus_book_pressure_15s',
-              'indus_book_pressure_delta_15s', 'indus_higher_bid_amt_15s', 'indus_higher_bid_amt_30s',
-              'indus_higher_bid_amt_60s',
-              'indus_lower_ask_amt_15s', 'indus_lower_ask_amt_30s', 'indus_lower_ask_amt_60s',
-              'indus_net_bid_amt_delta_15s',
-              'indus_net_bid_amt_delta_30s', 'indus_net_bid_amt_delta_60s', 'mkt_book_pressure_15s',
-              'mkt_higher_bid_amt_15s',
-              'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s']
+                  'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
+                  'lower_ask_amt_60s',
+                  'net_bid_amt_delta_15s', 'net_bid_amt_delta_30s', 'net_bid_amt_delta_60s', 'indus_book_pressure_15s',
+                  'indus_book_pressure_delta_15s', 'indus_higher_bid_amt_15s', 'indus_higher_bid_amt_30s',
+                  'indus_higher_bid_amt_60s',
+                  'indus_lower_ask_amt_15s', 'indus_lower_ask_amt_30s', 'indus_lower_ask_amt_60s',
+                  'indus_net_bid_amt_delta_15s',
+                  'indus_net_bid_amt_delta_30s', 'indus_net_bid_amt_delta_60s', 'mkt_book_pressure_15s',
+                  'mkt_higher_bid_amt_15s',
+                  'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s']
 
 
 def preprocess(factor):
@@ -56,7 +56,7 @@ def read_ddb(query):
 
     return res
 
-def read_ddb_factor(data_base, table_name, test_month, tickers):
+def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
 
@@ -78,11 +78,18 @@ def read_ddb_factor(data_base, table_name, test_month, tickers):
     factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
     factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
                       factor["time"].dt.second * 1000)
-    factor = factor[(factor["time"] >= 94000000) & (factor["time"] <= 145700000)]
+    # filter by select_period dict
+    if isinstance(trading_hours, dict):
+        factor = factor[ ((factor["time"] >= trading_hours['am_start_time']*1000) & (factor["time"] <= trading_hours['am_end_time']*1000))
+                         | ((factor["time"] >= trading_hours['pm_start_time'] * 1000) & (factor["time"] <= trading_hours['pm_end_time'] * 1000))
+                         ]
+    else:
+        # else time between [94000, 145700]
+        factor = factor[(factor["time"] >= 94000000) & (factor["time"] <= 145700000)]
     # print(f'load date time: {time.time() - start_time}')
     return factor
 
-def read_ddb_return(test_month, tickers):
+def read_ddb_return(test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
     ddb_reader = DDB_connector(DDB_config)
@@ -102,9 +109,32 @@ def read_ddb_return(test_month, tickers):
     ret["time"] = (ret["time"].dt.hour * 10000000 + ret["time"].dt.minute * 100000 +
                    ret["time"].dt.second * 1000)
     ret = ret[(ret["time"] >= 94000000) & (ret["time"] <= 145700000)]
+
+    # filter by select_period dict
+    if isinstance(trading_hours, dict):
+        ret = ret[((ret["time"] >= trading_hours['am_start_time'] * 1000) & (ret["time"] <= trading_hours['am_end_time'] * 1000))
+                | ((ret["time"] >= trading_hours['pm_start_time'] * 1000) & (ret["time"] <= trading_hours['pm_end_time'] * 1000))
+        ]
+    else:
+        # else time between [94000, 145700]
+        ret = ret[(ret["time"] >= 94000000) & (ret["time"] <= 145700000)]
     return ret
 
+def get_limit_flag(month, ticker_list):
+    month_str = '.'.join([month[:4],month[4:6]]) + 'M'
+    ddb_reader = DDB_connector(DDB_config)
+    ticker_list_str = "`".join(ticker_list)
+    query = f'select securityCode, date, any(iif(bidPriceList[0].isNull()||askPriceList[0].isNull(), 1, 0))$INT as limit_flag from loadTable("dfs://amd","newOrderBookSnapshot")' \
+            f'where securityCode in `{ticker_list_str}, month(time)={month_str}, second(time)>=09:30:00, second(time)<14:57:00 group by securityCode, date(time) as date'
+    df_limit_flag = ddb_reader.query_data(query)
+    df_limit_flag['date'] = df_limit_flag['date'].apply(lambda  x: int(x.strftime("%Y%m%d")))
+    df_limit_flag = df_limit_flag.rename(columns={'securityCode': 'ticker'})
+    return df_limit_flag
+
+
 if __name__ == "__main__":
+    df_limit_flag = get_limit_flag('202505', ["600519.SH", "300750.SZ"])
+
     ddb_reader = DDB_connector(DDB_config)
     res = ddb_reader.query_data("license()")
     tickers = tuple(["600519.SH", "300750.SZ"])
