@@ -2,7 +2,7 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 
-from dataset.sql_data import check_indus
+from dataset.sql_ops import check_indus
 from dataset import build_dataset
 from models import build_model
 from feature_selector import build_selector
