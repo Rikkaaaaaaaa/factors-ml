@@ -67,7 +67,7 @@ def cat_signals(opt, upload_month=[], save_local=False):
 def write_table_sql(signal, database, table_name, if_exists='replace'):
     print(f"Writing signals to '{database}.{table_name}' now...")
     engine = create_pd_engine(database)
-    table_name = table_name
+
     signal.to_sql(table_name, con=engine, index=False, if_exists=if_exists, chunksize=10000,
                   dtype={'ticker': sqlalchemy.types.VARCHAR(length=10),
                          'date': sqlalchemy.types.BIGINT,

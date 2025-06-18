@@ -8,7 +8,7 @@ import sys
 sys.path.append('../')
 sys.path.append('./')
 
-from dataset.sql_data import get_ticker_list
+from dataset.sql_ops import get_ticker_list
 
 
 def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='./summary'):

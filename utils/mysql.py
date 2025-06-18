@@ -112,8 +112,12 @@ def create_index(database, table_name, index_cols):
         conn = pymysql.connect(host=host, port=port, user=user, password=password,
                                db=database, charset='utf8', cursorclass=pymysql.cursors.DictCursor)
         cur = conn.cursor()
+        # to avoid index name exceed 64
+        if len(table_name) > 59:
+            print("IDX name is too long, clip to size 60!")
+            index_name = table_name[:59]
         cur.execute(
-            'CREATE INDEX {}_IDX USING BTREE ON {}.{}({});'.format(table_name, database, table_name, index_str))
+            'CREATE INDEX {}_IDX USING BTREE ON {}.{}({});'.format(index_name, database, table_name, index_str))
         conn.commit()
         cur.close()
         conn.close()

@@ -5,7 +5,7 @@ import pandas as pd
 import multiprocessing
 from multiprocessing import Pool
 
-from utils.ddb import read_ddb_return
+from utils.ddb import read_ddb_return,get_limit_flag
 
 
 def eval_result(y_test, y_pred_label):
@@ -30,7 +30,8 @@ def eval_result(y_test, y_pred_label):
     weighted_return = weighted_return * 1e4
     nonzero_pct = nonzero_pct * 100
     abs_ret = abs_ret * 1e4
-    return [weighted_return, up_winrate, down_winrate, up_ret, down_ret, up_pct, down_pct, len(y_test), nonzero_pct, abs_ret]
+    avg_ret = np.mean(y_test)*1e4
+    return [weighted_return, up_winrate, down_winrate, up_ret, down_ret, up_pct, down_pct, len(y_test), nonzero_pct, abs_ret, avg_ret]
 
 
 def read_signal_from_path(signal_root_path):
@@ -93,19 +94,30 @@ def compute_metrics(df_signal, ret_name, month):
         results.insert(3, up_bound)
         results.insert(4, down_bound)
         report.append(results)
-    report = pd.DataFrame(report, columns=["ticker", "test_month", "test_date", "up_bound", "down_bound", "weighted_return", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct", "down_pct",  "total_sample", "not_zero_rate", "abs_ret"])
+    report = pd.DataFrame(report, columns=["ticker", "test_month", "test_date", "up_bound", "down_bound", "weighted_return", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct", "down_pct",  "total_sample", "not_zero_rate", "abs_ret", "avg_ret"])
 
     return report
 
 
-def eval_signals_by_month(result_name, signal_path, month, ret_name):
+def eval_signals_by_month(result_name, signal_path, month, ret_name, trading_hours=None):
     try:
         # read signal from csv or folder
         signal = read_signal_from_path(signal_path)
-        signal = merge_signal(signal, ret_name, month)
+        bt_signal = merge_signal(signal, ret_name, month)
+        # filter by trading hours
+        if isinstance(trading_hours, dict):
+            if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
+                print(f"Trading hours: AM-[{trading_hours['am_start_time']}, {trading_hours['am_end_time']}]")
+            if trading_hours['pm_start_time'] <= trading_hours['pm_end_time']:
+                print(f"Trading hours: PM-[{trading_hours['pm_start_time']}, {trading_hours['pm_end_time']}]")
+            bt_signal = bt_signal[((bt_signal["time"] >= trading_hours['am_start_time'] * 1000) & (
+                        bt_signal["time"] <= trading_hours['am_end_time'] * 1000))
+                                  | ((bt_signal["time"] >= trading_hours['pm_start_time'] * 1000) & (
+                        bt_signal["time"] <= trading_hours['pm_end_time'] * 1000))
+                                  ]
 
         # compute metrics and save report
-        report = compute_metrics(signal, ret_name, month)
+        report = compute_metrics(bt_signal, ret_name, month)
 
         # save report
         report_folder_path = os.path.join('./eval_monthly_reports', f'{result_name}')
@@ -123,7 +135,7 @@ def analysis_report_by_month(report_name, ret_windows = [ "15s", "60s", "120s", 
     summarize report by month
     '''
     cols = ["test_month", "weighted_return", "up_bound", "down_bound", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct",
-            "down_pct",  "total_sample", "not_zero_rate", "abs_ret"]
+            "down_pct",  "total_sample", "not_zero_rate", "abs_ret", "avg_ret"]
     summary = []
     report_path_list = glob.glob(os.path.join(report_root_path, report_name) + '/*.csv')
     for ret_window in ret_windows:
@@ -145,7 +157,7 @@ def analysis_report_by_month(report_name, ret_windows = [ "15s", "60s", "120s", 
     print(f"Summary by month has been saved at {summary_path}")
 
 
-def eval_signals_by_date(result_name, signal_path, month, ret_name):
+def eval_signals_by_date(result_name, signal_path, month, ret_name, trading_hours=None):
     # params
     # ret_name = '300s'
     # month=202503
@@ -158,6 +170,16 @@ def eval_signals_by_date(result_name, signal_path, month, ret_name):
         # read signal
         signal = read_signal_from_path(signal_path)
         bt_signal = merge_signal(signal, ret_name, month)
+        # filter by trading hours
+        if isinstance(trading_hours, dict):
+            if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
+                print(f"Trading hours: AM-[{trading_hours['am_start_time'] }, {trading_hours['am_end_time']}]")
+            if trading_hours['pm_start_time'] <= trading_hours['pm_end_time']:
+                print(f"Trading hours: PM-[{trading_hours['pm_start_time']}, {trading_hours['pm_end_time']}]")
+            bt_signal = bt_signal[((bt_signal["time"] >= trading_hours['am_start_time'] * 1000) & (bt_signal["time"] <= trading_hours['am_end_time'] * 1000))
+                      | ((bt_signal["time"] >= trading_hours['pm_start_time'] * 1000) & (bt_signal["time"] <= trading_hours['pm_end_time'] * 1000))
+            ]
+
         report_all_month= []
         for test_date in bt_signal.date.unique():
             _bt_signal = bt_signal.query("date==@test_date")
@@ -172,7 +194,11 @@ def eval_signals_by_date(result_name, signal_path, month, ret_name):
         if not os.path.exists(report_folder_path):
             os.makedirs(report_folder_path)
         report_all_month = pd.concat(report_all_month)
-        print(f"Daily teport has been saved at {report_path}")
+        ticker_list = report_all_month['ticker'].unique()
+        df_limit_flag = get_limit_flag(str(month), ticker_list)
+        report_all_month = report_all_month.merge(df_limit_flag, left_on=['ticker', 'test_date'], right_on=['ticker', 'date'])
+        report_all_month = report_all_month[report_all_month['limit_flag']==0]
+        print(f"Daily report has been saved at {report_path}")
         report_all_month.to_csv(report_path, index=False)
 
         # analysis report to summary folder by date
@@ -184,7 +210,7 @@ def eval_signals_by_date(result_name, signal_path, month, ret_name):
 
 def analysis_report_by_date(report, result_name, summary_name):
     cols = ["test_month", "test_date",  "weighted_return", "up_bound", "down_bound", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct",
-            "down_pct", "total_sample", "not_zero_rate", "abs_ret"]
+            "down_pct", "total_sample", "not_zero_rate", "abs_ret", "avg_ret"]
 
     summary_folder_path = os.path.join('./eval_daily_summary', f'{result_name}')
     summary_path = os.path.join(summary_folder_path, f'{summary_name}.csv')
@@ -199,7 +225,7 @@ def analysis_report_by_date(report, result_name, summary_name):
 def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", '300s'], daily_summary_root_path='./eval_daily_summary'):
     keep_cols = ["test_month"]
     calc_cols = ["weighted_return", "up_bound", "down_bound", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct",
-                    "down_pct","abs_ret"]
+                    "down_pct","abs_ret", "avg_ret"]
     monthly_summary_mean = []
     monthly_summary_std = []
     report_path_list = glob.glob(os.path.join(daily_summary_root_path, report_name) + '/*.csv')
@@ -233,26 +259,9 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
     print(f"Summary agg by date has been saved at {save_path}")
 
 
-def parallen_eval():
-    result_name = f'manual_factor_selection'
-    months = [202404, 202405, 202406, 202407, 202408, 202409, 202410, 202411, 202412, 202501, 202502, 202503]
-    ret_windows = ["15s", "60s", "120s", '300s']
-
-    # run evaluation by multiprocessing
-    n_jobs = multiprocessing.cpu_count()
-    params = [(result_name,
-               f"../87_experiments/manual_factor_select_results/ddb_factor_select_hs300_highprice_lgbm_{ret_window}/{month}/signal",
-               month, ret_window)
-              for month in months
-              for ret_window in ret_windows]
-    with Pool(processes=n_jobs) as pool:
-        pool.starmap(eval_signals_by_date, params)
-
-    analysis_summary_by_date(result_name)
-
 if __name__ == "__main__":
-    months = [202404,202405,202406,202407,202408,202409,202410,202411,202412,202501,202502,202503]
-    ret_windows = ['15s', '60s', '120s','300s']
+    months = [202501,202502,202503,202504, 202505]
+    ret_windows = ['15s', '60s', '120s', '300s']
     # use eval function to treat signal files in experiments folder
 
     #signal_path = 'f"../87_experiments/manual_factor_select_results/ddb_factor_select_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
@@ -289,16 +298,47 @@ if __name__ == "__main__":
     #result_name = 'ensemble_with_all_weight_3_1_1_1'
     #signal_path = 'f"../ensemble/ensemble_signals/ensemble_with_all_weight_3_1_1_1/ensemble_with_all_weight_3_1_1_1_{month}_{ret_window}.csv"'
 
+    result_name = 'ddb_null_factor_new_indus_in_open_hs300_highprice_lgbm'
+    expr_name = 'ddb_null_factor_new_indus_hs300_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+    #
+    # result_name = 'ddb_null_factor_in_open_hs300_highprice_lgbm'
+    # expr_name = 'ddb_null_factor_hs300_highprice_lgbm'
+    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+    # result_name = 'ddb_null_factor_new_open_hs300_highprice_lgbm'
+    # expr_name = 'ddb_null_factor_new_open_hs300_highprice_lgbm'
+    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+    #
+    # result_name = 'ddb_null_factor_open_hs300_highprice_lgbm'
+    # expr_name = 'ddb_null_factor_open_hs300_highprice_lgbm'
+    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+    result_name = 'ddb_null_factor_new_indus_in_pm1_hs300_highprice_lgbm'
+    expr_name = 'ddb_null_factor_new_indus_hs300_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+
+    trading_hours = {
+        "am_start_time": 113300,
+        "am_end_time": 113000,
+        "pm_start_time": 130000,
+        "pm_end_time": 142700
+    }
+    # trading_hours = None
+
     n_jobs = 16
     params = [(result_name,
                eval(signal_path),
-               month, ret_window)
+               month, ret_window, trading_hours)
               for month in months
               for ret_window in ret_windows]
     # eval by month
     with Pool(processes=n_jobs) as pool:
         pool.starmap(eval_signals_by_month, params)
     analysis_report_by_month(result_name)
+
     # eval by date
     with Pool(processes=n_jobs) as pool:
         pool.starmap(eval_signals_by_date, params)

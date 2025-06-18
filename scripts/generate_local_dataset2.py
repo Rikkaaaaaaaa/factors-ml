@@ -5,7 +5,7 @@ import os.path as osp
 import shutil
 
 from utils.misc import set_random_seed, ensure_path, mkdir
-from dataset.sql_data import check_indus
+from dataset.sql_ops import check_indus
 from dataset import build_dataset
 from utils.option import yaml_load
 from utils.logger import get_root_logger, get_env_info

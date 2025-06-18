@@ -1,4 +1,3 @@
-
 /experiments/
 /eval_experiments/
 /.idea/
@@ -6,5 +5,7 @@
 /data
 /summary/
 /*csv
-/scripts/*.csv
+/scripts/*csv
+/signal_evaluation/*csv
+
 
