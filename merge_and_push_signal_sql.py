@@ -62,29 +62,32 @@ def upload_signal_from_ensemble():
 
 
 def upload_signal_from_experiments():
-    upload_month = [202404,202405,202406,202407,202408,202409,202410,202411,202412,202501,202502,202503]
+    upload_month = [202501,202502,202503, 202504,202505]
     # upload_month = [202404]
     # table name
-    #suffix = 'all_new_selection'
-    suffix = 'all_new_mix2'
+    expr_name = 'ddb_null_factor_hs'
+    table_suffix = 'ddb_null_factor_hs'
     pool_name = 'hs300'
     price_level = 'highprice'
     model_type = 'lgbm'
     database = 'strategy'
-    table_name = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{suffix}"
+    table_name = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{table_suffix}"
+
+    # check table name
+    if len(table_name) > len("ensemble_signal_hs300_highprice_lgbm_ddb_null_factor_hs"):
+        raise RuntimeError("Table_name may be too long!")
     signal_folder_path = dict()
     ensure_table_name(database, table_name)
+
     for month in upload_month:
         signal_folder_path['signal_15s'] = glob.glob(
-            f'experiments/ddb_factor_all_new_hs300_highprice_lgbm_15s/{month}/signal/*.csv')
+            f'experiments/{expr_name}_{pool_name}_{price_level}_{model_type}_15s/{month}/signal/*.csv')
         signal_folder_path['signal_60s'] = glob.glob(
-             f'experiments/ddb_factor_all_new_hs300_highprice_lgbm_60s/{month}/signal/*.csv')
+             f'experiments/{expr_name}_{pool_name}_{price_level}_{model_type}_60s/{month}/signal/*.csv')
         signal_folder_path['signal_120s'] = glob.glob(
-             f'experiments/ddb_factor_all_new_hs300_highprice_lgbm_120s/{month}/signal/*.csv')
+             f'experiments/{expr_name}_{pool_name}_{price_level}_{model_type}_120s/{month}/signal/*.csv')
         signal_folder_path['signal_300s'] = glob.glob(
-            f'ensemble/ensemble_signals/create_mix2_ret_signal/create_mix2_ret_signal_{month}_300s.csv')
-             # f'../experiments/ddb_factor_all_new_manual_selection_hs300_highprice_lgbm_300s/{month}/signal/*.csv')
-
+             f'experiments/{expr_name}_{pool_name}_{price_level}_{model_type}_300s/{month}/signal/*.csv')
 
         # append to sql table
         merge_main_signal(signal_folder_path, month, table_name, database) # use single month, not upload_month
