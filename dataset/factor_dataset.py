@@ -6,7 +6,7 @@ import time
 
 from utils import list2str
 from dataset import build_factor_name
-from dataset.sql_data import load_ticker_by_indus, align_factor_ticker, load_factor_by_table, check_rebalanced
+from dataset.sql_ops import load_ticker_by_indus, load_labels, align_factor_ticker, load_factor_by_table, check_rebalanced
 from utils.mysql import cx_read_sql
 from utils.ddb import read_ddb_return
 from utils.logger import get_root_logger
@@ -40,7 +40,13 @@ class FactorDataset():
         self.is_realtime = self.opt['is_realtime']
         self.training_month = self.get_training_month()
         self.training_month_num = len(self.training_month)
+        if not self.opt['dataset'].get('indus_table_suffix'):
+            self.opt['dataset']['indus_table_suffix'] = ''
         self.indus_class = self.opt['dataset']['indus_class']
+        if self.opt['dataset'].get('trading_hours'):
+            self.trading_hours = self.opt['dataset']['trading_hours']
+        else:
+            self.trading_hours = None
         self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
@@ -63,6 +69,12 @@ class FactorDataset():
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running eval rt mode!")
         else:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running training mode!")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading indus by [{self.indus_class}] from table [static_data_industry_pool_history_{self.opt['dataset']['indus_table_suffix']}]")
+        if isinstance(self.trading_hours, dict):
+            if self.trading_hours['am_start_time'] <= self.trading_hours['am_end_time']:
+                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Trading hours: AM [{self.trading_hours['am_start_time']}, {self.trading_hours['am_end_time']}]")
+            if self.trading_hours['pm_start_time'] <= self.trading_hours['pm_end_time']:
+                self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Trading hours: PM [{self.trading_hours['pm_start_time']}, {self.trading_hours['pm_end_time']}]")
 
     def load_data(self):
         # Ingest Ticker List
@@ -126,7 +138,7 @@ class FactorDataset():
             ticker_list = []
             for pool in self.pool_name:
                 # load ticker list
-                cur_ticker = load_ticker_by_indus(pool, self.price_name, self.indus_class, self.indus_type, self.test_month, self.avg_price)
+                cur_ticker = load_ticker_by_indus(self.opt, pool, self.indus_type, self.test_month)
                 ticker_list.extend(cur_ticker)
 
             # align training and testing ticker list
@@ -168,8 +180,10 @@ class FactorDataset():
             for database in database_name:
                 for table in factor_table_name[database]:
                     # load factors from sql
-                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month, self.rebalancing_tables, self.training_month_num, self.io_backend)
-                    # preprocess(log...)
+                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month,
+                                                  self.rebalancing_tables, self.trading_hours,
+                                                  self.training_month_num, self.io_backend)
+                    # preprocessing
                     self.preprocess(factor)
                     # merge factors from every table
                     if i == 0:
@@ -180,21 +194,7 @@ class FactorDataset():
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
                     i += 1
             # load labels
-            if self.io_backend =='sql':
-                if len(self.tickers) == 1:
-                    ticker_condition = f'ticker="{self.tickers[0]}"'
-                else:
-                    ticker_condition = f'ticker in {self.tickers}'
-                labels = cx_read_sql(f'select ticker, date, time, ret_{self.ret_name}  from ret_{month} where {ticker_condition}')
-            if self.io_backend =='ddb':
-                labels = read_ddb_return(month, self.tickers)
-                labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
-
-                # #mix return
-                # labels = read_ddb_return(month, self.tickers)
-                # mixed_ret = (labels['ret_15s'].values + labels['ret_60s'].values + labels['ret_120s'].values + labels['ret_300s'].values)/4
-                # labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
-                # labels[f'ret_{self.ret_name}'] = mixed_ret
+            labels = load_labels(self.opt, self.tickers, month)
 
             # del null return data
             labels = labels.dropna()

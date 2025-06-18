@@ -3,36 +3,27 @@ from utils.mysql import cx_read_sql
 from utils import list2str
 from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb
 
-
-
-def check_indus(opt, first_month):
-    pools = opt['dataset']['pool_name']
-    indus_class = opt['dataset']['indus_class']
-    indus_list = []
-    if opt['dataset']['price_name'] == 'highprice':
-        for pool in pools:
-            indus_table = cx_read_sql('select distinct {} from static_data_industry_{}_history where test_month={}'.format(
-                                        indus_class, pool, first_month))
-
-            indus_list.extend(list(indus_table[indus_class]))
-    # default class num of low price is zero
-    else: indus_list = [0]
-
-    return set(indus_list)
-
-
-def get_ticker_list(pool_name, price_name, test_month):
+def get_ticker_list(pool_name, price_name, test_month, indus_table_suffix=''):
     '''
     fetch ticker list from mysql table
     '''
+    if isinstance(indus_table_suffix, str):
+        if len(indus_table_suffix) > 0:
+            indus_table_suffix = '_' + indus_table_suffix
+        else:
+            indus_table_suffix = ''
+    else:
+        raise ValueError(
+            f"'indus_table_suffix' must be string 'old' or '', but now it is {indus_table_suffix}")
 
+    print(f'Fetching ticker list from table [static_data_industry_{pool_name}_history{indus_table_suffix}]')
     if price_name == 'highprice':
-        indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool_name, test_month))
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where test_month={}'.format(pool_name, indus_table_suffix, test_month))
         price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
                                    pool_name, 10, test_month))
     if price_name == 'lowprice':
         # note that lowprice stocks have no indus_type, default is 0
-        indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool_name, test_month))
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where test_month={}'.format(pool_name, indus_table_suffix, test_month))
         price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(
                                    pool_name, 10, test_month))
     tickers = set(indus_table['ticker']) & set(price_table['ticker'])
@@ -41,16 +32,52 @@ def get_ticker_list(pool_name, price_name, test_month):
 
     return tickers
 
-def load_ticker_by_indus(pool, price_name, indus_class, indus_type, test_month, avg_price=10):
-    # fetch price he indus table from sql
+def check_indus(opt, first_month):
+    pools = opt['dataset']['pool_name']
+    indus_class = opt['dataset']['indus_class']
+    indus_table_suffix = opt['dataset']['indus_table_suffix']
+    if isinstance(indus_table_suffix, str) :
+        if  len(indus_table_suffix) > 0:
+            indus_table_suffix = '_' + indus_table_suffix
+        else:
+            indus_table_suffix =  ''
+    else:
+        raise ValueError(f"Param in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
+    indus_list = []
+    if opt['dataset']['price_name'] == 'highprice':
+        for pool in pools:
+            indus_table = cx_read_sql('select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
+                                        indus_class, pool, indus_table_suffix, first_month))
+
+            indus_list.extend(list(indus_table[indus_class]))
+    # default class num of low price is zero
+    else: indus_list = [0]
+
+    return set(indus_list)
+
+def load_ticker_by_indus(opt, pool, indus_type, test_month):
+    # fetch price and indus table from sql
+    indus_class = opt['dataset']['indus_class']
+    price_name = opt['dataset']['price_name']
+    avg_price = opt['dataset']['avg_price']
+    indus_table_suffix = opt['dataset']['indus_table_suffix']
+    if isinstance(indus_table_suffix, str):
+        if len(indus_table_suffix) > 0:
+            indus_table_suffix = '_' + indus_table_suffix
+        else:
+            indus_table_suffix = ''
+    else:
+        raise ValueError(
+            f"Param in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
+
     if price_name == 'highprice':
-        indus_table = cx_read_sql('select * from static_data_industry_{}_history where {}="{}" and test_month={}'.format(pool,
-                                   indus_class, indus_type, test_month))
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where {}="{}" and test_month={}'.format(pool,
+                                   indus_table_suffix, indus_class, indus_type, test_month))
         price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
                                    pool, avg_price, test_month))
     if price_name == 'lowprice':
         # Note that lowprice stocks have no indus_type, default is 0
-        indus_table = cx_read_sql('select * from static_data_industry_{}_history where test_month={}'.format(pool, test_month))
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where test_month={}'.format(pool, indus_table_suffix, test_month))
         price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(pool, avg_price, test_month))
 
     tickers = set(indus_table['ticker']) & set(price_table['ticker'])
@@ -59,22 +86,26 @@ def load_ticker_by_indus(pool, price_name, indus_class, indus_type, test_month, 
 
     return tickers
 
+def load_labels(opt, tickers, month):
+    ret_name = opt['dataset']['ret_name']
+    io_backend = opt['dataset']['io_backend']
+    if io_backend == 'sql':
+        if len(tickers) == 1:
+            ticker_condition = f'ticker="{tickers[0]}"'
+        else:
+            ticker_condition = f'ticker in {tickers}'
+        labels = cx_read_sql(
+            f'select ticker, date, time, ret_{ret_name}  from ret_{month} where {ticker_condition}')
+    if io_backend == 'ddb':
+        labels = read_ddb_return(month, tickers, opt['dataset']['trading_hours'])
+        labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
 
-def load_ticker_by_group(pool, price_name , test_month, avg_price=10, group=1, total_group_num=1):
-    indus_type = f"group_{total_group_num}_{group}"
-    # fetch price he indus table from sql
-    if price_name == 'highprice':
-        price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
-                                   pool, avg_price, test_month))
-    if price_name == 'lowprice':
-        price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(pool, avg_price, test_month))
-
-    tickers = set(price_table['ticker'])
-    if len(tickers) == 0:
-        raise FileExistsError(f"{test_month}_indus_{indus_type}: The number of tickers(average price > 10) is 0")
-
-    return tickers
-
+        # #mix return
+        # labels = read_ddb_return(month, self.tickers)
+        # mixed_ret = (labels['ret_15s'].values + labels['ret_60s'].values + labels['ret_120s'].values + labels['ret_300s'].values)/4
+        # labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
+        # labels[f'ret_{self.ret_name}'] = mixed_ret
+    return labels
 
 def is_rebalanced(test_month, training_month_num):
     # whether training months spread 01/07 month
@@ -151,7 +182,7 @@ def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month
     return cur_ticker
 
 
-def load_factor_by_table(database, table, tickers, loading_month, test_month, rebalancing_tables, training_month_num=3, io_backend='sql'):
+def load_factor_by_table(database, table, tickers, loading_month, test_month, rebalancing_tables, trading_hours=None, training_month_num=3, io_backend='sql'):
     if len(tickers) == 1:
         ticker_condition = f'ticker="{tickers[0]}"'
     else:
@@ -163,12 +194,12 @@ def load_factor_by_table(database, table, tickers, loading_month, test_month, re
                                  database=database)
         if io_backend == "ddb":
             tickers = list(tickers)
-            factor = read_ddb_factor(database, f'{table}_index_rebalancing', loading_month, tickers)
+            factor = read_ddb_factor(database, f'{table}_index_rebalancing', loading_month, tickers, trading_hours)
     else:
         if io_backend == "sql":
             factor = cx_read_sql(f'select * from {table}_{loading_month} where {ticker_condition}', database=database)
         if io_backend == "ddb":
             tickers = list(tickers)
-            factor = read_ddb_factor(database, table, loading_month, tickers)
+            factor = read_ddb_factor(database, table, loading_month, tickers, trading_hours)
 
     return factor

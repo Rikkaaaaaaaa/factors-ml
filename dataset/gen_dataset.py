@@ -6,7 +6,7 @@ import sys
 
 from utils import list2str
 from dataset import build_factor_name
-from dataset.sql_data import load_ticker_by_indus, align_factor_ticker, load_factor_by_table
+from dataset.sql_ops import load_ticker_by_indus, align_factor_ticker, load_factor_by_table
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
@@ -102,7 +102,7 @@ class GenDataset():
             ticker_list = []
             for pool in self.pool_name:
                 # load ticker list
-                cur_ticker = load_ticker_by_indus(pool, self.price_name, self.indus_class, self.indus_type, self.test_month, self.avg_price)
+                cur_ticker = load_ticker_by_indus(self.opt, pool, self.indus_type, self.test_month)
                 ticker_list.extend(cur_ticker)
 
             # align training and testing ticker list
