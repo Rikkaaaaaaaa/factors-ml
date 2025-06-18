@@ -1,7 +1,7 @@
 import os.path as osp
 import importlib
 
-from dataset.sql_data import check_indus, get_ticker_list
+from dataset.sql_ops import check_indus, get_ticker_list
 from dataset.factor_name import build_factor_name
 from utils import scandir
 from utils.logger import get_root_logger
