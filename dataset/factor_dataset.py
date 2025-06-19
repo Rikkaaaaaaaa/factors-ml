@@ -32,6 +32,14 @@ class FactorDataset():
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
+
+        # update option dict
+        if not self.opt['dataset'].get('indus_table_suffix'):
+            self.opt['dataset']['indus_table_suffix'] = ''
+        if not self.opt['dataset'].get('trading_hours'):
+            self.opt['dataset']['trading_hours'] = None
+        self.trading_hours = self.opt['dataset']['trading_hours']
+
         # init params
         self.io_backend = self.opt['dataset']['io_backend']
         self.ret_name = self.opt['dataset']['ret_name']
@@ -40,20 +48,15 @@ class FactorDataset():
         self.is_realtime = self.opt['is_realtime']
         self.training_month = self.get_training_month()
         self.training_month_num = len(self.training_month)
-        if not self.opt['dataset'].get('indus_table_suffix'):
-            self.opt['dataset']['indus_table_suffix'] = ''
         self.indus_class = self.opt['dataset']['indus_class']
-        if self.opt['dataset'].get('trading_hours'):
-            self.trading_hours = self.opt['dataset']['trading_hours']
-        else:
-            self.trading_hours = None
         self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
+        self.rebalancing_tables = self.opt['dataset']['rebalancing_tables']
         if self.opt['dataset'].get('eval_factor_table'):
             self.eval_factor_table = self.opt['dataset']['eval_factor_table']
-        self.rebalancing_tables = self.opt['dataset']['rebalancing_tables']
 
+        # build factor names
         self.training_factor_name =  build_factor_name(self.opt['dataset']['training_factor_name']) # list(set(_train_data.columns) - set(del_column))
         self.std_factor_name = build_factor_name(self.opt['dataset']['std_factor_name'])
         self.clip_factor_name = build_factor_name(self.opt['dataset']['clip_factor_name'])
@@ -69,7 +72,7 @@ class FactorDataset():
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running eval rt mode!")
         else:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running training mode!")
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading indus by [{self.indus_class}] from table [static_data_industry_pool_history_{self.opt['dataset']['indus_table_suffix']}]")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading indus by [{self.indus_class}] from table [static_data_industry_pool_history] + [{self.opt['dataset']['indus_table_suffix']}]]")
         if isinstance(self.trading_hours, dict):
             if self.trading_hours['am_start_time'] <= self.trading_hours['am_end_time']:
                 self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Trading hours: AM [{self.trading_hours['am_start_time']}, {self.trading_hours['am_end_time']}]")
@@ -446,7 +449,7 @@ class FactorDataset():
         else:
             training_month_num = 3
         training_month = [get_pre_month(self.test_month, training_month_num - i) for i in range(0, training_month_num)]
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training set include {training_month}")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training set include month {training_month}")
 
         return training_month
 
