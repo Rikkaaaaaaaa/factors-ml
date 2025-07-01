@@ -260,7 +260,7 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
 
 
 if __name__ == "__main__":
-    months = [202501,202502,202503,202504, 202505]
+    months = [202501,202502,202503,202504, 202505, 202506]
     ret_windows = ['15s', '60s', '120s', '300s']
     # use eval function to treat signal files in experiments folder
 
@@ -315,18 +315,18 @@ if __name__ == "__main__":
     # expr_name = 'ddb_null_factor_open_hs300_highprice_lgbm'
     # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
-    result_name = 'ddb_null_factor_new_indus_in_pm1_hs300_highprice_lgbm'
-    expr_name = 'ddb_null_factor_new_indus_hs300_highprice_lgbm'
+    result_name = 'ddb_null_factor_hs300_highprice_lgbm'
+    expr_name = 'ddb_null_factor_hs300_highprice_lgbm'
     signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
-
-    trading_hours = {
-        "am_start_time": 113300,
-        "am_end_time": 113000,
-        "pm_start_time": 130000,
-        "pm_end_time": 142700
-    }
-    # trading_hours = None
+    #
+    # trading_hours = {
+    #     "am_start_time": 113015,
+    #     "am_end_time": 113000,
+    #     "pm_start_time": 130000,
+    #     "pm_end_time": 145700
+    # }
+    trading_hours = None
 
     n_jobs = 16
     params = [(result_name,
