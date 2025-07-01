@@ -116,6 +116,8 @@ def create_index(database, table_name, index_cols):
         if len(table_name) > 59:
             print("IDX name is too long, clip to size 60!")
             index_name = table_name[:59]
+        else:
+            index_name = table_name
         cur.execute(
             'CREATE INDEX {}_IDX USING BTREE ON {}.{}({});'.format(index_name, database, table_name, index_str))
         conn.commit()
