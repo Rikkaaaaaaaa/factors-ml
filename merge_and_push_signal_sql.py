@@ -14,12 +14,13 @@ def concat_signals_from_folder(signal_path_list):
     return pd.concat(signal)
 
 
-def merge_main_signal(signal_folder_path, upload_month, table_name, database='strategy'):
+def merge_main_signal(signal_folder_path, trading_hours=None):
     # read all files from path list
     signal_15s = concat_signals_from_folder(signal_folder_path['signal_15s']).rename(columns={'signal': 'signal_15s'})
     signal_60s = concat_signals_from_folder(signal_folder_path['signal_60s']).rename(columns={'signal': 'signal_60s'})
     signal_120s = concat_signals_from_folder(signal_folder_path['signal_120s']).rename(columns={'signal': 'signal_120s'})
     signal_300s = concat_signals_from_folder(signal_folder_path['signal_300s']).rename(columns={'signal': 'signal_300s'})
+
     merge_keys = ['ticker', 'date', 'time']
     signal_15s = signal_15s[['ticker', 'date', 'time', 'proba']]
     signal_60s = signal_60s[['ticker', 'date', 'time', 'signal_60s']]
@@ -31,15 +32,15 @@ def merge_main_signal(signal_folder_path, upload_month, table_name, database='st
     # core merge format
     merge_signal['merge_signal'] = (merge_signal['proba'] - 0.5) * 2 + merge_signal['signal_60s'] * 2 + \
                               merge_signal['signal_120s'] * 2 + merge_signal['signal_300s'] * 2
-    # filter by upload month
-    if isinstance(upload_month, list):
-        merge_signal = merge_signal[(merge_signal.date<(upload_month[-1]+1)*100) & (merge_signal.date>upload_month[0]*100) ]
-        print(f"Uploading month: {upload_month}")
-        push_single_signal_sql(merge_signal, upload_month=upload_month, table_name=table_name, database=database)
-    else:
-        merge_signal = merge_signal[(merge_signal.date < (upload_month + 1) * 100) & (merge_signal.date > upload_month * 100)]
-        print(f"Uploading month: {upload_month}")
-        push_single_signal_sql(merge_signal, upload_month=[upload_month], table_name=table_name, database=database)
+
+    if isinstance(trading_hours, dict):
+        if trading_hours['start_time'] <= trading_hours['end_time']:
+            print(f"Trading hours:  [{trading_hours['start_time']}, {trading_hours['end_time']}]")
+
+        start_time = trading_hours['start_time']
+        end_time = trading_hours['end_time']
+        merge_signal = merge_signal.query("time>= @start_time and time <= @end_time")
+    return merge_signal
 
 
 def upload_signal_from_ensemble():
@@ -58,24 +59,80 @@ def upload_signal_from_ensemble():
     database = 'strategy'
     table_name = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{suffix}"
     ensure_table_name(database, table_name)
-    merge_main_signal(signal_folder_path, upload_month, table_name, database)
+    # append to sql table
+    merge_signal = merge_main_signal(signal_folder_path)  # use single month, not upload_month
+
+    # filter by upload month
+    merge_signal = merge_signal[
+        (merge_signal.date < (upload_month[-1] + 1) * 100) & (merge_signal.date > upload_month[0] * 100)]
+    print(f"Uploading month: {upload_month}")
+    push_single_signal_sql(merge_signal, upload_month=upload_month, table_name=table_name, database=database)
 
 
-def upload_signal_from_experiments():
-    upload_month = [202501,202502,202503, 202504,202505]
+def upload_signal_from_experiments_by_period():
+
+    upload_month = [202501,202502,202503,202504,202505]
     # upload_month = [202404]
     # table name
-    expr_name = 'ddb_null_factor_hs'
-    table_suffix = 'ddb_null_factor_hs'
+    am_expr_name = 'ddb_null_factor_new_allam_6month'
+    pm_expr_name = 'ddb_null_factor_new_6month'
+    table_suffix = 'with_am'
     pool_name = 'hs300'
     price_level = 'highprice'
     model_type = 'lgbm'
     database = 'strategy'
     table_name = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{table_suffix}"
 
-    # check table name
-    if len(table_name) > len("ensemble_signal_hs300_highprice_lgbm_ddb_null_factor_hs"):
-        raise RuntimeError("Table_name may be too long!")
+    am_signal_folder_path = dict()
+    pm_signal_folder_path = dict()
+    ensure_table_name(database, table_name)
+
+    for month in upload_month:
+        am_signal_folder_path['signal_15s'] = glob.glob(
+            f'experiments/{am_expr_name}_{pool_name}_{price_level}_{model_type}_15s/{month}/signal/*.csv')
+        am_signal_folder_path['signal_60s'] = glob.glob(
+             f'experiments/{am_expr_name}_{pool_name}_{price_level}_{model_type}_60s/{month}/signal/*.csv')
+        am_signal_folder_path['signal_120s'] = glob.glob(
+             f'experiments/{am_expr_name}_{pool_name}_{price_level}_{model_type}_120s/{month}/signal/*.csv')
+        # 300s use pm model
+        am_signal_folder_path['signal_300s'] = glob.glob(
+             f'experiments/{pm_expr_name}_{pool_name}_{price_level}_{model_type}_300s/{month}/signal/*.csv')
+
+        pm_signal_folder_path['signal_15s'] = glob.glob(
+            f'experiments/{pm_expr_name}_{pool_name}_{price_level}_{model_type}_15s/{month}/signal/*.csv')
+        pm_signal_folder_path['signal_60s'] = glob.glob(
+            f'experiments/{pm_expr_name}_{pool_name}_{price_level}_{model_type}_60s/{month}/signal/*.csv')
+        pm_signal_folder_path['signal_120s'] = glob.glob(
+            f'experiments/{pm_expr_name}_{pool_name}_{price_level}_{model_type}_120s/{month}/signal/*.csv')
+        pm_signal_folder_path['signal_300s'] = glob.glob(
+            f'experiments/{pm_expr_name}_{pool_name}_{price_level}_{model_type}_300s/{month}/signal/*.csv')
+
+        # append to sql table
+        am_hours = {'start_time': int(94000*1000), 'end_time': int(113000*1000)}
+        merge_signal_am = merge_main_signal(am_signal_folder_path, trading_hours=am_hours)
+        pm_hours = {'start_time':int(130000*1000), 'end_time':int(145700*1000)}
+        merge_signal_pm = merge_main_signal(pm_signal_folder_path, trading_hours=pm_hours)
+
+        merge_signal = pd.concat([merge_signal_am, merge_signal_pm]).reset_index()
+
+        # filter by upload month
+        merge_signal = merge_signal[
+            (merge_signal.date < (month + 1) * 100) & (merge_signal.date > month * 100)]
+        print(f"Uploading month: {month}")
+        push_single_signal_sql(merge_signal, upload_month=[month], table_name=table_name, database=database)
+
+def upload_signal_from_experiments():
+    upload_month = [202506]
+    # upload_month = [202404]
+    # table name
+    expr_name = 'ddb_null_factor_new_indus'
+    table_suffix = 'ddb_new_indus'
+    pool_name = 'hs300'
+    price_level = 'highprice'
+    model_type = 'lgbm'
+    database = 'strategy'
+    table_name = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{table_suffix}"
+
     signal_folder_path = dict()
     ensure_table_name(database, table_name)
 
@@ -90,7 +147,14 @@ def upload_signal_from_experiments():
              f'experiments/{expr_name}_{pool_name}_{price_level}_{model_type}_300s/{month}/signal/*.csv')
 
         # append to sql table
-        merge_main_signal(signal_folder_path, month, table_name, database) # use single month, not upload_month
+        merge_signal = merge_main_signal(signal_folder_path) # use single month, not upload_month
+
+        # filter by upload month
+        merge_signal = merge_signal[
+            (merge_signal.date < (month + 1) * 100) & (merge_signal.date > month * 100)]
+        print(f"Uploading month: {month}")
+        push_single_signal_sql(merge_signal, upload_month=[month], table_name=table_name, database=database)
 
 if __name__ == '__main__':
-    upload_signal_from_experiments()
+    #upload_signal_from_experiments()
+    upload_signal_from_experiments_by_period()
