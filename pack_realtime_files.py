@@ -100,7 +100,7 @@ def get_factor_name_from_15s(exp_name):
 def export_static_data(database, table, test_month, save_path):
     from utils.mysql import read_table
     df = read_table(database, f"select * from {table} where test_month={test_month}")
-    df.to_csv(osp.join(save_path, f'{table.replace("_history", "")}.csv'))
+    df.to_csv(osp.join(save_path, f'{table.replace("_history", "")}.csv'), encoding='utf-8')
 
 
 if __name__ == '__main__':
