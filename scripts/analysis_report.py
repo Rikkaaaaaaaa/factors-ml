@@ -21,6 +21,7 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
     price_name = config.price_name
     model_name = config.model_name
     ret_windows = config.ret_windows
+    indus_table_suffix = config.indus_table_suffix
     experiment_path = config.experiment_path
     cols = [ 'month', 'up_bound', 'down_bound', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
            'up_signal_rate', 'down_signal_rate', 'weighted_ret', 'total_sample', 'zero_rate']
@@ -34,7 +35,7 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
         report['weighted_ret'] = report['up_mean_ret'] * report['up_signal_rate'] - report['down_mean_ret'] * report['down_signal_rate']
         test_month_list = sorted(report['month'].unique())
         for month in test_month_list:
-            tickers = get_ticker_list(ticker_pool_name, price_name, month)
+            tickers = get_ticker_list(ticker_pool_name, price_name, month, indus_table_suffix)
             month_report = report.query('ticker in @tickers and month==@month')
             _report = month_report[cols].groupby('month').mean()
             _report.insert(0, 'ret_window', ret_window)
@@ -58,6 +59,8 @@ if __name__ == '__main__':
     parser.add_argument('-ticker_pool_name', type=str, default='hs300', help='hs300, zz500 or zz1000')
     parser.add_argument('-model_name', type=str, default='lgbm', help='lgbm or lr')
     parser.add_argument('-ret_windows', nargs='+', type=str, default=['15s', '60s', '120s', '300s'], help='ret_windows in summary')
+    parser.add_argument('-indus_table_suffix', type=str, default='', help='indus_table_suffix in fetching industry table')
+
     config = parser.parse_args()
 
     summarize_report(config,)
