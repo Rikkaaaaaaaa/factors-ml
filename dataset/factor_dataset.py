@@ -39,6 +39,8 @@ class FactorDataset():
         if not self.opt['dataset'].get('trading_hours'):
             self.opt['dataset']['trading_hours'] = None
         self.trading_hours = self.opt['dataset']['trading_hours']
+        self.training_month = self.get_training_month()
+        self.training_month_num = len(self.training_month)
 
         # init params
         self.io_backend = self.opt['dataset']['io_backend']
@@ -46,8 +48,6 @@ class FactorDataset():
         self.price_name = self.opt['dataset']['price_name']
         self.avg_price = self.opt['dataset']['avg_price']
         self.is_realtime = self.opt['is_realtime']
-        self.training_month = self.get_training_month()
-        self.training_month_num = len(self.training_month)
         self.indus_class = self.opt['dataset']['indus_class']
         self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
@@ -210,7 +210,8 @@ class FactorDataset():
             missing_tickers = set(self.tickers) - set(data['ticker'].unique())
             # assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
             if len(missing_tickers) > 0:
-                raise ValueError(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
+                # raise ValueError(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
+                print(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
 
             # check Whether data is null
             if len(data) == 0:
@@ -448,6 +449,7 @@ class FactorDataset():
             training_month_num = self.opt['dataset'].get('training_month_num')
         else:
             training_month_num = 3
+            self.opt['dataset']['training_month_num'] = 3
         training_month = [get_pre_month(self.test_month, training_month_num - i) for i in range(0, training_month_num)]
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training set include month {training_month}")
 

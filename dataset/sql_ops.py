@@ -151,7 +151,7 @@ def check_rebalanced(training_month, test_month):
     return need_rebalanced_month
 
 
-def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month, rebalancing_tables, training_month_num=3, io_backend="sql"):
+def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month, rebalancing_tables, training_month_num=3, io_backend="ddb"):
 
     cur_ticker = all_ticker.copy()
     for database in factor_table.keys():
@@ -170,14 +170,14 @@ def align_factor_ticker(factor_table, all_ticker, check_ticker_month, test_month
                         factor_ticker = cx_read_sql(f'select distinct ticker from {table}_{month}', database=database)
                     if io_backend == "ddb":
                         factor_ticker = read_ddb(f'select distinct(securityCode) as ticker from loadTable("{database}", "{table}") where month(time)={ddb_month}')
-
-                factor_ticker = factor_ticker['ticker']
-                cur_ticker = cur_ticker & set(factor_ticker)
                 # check missing tickers
-                missing_tickers = set(all_ticker) - set(cur_ticker)
+                factor_ticker = factor_ticker['ticker']
+                # cur_ticker = cur_ticker & set(factor_ticker)
+                missing_tickers = set(all_ticker) - set(factor_ticker)
 
                 if len(missing_tickers) > 0:
-                    raise ValueError(f"There are missing tickers in {database}.{table} in {month}:  {list2str(missing_tickers)}")
+                    #raise ValueError(f"There are missing tickers in {database}.{table} in {month}:  {list2str(missing_tickers)}")
+                    print(f"There are missing tickers in {database}.{table} in {month}:  {list2str(missing_tickers)}")
 
     return cur_ticker
 
