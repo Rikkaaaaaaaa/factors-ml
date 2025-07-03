@@ -28,7 +28,7 @@ def merge_main_signal(signal_folder_path, trading_hours=None):
     signal_300s = signal_300s[['ticker', 'date', 'time', 'signal_300s']]
 
     merge_signal = signal_15s.merge(signal_60s, on=merge_keys).merge(signal_120s, on=merge_keys).merge(signal_300s, on=merge_keys)
-    print(f"merge data size is {len(merge_signal)}")
+
     # core merge format
     merge_signal['merge_signal'] = (merge_signal['proba'] - 0.5) * 2 + merge_signal['signal_60s'] * 2 + \
                               merge_signal['signal_120s'] * 2 + merge_signal['signal_300s'] * 2
@@ -40,6 +40,7 @@ def merge_main_signal(signal_folder_path, trading_hours=None):
         start_time = trading_hours['start_time']
         end_time = trading_hours['end_time']
         merge_signal = merge_signal.query("time>= @start_time and time <= @end_time")
+    print(f"merge data size is {len(merge_signal)}")
     return merge_signal
 
 
@@ -71,7 +72,7 @@ def upload_signal_from_ensemble():
 
 def upload_signal_from_experiments_by_period():
 
-    upload_month = [202501,202502,202503,202504,202505]
+    upload_month = [202506]
     # upload_month = [202404]
     # table name
     am_expr_name = 'ddb_null_factor_new_allam_6month'
@@ -113,7 +114,7 @@ def upload_signal_from_experiments_by_period():
         pm_hours = {'start_time':int(130000*1000), 'end_time':int(145700*1000)}
         merge_signal_pm = merge_main_signal(pm_signal_folder_path, trading_hours=pm_hours)
 
-        merge_signal = pd.concat([merge_signal_am, merge_signal_pm]).reset_index()
+        merge_signal = pd.concat([merge_signal_am, merge_signal_pm])
 
         # filter by upload month
         merge_signal = merge_signal[
@@ -125,8 +126,8 @@ def upload_signal_from_experiments():
     upload_month = [202506]
     # upload_month = [202404]
     # table name
-    expr_name = 'ddb_null_factor_new_indus'
-    table_suffix = 'ddb_new_indus'
+    expr_name = 'ddb_null_factor_no_reverse'
+    table_suffix = 'ddb_null_factor_no_re'
     pool_name = 'hs300'
     price_level = 'highprice'
     model_type = 'lgbm'
