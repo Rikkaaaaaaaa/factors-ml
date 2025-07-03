@@ -25,6 +25,13 @@ def train_pipeline(train_args):
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
 
+    # define task type
+    task_type = opt['dataset'].setdefault('task_type', 'classification')
+    if task_type == 'classification':
+        label_col_name = 'class_label'
+    else:
+        label_col_name = 'ret'
+
     # get data set from test month
     dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
     dataset.load_data()
@@ -32,7 +39,7 @@ def train_pipeline(train_args):
         logger.info(f"{test_month}_indus_{indus_type}: Dataset is empty!")
         return
 
-    x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data.class_label
+    x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data[label_col_name]
     # factor selection
     training_factor_name = dataset.training_factor_name
     if opt.get('feature_selector'):

@@ -26,7 +26,10 @@ class LgbmModel():
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
-        self.class_num = self.opt['dataset']['class_num']
+        self.task_type = self.opt['dataset'].setdefault('task_type', 'classification')
+        # 只在分类任务中使用class_num
+        if self.task_type == 'classification':
+            self.class_num = self.opt['dataset']['class_num']
         self.num_epoch = self.opt['train']['num_epoch']
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"
@@ -36,30 +39,13 @@ class LgbmModel():
     def train(self, x_train, y_train):
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LGBM model...")
         train_matrix = lgb.Dataset(x_train, label=y_train)
-        if self.class_num == 3:
-            params = {
-                'boosting_type': 'gbdt',
-                'objective': 'multiclass',
-                'metric': 'multi_logloss',
-                'learning_rate': 0.1,
-                'num_class': 3,
-                'min_child_weight': 1e-3,
-                'num_leaves': 30,
-                'max_depth': -1,
-                'lambda_l1': 0.4,
-                'lambda_l2': 0.5,
-                'feature_fraction': 1,
-                'bagging_fraction': 1,
-                'bagging_freq': 0,
-                'seed':  self.opt['manual_seed'],
-                'nthread': self.opt['model']['n_cpus'],
-                'verbose': -1,
-            }
-        if self.class_num == 2:
+
+        # 根据任务类型设置参数
+        if self.task_type == 'regression':
             params = {
                 'seed': self.opt['manual_seed'],
-                "objective": "binary",
-                "metric": "auc",
+                "objective": "regression",  # 回归任务
+                "metric": "mse",  # 回归评估指标
                 "boosting_type": "gbdt",
                 'max_bin': 255,
                 "learning_rate": 0.1,
@@ -68,11 +54,45 @@ class LgbmModel():
                 "feature_fraction": 0.8,
                 "bagging_fraction": 0.8,
                 "bagging_freq": 5,
-                # 'min_sum_hessian_in_leaf': 3.0,
-
                 "verbosity": -1,
                 'n_jobs': self.opt['model']['n_cpus'],
             }
+        elif self.task_type == 'classification':
+            if self.class_num == 3:
+                params = {
+                    'boosting_type': 'gbdt',
+                    'objective': 'multiclass',
+                    'metric': 'multi_logloss',
+                    'learning_rate': 0.1,
+                    'num_class': 3,
+                    'min_child_weight': 1e-3,
+                    'num_leaves': 30,
+                    'max_depth': -1,
+                    'lambda_l1': 0.4,
+                    'lambda_l2': 0.5,
+                    'feature_fraction': 1,
+                    'bagging_fraction': 1,
+                    'bagging_freq': 0,
+                    'seed': self.opt['manual_seed'],
+                    'n_jobs': self.opt['model']['n_cpus'],
+                    'verbose': -1,
+                }
+            elif self.class_num == 2:
+                params = {
+                    'seed': self.opt['manual_seed'],
+                    "objective": "binary",
+                    "metric": "auc",
+                    "boosting_type": "gbdt",
+                    'max_bin': 255,
+                    "learning_rate": 0.1,
+                    "max_depth": -1,
+                    "num_leaves": 30,
+                    "feature_fraction": 0.8,
+                    "bagging_fraction": 0.8,
+                    "bagging_freq": 5,
+                    "verbosity": -1,
+                    'n_jobs': self.opt['model']['n_cpus'],
+                }
 
         self.model = lgb.train(params, train_set=train_matrix, num_boost_round=self.num_epoch)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
@@ -129,30 +149,13 @@ class LgbmModel():
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LGBM model...")
         train_matrix = lgb.Dataset(x_train, label=y_train)
         valid_matrix = lgb.Dataset(x_test, label=y_test)
-        if self.class_num == 3:
-            params = {
-                'boosting_type': 'gbdt',
-                'objective': 'multiclass',
-                'metric': 'multi_logloss',
-                'learning_rate': 0.1,
-                'num_class': 3,
-                'min_child_weight': 1e-3,
-                'num_leaves': 30,
-                'max_depth': -1,
-                'lambda_l1': 0.4,
-                'lambda_l2': 0.5,
-                'feature_fraction': 1,
-                'bagging_fraction': 1,
-                'bagging_freq': 0,
-                'seed':  self.opt['manual_seed'],
-                'nthread': self.opt['model']['n_cpus'],
-                'verbose': -1,
-            }
-        if self.class_num == 2:
+
+        # 根据任务类型设置参数
+        if self.task_type == 'regression':
             params = {
                 'seed': self.opt['manual_seed'],
-                "objective": "binary",
-                "metric": "auc",
+                "objective": "regression",  # 回归任务
+                "metric": "rmse",  # 回归评估指标
                 "boosting_type": "gbdt",
                 'max_bin': 255,
                 "learning_rate": 0.1,
@@ -161,14 +164,53 @@ class LgbmModel():
                 "feature_fraction": 0.8,
                 "bagging_fraction": 0.8,
                 "bagging_freq": 5,
-                # 'min_sum_hessian_in_leaf': 3.0,
-
                 "verbosity": -1,
                 'n_jobs': self.opt['model']['n_cpus'],
             }
+        elif self.task_type == 'classification':
+            if self.class_num == 3:
+                params = {
+                    'boosting_type': 'gbdt',
+                    'objective': 'multiclass',
+                    'metric': 'multi_logloss',
+                    'learning_rate': 0.1,
+                    'num_class': 3,
+                    'min_child_weight': 1e-3,
+                    'num_leaves': 30,
+                    'max_depth': -1,
+                    'lambda_l1': 0.4,
+                    'lambda_l2': 0.5,
+                    'feature_fraction': 1,
+                    'bagging_fraction': 1,
+                    'bagging_freq': 0,
+                    'seed': self.opt['manual_seed'],
+                    'nthread': self.opt['model']['n_cpus'],
+                    'verbose': -1,
+                }
+            elif self.class_num == 2:
+                params = {
+                    'seed': self.opt['manual_seed'],
+                    "objective": "binary",
+                    "metric": "auc",
+                    "boosting_type": "gbdt",
+                    'max_bin': 255,
+                    "learning_rate": 0.1,
+                    "max_depth": -1,
+                    "num_leaves": 30,
+                    "feature_fraction": 0.8,
+                    "bagging_fraction": 0.8,
+                    "bagging_freq": 5,
+                    "verbosity": -1,
+                    'n_jobs': self.opt['model']['n_cpus'],
+                }
 
-        self.model = lgb.train(params, train_set=train_matrix, valid_sets=[valid_matrix], callbacks=callbacks,num_boost_round=self.num_epoch)
+        self.model = lgb.train(params,
+                               train_set=train_matrix,
+                               valid_sets=[valid_matrix],
+                               callbacks=callbacks,
+                               num_boost_round=self.num_epoch)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
+
 
 
 

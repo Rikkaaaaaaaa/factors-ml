@@ -34,11 +34,11 @@ class FactorDataset():
         self.logger = get_root_logger(logger_name=logger_name)
 
         # update option dict
-        if not self.opt['dataset'].get('indus_table_suffix'):
-            self.opt['dataset']['indus_table_suffix'] = ''
-        if not self.opt['dataset'].get('trading_hours'):
-            self.opt['dataset']['trading_hours'] = None
-        self.trading_hours = self.opt['dataset']['trading_hours']
+        self.opt['dataset'].setdefault('indus_table_suffix', '')
+        self.trading_hours = self.opt['dataset'].setdefault('trading_hours', 'None')
+        self.task_type = self.opt['dataset'].setdefault('task_type', 'classification')
+        if self.task_type == 'classification':
+            self.class_num = self.opt['dataset'].setdefault('class_num', 2)
         self.training_month = self.get_training_month()
         self.training_month_num = len(self.training_month)
 
@@ -49,7 +49,6 @@ class FactorDataset():
         self.avg_price = self.opt['dataset']['avg_price']
         self.is_realtime = self.opt['is_realtime']
         self.indus_class = self.opt['dataset']['indus_class']
-        self.class_num = self.opt['dataset']['class_num']
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
         self.rebalancing_tables = self.opt['dataset']['rebalancing_tables']
@@ -72,6 +71,7 @@ class FactorDataset():
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running eval rt mode!")
         else:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running training mode!")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Task type: {self.task_type}")
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading indus by [{self.indus_class}] from table [static_data_industry_pool_history] + [{self.opt['dataset']['indus_table_suffix']}]]")
         if isinstance(self.trading_hours, dict):
             if self.trading_hours['am_start_time'] <= self.trading_hours['am_end_time']:
@@ -80,7 +80,7 @@ class FactorDataset():
                 self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Trading hours: PM [{self.trading_hours['pm_start_time']}, {self.trading_hours['pm_end_time']}]")
 
     def load_data(self):
-        # Ingest Ticker List
+        #-----Ingest Ticker List-----#
 
         # read tickers from mysql
         self.tickers = self.load_ticker_list()
@@ -90,7 +90,7 @@ class FactorDataset():
             self.is_empty = True
             return
 
-        # Ingest Factor and Return
+        #-----Ingest Factor and Return-----#
 
         # read data from mysql
         need_rebalanced_month = check_rebalanced(self.training_month, self.test_month) # for debug
@@ -104,7 +104,7 @@ class FactorDataset():
             data[self.test_month] = self.load_data_from_sql(self.test_month, eval_rt=self.eval_rt)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading factor and return ")
 
-        # Data Preprocessing
+        #-----Data Preprocessing-----#
 
         # split data into train and test set
         train_data, test_data = self.split_data(data)
@@ -112,11 +112,12 @@ class FactorDataset():
             self.is_empty = True
             return
 
-        # get alpha
+        # get alpha (i.e.return threshold)
         self.alpha = self.get_alhpa(train_data)
 
-        # make labels according to returns
-        train_data, test_data = self.make_label(train_data, test_data)
+        if self.task_type == 'classification':
+            # make classification labels according to returns
+            train_data, test_data = self.make_label(train_data, test_data)
 
         # filter train_data with return
         train_data = self.filter_by_label(train_data)
@@ -288,12 +289,13 @@ class FactorDataset():
 
 
     def filter_by_label(self, train_data):
-        # filter
         total_train_num = len(train_data)
-        if self.class_num == 2:
-            train_data = train_data.query('class_label != 2')
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Select {len(train_data) / total_train_num * 100:.2f}% train data with return={self.alpha} and class num is {self.class_num}.")
-
+        if self.task_type == 'classification':
+            if self.class_num == 2:
+                train_data = train_data.query('class_label != 2')
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Select {len(train_data) / total_train_num * 100:.2f}% train data with return={self.alpha} and class num is {self.class_num}.")
+        if self.task_type == 'regression':
+            train_data = train_data.query('ret.notna()')
         return train_data
 
 
@@ -381,6 +383,13 @@ class FactorDataset():
                 std_param.insert(0, 'ticker', ticker)
                 self.std_params.append(std_param)
 
+            # return clip
+            if self.task_type == 'regression':
+                ret_lower_bound = np.percentile(_train_data['ret'].dropna(), 1)
+                ret_upper_bound = np.percentile(_train_data['ret'].dropna(), 99)
+                new_ret = np.clip(_train_data['ret'].values, ret_lower_bound, ret_upper_bound)
+                _train_data.loc[:, 'ret'] = new_ret
+
             self.train_data_list.append(_train_data)
             self.test_data_list.append(_test_data)
             # print(f'transform time cost for ticker {ticker}: {time.time() - temp_ticker_start_time}')
@@ -405,16 +414,22 @@ class FactorDataset():
 
     def rebalance_training_data(self):
         # balance training data
-        if self.class_num == 2 and self.opt['dataset'].get('balance') == 'reverse':
+        if self.opt['dataset'].get('balance') == 'reverse':
             train_data_copy = self.train_data.copy()
             train_data_copy[self.training_factor_name] = -1 * train_data_copy[self.training_factor_name]
-            train_y = train_data_copy['class_label'].values
-            reversed_y = np.zeros_like(train_y)
-            up_idx = (train_y==0)
-            down_idx = (train_y==1)
-            reversed_y[up_idx] = 1
-            reversed_y[down_idx] = 0
-            train_data_copy['class_label'] = reversed_y
+            # reverse label values
+            if self.task_type == 'classification':
+                if self.class_num == 2:
+                    train_y = train_data_copy['class_label'].values
+                    reversed_y = np.zeros_like(train_y)
+                    up_idx = (train_y==0)
+                    down_idx = (train_y==1)
+                    reversed_y[up_idx] = 1
+                    reversed_y[down_idx] = 0
+                    train_data_copy['class_label'] = reversed_y
+            if self.task_type == 'regression':
+                train_data_copy['ret'] = -1 * train_data_copy['ret'].values
+
             # add column augment to indicate train data
             train_data_copy['augment'] = 1
             self.train_data['augment'] = 0
@@ -429,8 +444,9 @@ class FactorDataset():
             down_data = data.query('class_label==1').sample(n=sample_num)
             data = pd.concat([up_data, down_data], ignore_index=True)
             return data
-        if self.class_num == 2 and self.opt['dataset'].get('balance') == 'downsample':
-            self.train_data = self.down_sample(self.train_data)
+        if self.task_type == 'classification' and self.opt['dataset'].get('balance') == 'downsample' :
+            if self.class_num == 2:
+                self.train_data = self.down_sample(self.train_data)
 
 
     def get_training_month(self):

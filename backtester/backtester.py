@@ -22,7 +22,7 @@ class BackTester():
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
-        self.class_num = self.opt['dataset']['class_num']
+        self.task_type = self.opt['dataset'].setdefault('task_type', 'classification')
         self.is_realtime = self.opt['is_realtime']
         # logging file
         logger_name = f"month{test_month}_indus{indus_type}"

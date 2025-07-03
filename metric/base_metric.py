@@ -11,7 +11,7 @@ def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
     """
 
     pct_num = [100-opt['test']['threshold_pct'], 100-opt['test']['threshold_pct']]
-    class_num = opt['dataset']['class_num']
+    class_num = opt['test'].setdefault('direction_num', 2)
 
     # compute up accuracy
     up_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[0], class_label=1, class_num=class_num)
@@ -23,7 +23,7 @@ def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
     down_win = compute_win_rate(pre_prob, y_test_reg, down_bound, class_label=0, class_num=class_num)
     down_trade_num, down_mean_return = compute_return(pre_prob, down_bound, y_test_reg, class_label=0, class_num=class_num)
 
-    zero_sample = compute_zero_num(y_test_reg)
+    zero_sample = len(y_test_reg[y_test_reg == 0])
 
     summary = dict()
     summary['up_win_rate'], summary['down_win_rate'] = up_win, down_win
@@ -35,7 +35,8 @@ def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
     summary['up_trade_num'], summary['down_trade_num'] = up_trade_num, down_trade_num
     summary['total_sample'] = len(y_test_reg)
     summary['zero_rate'] = zero_sample / len(y_test_reg)
-
+    summary['abs_ret'] = np.mean(np.abs(y_test_reg))
+    summary['avg_ret'] = np.mean(y_test_reg)
 
     return summary
 
@@ -47,7 +48,7 @@ def compute_realtime_metric(opt, pre_prob_train):
 
     """
     pct_num = [100-opt['test']['threshold_pct'], 100-opt['test']['threshold_pct']]
-    class_num = opt['dataset']['class_num']
+    class_num = opt['test'].setdefault('direction_num', 2)
 
     # compute up accuracy
     up_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[0], class_label=1, class_num=class_num)
@@ -102,6 +103,3 @@ def compute_return(pre_prob, bound, mid_price, class_label=0, class_num=3):
         selected_idx = (pre_prob >= bound)
     return len(mid_price[selected_idx]), np.mean(mid_price[selected_idx])
 
-
-def compute_zero_num(mid_price):
-    return len(mid_price[mid_price == 0])
