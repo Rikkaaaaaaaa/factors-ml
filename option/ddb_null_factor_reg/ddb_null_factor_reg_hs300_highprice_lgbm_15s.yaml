@@ -1,6 +1,6 @@
 name: ddb_null_factor_reg_hs300_highprice_lgbm_15s
 manual_seed: 2023
-n_jobs: 1
+n_jobs: 8
 eval_rt: false
 
 # factor dataset
@@ -19,6 +19,7 @@ dataset:
   task_type: 'regression' # regression or classification
   type: 'FactorDataset'
   test_month: [202501, 202502, 202503, 202504, 202505]
+  training_month_num: 6
   io_backend: ddb # disk
   pool_name: ['hs300']
   indus_table_suffix: ''
