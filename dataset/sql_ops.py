@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from utils.mysql import cx_read_sql
 from utils import list2str
@@ -89,22 +90,28 @@ def load_ticker_by_indus(opt, pool, indus_type, test_month):
 def load_labels(opt, tickers, month):
     ret_name = opt['dataset']['ret_name']
     io_backend = opt['dataset']['io_backend']
-    if io_backend == 'sql':
-        if len(tickers) == 1:
-            ticker_condition = f'ticker="{tickers[0]}"'
-        else:
-            ticker_condition = f'ticker in {tickers}'
-        labels = cx_read_sql(
-            f'select ticker, date, time, ret_{ret_name}  from ret_{month} where {ticker_condition}')
-    if io_backend == 'ddb':
-        labels = read_ddb_return(month, tickers, opt['dataset']['trading_hours'])
-        labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
 
-        # #mix return
-        # labels = read_ddb_return(month, self.tickers)
-        # mixed_ret = (labels['ret_15s'].values + labels['ret_60s'].values + labels['ret_120s'].values + labels['ret_300s'].values)/4
-        # labels = labels[['ticker', 'date', "time", f'ret_{self.ret_name}']]
-        # labels[f'ret_{self.ret_name}'] = mixed_ret
+    if io_backend == 'ddb':
+        data_base = list(opt['dataset']['ret_table'].keys())[0]
+        table_name =  opt['dataset']['ret_table'][data_base]
+        labels = read_ddb_return(data_base, table_name, month, tickers, opt['dataset']['trading_hours'])
+
+    # mix return by weights
+    if opt['dataset'].get('mix_return'):
+        data_base = list(opt['dataset']['ret_table'].keys())[0]
+        table_name =  opt['dataset']['ret_table'][data_base]
+        labels = read_ddb_return(data_base, table_name, month, tickers, opt['dataset']['trading_hours'])
+
+        ret_cols = opt['dataset']['mix_return']['ret_cols']
+        weights = opt['dataset']['mix_return']['weights']
+        mixed_ret = labels[ret_cols].values
+        np_weights = np.array(weights)
+        mixed_ret = np.sum(np_weights * mixed_ret, axis=1)/len(ret_cols)
+        labels[f'ret_{ret_name}'] = mixed_ret
+
+    # filter all the other columns
+    labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
+
     return labels
 
 def is_rebalanced(test_month, training_month_num):
