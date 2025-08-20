@@ -23,8 +23,8 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
     ret_windows = config.ret_windows
     indus_table_suffix = config.indus_table_suffix
     experiment_path = config.experiment_path
-    cols = [ 'month', 'up_bound', 'down_bound', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
-           'up_signal_rate', 'down_signal_rate', 'weighted_ret', 'total_sample', 'zero_rate']
+    cols = [ 'month',  'weighted_ret', 'up_win_rate', 'down_win_rate', 'up_mean_ret', 'down_mean_ret',
+           'up_signal_rate', 'down_signal_rate',  'up_bound', 'down_bound', 'zero_rate', 'total_sample', 'abs_ret', 'avg_ret' ]
     summary = []
     for ret_window in ret_windows:
         report_folder = f'{prefix}_{report_pool_name}_{price_name}_{model_name}_{ret_window}'
@@ -33,12 +33,15 @@ def summarize_report(config, root='/root/PycharmProjects/factors-ml', svg_path='
         report_path = osp.join(root, experiment_path, report_folder, report_name + '.csv')
         report = pd.read_csv(report_path)
         report['weighted_ret'] = report['up_mean_ret'] * report['up_signal_rate'] - report['down_mean_ret'] * report['down_signal_rate']
+
         test_month_list = sorted(report['month'].unique())
         for month in test_month_list:
             tickers = get_ticker_list(ticker_pool_name, price_name, month, indus_table_suffix)
             month_report = report.query('ticker in @tickers and month==@month')
+            ticker_num = len(month_report['ticker'].unique())
             _report = month_report[cols].groupby('month').mean()
             _report.insert(0, 'ret_window', ret_window)
+            _report.insert(len(_report.columns)-4, 'ticker_num', ticker_num) # in front of 'total_sample'
             summary.append(_report)
 
     summary = pd.concat(summary)
