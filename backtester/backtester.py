@@ -49,7 +49,9 @@ class BackTester():
 
             # bound_mode = 'by_indus'
             if self.opt['test']['bound_mode'] == 'by_indus':
-                self._train_proba = model.predict(factor_data.train_data[backtest_factor_name])
+                self.train_proba = model.predict(factor_data.train_data[backtest_factor_name])
+                # filtered_train_proba = model.predict(factor_data.filtered_train_data[backtest_factor_name])
+                # self.train_proba = np.concatenate((self.train_proba, filtered_train_proba), axis=0)
 
             # bound_mode = 'by_ticker'
             tbar = tqdm(self.tickers, leave=False)
@@ -65,9 +67,16 @@ class BackTester():
                 train_data = factor_data.train_data.query(ticker_data_query) # bound proba come from original data
                 x_train = train_data[backtest_factor_name]
 
+                #filtered_train_data = factor_data.filtered_train_data.query(ticker_data_query)  # bound proba come from original data
+                #filtered_x_train = filtered_train_data[backtest_factor_name]
+
+
                 # get train proba for bound computation
                 if self.opt['test']['bound_mode'] == 'by_ticker':
-                    self._train_proba = model.predict(x_train)
+                    self.train_proba = model.predict(x_train)
+                    # ori_x_train = np.concatenate((x_train, filtered_x_train), axis=0)
+                    # filtered_train_proba = model.predict(filtered_x_train)
+                    # self.train_proba = np.concatenate((self.train_proba, filtered_train_proba)
 
                 # BT mode: run inference
                 if not self.is_realtime:
@@ -119,11 +128,11 @@ class BackTester():
 
         # compute bound and performance metrics
         if self.is_realtime:
-            self._metric = compute_realtime_metric(self.opt, self._train_proba)
+            self._metric = compute_realtime_metric(self.opt, self.train_proba)
         else:
             # filter null data
-            self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self._train_proba, self._test_ret[~self._null_idx])
-            # self._metric = compute_metric(self.opt, self._pre_proba, self._train_proba, self._test_ret)
+            self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self.train_proba, self._test_ret[~self._null_idx])
+            # self._metric = compute_metric(self.opt, self._pre_proba, self.train_proba, self._test_ret)
         self.results.append(list(self._metric.values()))
 
         # get metric keys in summary
@@ -192,7 +201,7 @@ class BackTester():
         if self.opt['train'].get('save_proba'):
             if not hasattr(self, 'train_signals'):
                 self.train_signals = []
-            train_signal = pd.DataFrame({'ticker': [self._ticker]*len(self._train_proba), 'proba': self._train_proba})
+            train_signal = pd.DataFrame({'ticker': [self._ticker]*len(self.train_proba), 'proba': self.train_proba})
             self.train_signals.append(train_signal)
 
 

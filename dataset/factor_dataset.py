@@ -7,8 +7,6 @@ import time
 from utils import list2str
 from dataset import build_factor_name
 from dataset.sql_ops import load_ticker_by_indus, load_labels, align_factor_ticker, load_factor_by_table, check_rebalanced
-from utils.mysql import cx_read_sql
-from utils.ddb import read_ddb_return
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
 
@@ -72,7 +70,7 @@ class FactorDataset():
         else:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Running training mode!")
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Task type: {self.task_type}")
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading indus by [{self.indus_class}] from table [static_data_industry_pool_history] + [{self.opt['dataset']['indus_table_suffix']}]]")
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Loading indus by [{self.indus_class}] from table [static_data_industry_{self.pool_name}_history] + [{self.opt['dataset']['indus_table_suffix']}]]")
         if isinstance(self.trading_hours, dict):
             if self.trading_hours['am_start_time'] <= self.trading_hours['am_end_time']:
                 self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Trading hours: AM [{self.trading_hours['am_start_time']}, {self.trading_hours['am_end_time']}]")
@@ -85,7 +83,7 @@ class FactorDataset():
         # read tickers from mysql
         self.tickers = self.load_ticker_list()
         if self.debug_mode:
-            self.tickers = self.tickers[: min(len(self.tickers), 10)]
+            self.tickers = self.tickers[: min(len(self.tickers), 2)]
         if len(self.tickers) == 0: # no ticker, return None
             self.is_empty = True
             return
@@ -115,22 +113,23 @@ class FactorDataset():
         # get alpha (i.e.return threshold)
         self.alpha = self.get_alhpa(train_data)
 
+        # make classification labels according to returns
         if self.task_type == 'classification':
-            # make classification labels according to returns
             train_data, test_data = self.make_label(train_data, test_data)
 
         # filter train_data with return
         train_data = self.filter_by_label(train_data)
 
-        # delete nan in train data
-        train_data = self.del_null_value(train_data)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start transforming data and saving preprocess params")
+        # delete nan factor in train data
+        train_data, test_data = self.del_null_value(train_data, test_data)
 
         # transforming data, including std, clip, save params by ticker
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start transforming data and saving preprocess params")
         self.transform(train_data, test_data)
-
         # rebalance training data
         self.rebalance_training_data()
+
+
 
         # logging
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data and saving preprocess params")
@@ -140,15 +139,14 @@ class FactorDataset():
         # fetch ticker list from mysql table
         try:
             ticker_list = []
-            for pool in self.pool_name:
-                # load ticker list
-                cur_ticker = load_ticker_by_indus(self.opt, pool, self.indus_type, self.test_month)
-                ticker_list.extend(cur_ticker)
+            # load ticker list
+            cur_ticker = load_ticker_by_indus(self.opt, self.pool_name, self.indus_type, self.test_month)
+            ticker_list.extend(cur_ticker)
 
             # align training and testing ticker list
             all_ticker = cur_ticker.copy()
             check_ticker_month = self.get_check_ticker_month()
-            ticker_list = align_factor_ticker(self.factor_table, all_ticker, check_ticker_month, self.test_month, self.rebalancing_tables, self.training_month_num, self.io_backend)
+            ticker_list = align_factor_ticker(self.factor_table, all_ticker, self.pool_name, check_ticker_month, self.test_month, self.rebalancing_tables, self.training_month_num, self.io_backend)
 
             # ordered ticker list
             ticker_list = sorted(ticker_list)
@@ -184,7 +182,7 @@ class FactorDataset():
             for database in database_name:
                 for table in factor_table_name[database]:
                     # load factors from sql
-                    factor = load_factor_by_table(database, table, self.tickers, month, self.test_month,
+                    factor = load_factor_by_table(database, table, self.tickers, self.pool_name, month, self.test_month,
                                                   self.rebalancing_tables, self.trading_hours,
                                                   self.training_month_num, self.io_backend)
                     # preprocessing
@@ -199,9 +197,6 @@ class FactorDataset():
                     i += 1
             # load labels
             labels = load_labels(self.opt, self.tickers, month)
-
-            # del null return data
-            labels = labels.dropna()
             # merge factors and labels by ticker, date, time
             data = data[['ticker', 'date', "time"] + self.training_factor_name]
             data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
@@ -211,8 +206,8 @@ class FactorDataset():
             missing_tickers = set(self.tickers) - set(data['ticker'].unique())
             # assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
             if len(missing_tickers) > 0:
-                # raise ValueError(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
-                print(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in Return: {list2str(missing_tickers)}")
+                # raise ValueError(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in {month} Return: {list2str(missing_tickers)}")
+                print(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in {month} Return: {list2str(missing_tickers)}")
 
             # check Whether data is null
             if len(data) == 0:
@@ -257,10 +252,12 @@ class FactorDataset():
                 if self.opt['dataset']['alpha'].get('quantile'):
                     quantile = self.opt['dataset']['alpha'].get('quantile')
                     alpha = np.quantile(train_data['ret'].dropna(), quantile)
+                    self.logger.info(
+                        f"{self.test_month}_indus_{self.indus_type}: Training with return threshold={alpha:.6f}, quantile={quantile}")
 
         else:
             alpha = self.opt['dataset']['alpha']
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training with return threshold={alpha:.6f}")
+            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training with return threshold={alpha:.6f}")
         return alpha
 
 
@@ -292,6 +289,7 @@ class FactorDataset():
         total_train_num = len(train_data)
         if self.task_type == 'classification':
             if self.class_num == 2:
+                filtered_train_data = train_data.query('class_label == 2')
                 train_data = train_data.query('class_label != 2')
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Select {len(train_data) / total_train_num * 100:.2f}% train data with return={self.alpha} and class num is {self.class_num}.")
         if self.task_type == 'regression':
@@ -299,7 +297,7 @@ class FactorDataset():
         return train_data
 
 
-    def del_null_value(self, train_data):
+    def del_null_value(self, train_data, test_data):
         data = train_data.dropna()
         if self.opt['dataset'].get('drop_null_in_training') and self.opt['dataset']['drop_null_in_training']:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Delete {(len(train_data)-len(data))/len(train_data)*100:.2f}% null samples in train data.")
@@ -309,8 +307,12 @@ class FactorDataset():
             # 20250319: training without dropna, will improve performance
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Keep nan in training data. There are {(len(train_data) - len(data)) / len(train_data)*100:.2f}% null samples in train data.")
             # null_idx = np.isnan(test_data[list(backtest_factor_name) + ['ret']].values).all(axis=1) # all nan index
-            return train_data
 
+        # delete retunr==nan from train_data
+        train_data = train_data.query('ret.notna()')
+        # delete time==130000 from test_data
+        test_data = test_data.query('time!=130000000')
+        return train_data, test_data
 
     def transform(self, train_data, test_data=None):
         # time cost
