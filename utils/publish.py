@@ -11,7 +11,6 @@ from utils import ensure_table_name, delete_by_month
 
 def save_report_disk(opt):
     report = []
-    res_path = opt['path']['results_path']
     root_path = opt['path']['experiments_root']
     # list all dirs and filter month folder like 202406
     all_items = os.listdir(root_path)
@@ -78,10 +77,7 @@ def write_table_sql(signal, database, table_name, if_exists='replace'):
 
 
 def push_signal_sql(opt, suffix='', upload_month=[], database='strategy', if_exists='append'):
-    if 'hs300' in opt['dataset']['pool_name'] and 'zz500' in opt['dataset']['pool_name']:
-        pool_name = 'zz800'
-    else:
-        pool_name = opt['dataset']['pool_name'][-1]
+    pool_name = opt['dataset']['pool_name']
     if opt['dataset']['price_name'] == 'highprice':
         table_name = f"signal_{pool_name}_highprice_{opt['model']['type'].lower()}_{opt['dataset']['ret_name']}"
     else:
