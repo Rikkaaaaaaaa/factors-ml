@@ -28,7 +28,7 @@ def eval_result(y_test, y_pred_label):
     up_pct = up_pct * 100
     down_pct = down_pct * 100
     weighted_return = weighted_return * 1e4
-    nonzero_pct = nonzero_pct * 100
+    nonzero_pct = nonzero_pct
     abs_ret = abs_ret * 1e4
     avg_ret = np.mean(y_test)*1e4
     return [weighted_return, up_winrate, down_winrate, up_ret, down_ret, up_pct, down_pct, len(y_test), nonzero_pct, abs_ret, avg_ret]
@@ -54,7 +54,7 @@ def read_signal_from_path(signal_root_path):
         return pd.concat(signal)
 
 
-def merge_signal(signal, ret_name, month):
+def merge_signal(signal, ret_name, month, ret_db_name="dfs://DDB_Returns", ret_table_name='Returns'):
     '''
     merge signal with ddb return monthly by tcicker,date,time
     '''
@@ -63,7 +63,7 @@ def merge_signal(signal, ret_name, month):
         return signal
     # read return from ddb
     tickers = tuple(signal["ticker"].unique())
-    labels = read_ddb_return(month, tickers)
+    labels = read_ddb_return(ret_db_name, ret_table_name, month, tickers)
     labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
     # del null return data
     labels = labels.dropna()
@@ -195,9 +195,9 @@ def eval_signals_by_date(result_name, signal_path, month, ret_name, trading_hour
             os.makedirs(report_folder_path)
         report_all_month = pd.concat(report_all_month)
         ticker_list = report_all_month['ticker'].unique()
-        df_limit_flag = get_limit_flag(str(month), ticker_list)
-        report_all_month = report_all_month.merge(df_limit_flag, left_on=['ticker', 'test_date'], right_on=['ticker', 'date'])
-        report_all_month = report_all_month[report_all_month['limit_flag']==0]
+        #df_limit_flag = get_limit_flag(str(month), ticker_list)
+        #report_all_month = report_all_month.merge(df_limit_flag, left_on=['ticker', 'test_date'], right_on=['ticker', 'date'])
+        #report_all_month = report_all_month[report_all_month['limit_flag']==0]
         print(f"Daily report has been saved at {report_path}")
         report_all_month.to_csv(report_path, index=False)
 
@@ -260,7 +260,7 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
 
 
 if __name__ == "__main__":
-    months = [202501,202502,202503,202504, 202505, 202506]
+    months = [202501,202502,202503,202504, 202505, 202506, 202507]
     ret_windows = ['15s', '60s', '120s', '300s']
     # use eval function to treat signal files in experiments folder
 
@@ -270,15 +270,8 @@ if __name__ == "__main__":
     #signal_path = 'f"../experiments/ddb_factor_all_new_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
     #result_name = 'ddb_factor_all_new'
 
-
     signal_path = 'f"../experiments/ddb_null_factor_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
     result_name = 'ddb_null_factor'
-
-    signal_path = 'f"../experiments/ddb_factor_all_new_alpha001_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
-    result_name = 'ddb_factor_all_new_alpha001'
-
-    signal_path = 'f"../experiments/ddb_factor_all_new_alpha0005_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
-    result_name = 'ddb_factor_all_new_alpha0005'
 
     signal_path = 'f"../ensemble/ensemble_signals/ensemble_mix2_300s_weight_3_1_1_1/ensemble_mix2_300s_weight_3_1_1_1_{month}_{ret_window}.csv"'
     result_name = 'ensemble_mix2_300s_weight_3_1_1_1'
@@ -311,21 +304,39 @@ if __name__ == "__main__":
     # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
     #
-    # result_name = 'ddb_null_factor_open_hs300_highprice_lgbm'
-    # expr_name = 'ddb_null_factor_open_hs300_highprice_lgbm'
+    result_name = 'bond_null_factor_no_reverse_am_bond_etf_highprice_lgbm'
+    expr_name = 'bond_null_factor_no_reverse_am_bond_etf_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+    result_name = 'new_mix4_1_1_1_1_pct20_hs300_highprice_lgbm'
+    expr_name = 'mix4_1_1_1_1_pct20_hs300_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+    result_name = 'ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm'
+    expr_name = 'ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+
+    result_name = 'ddb_null_factor_no_re_all_new_6m_select300s_no_bias0.1_hs300_highprice_lgbm'
+    expr_name = 'ddb_null_factor_no_re_all_new_6m_select300s_no_bias0.1_hs300_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+
+    # # batch3 prod
+    # result_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
+    # expr_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
     # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
-    result_name = 'ddb_null_factor_hs300_highprice_lgbm'
-    expr_name = 'ddb_null_factor_hs300_highprice_lgbm'
+    result_name = 'mix4_1_1_1_1_pct40_hs300_highprice_lgbm'
+    expr_name = 'mix4_1_1_1_1_hs300_highprice_lgbm'
     signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
     #
-    # trading_hours = {
-    #     "am_start_time": 113015,
-    #     "am_end_time": 113000,
-    #     "pm_start_time": 130000,
-    #     "pm_end_time": 145700
-    # }
+    trading_hours = {
+        "am_start_time": 94000,
+        "am_end_time": 113000,
+        "pm_start_time": 145715,
+        "pm_end_time": 145700
+    }
     trading_hours = None
 
     n_jobs = 16
