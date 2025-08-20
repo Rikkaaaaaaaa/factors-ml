@@ -21,10 +21,13 @@ __all__ = [ # factor names
             "ddb_slope_factor",
             "ddb_ofl_factor",
             "ddb_gp_factor",
+            "ddb_gp_factor_bond_etf",
             "ddb_fok_factor",
             "ddb_base_factor",
+            "ddb_base_factor_bond_etf",
             "ddb_gp_factors_batch2",
-            "long_order_factor"
+            "long_order_factor",
+            "ddb_gp_factor_remove_bias"
             ]
 
 factor_list = ['time', 'close_ret_15s', 'close_ret_30s', 'close_ret_60s', 'ma_close_ret_1', 'ma_close_ret_2', 'ma_close_ret_5',
@@ -213,12 +216,14 @@ ddb_base_factor = ['ma_close_ret_10', 'bulk_buy_sell_diff_15s', 'indus_active_bu
                ]
 
 
-
+ddb_base_factor_bond_etf = [x for x in ddb_base_factor if "mkt" not in x]
 
 ddb_gp_factor = [ "gp_1", "gp_2", "gp_3", "gp_4", "gp_5", "gp_6", "gp_7", "gp_8", "gp_9", "gp_10", "gp_11", "gp_12",
                "gp_13", "gp_14", "gp_15", "gp_16","gp_17", "gp_19", "gp_20", "gp_25", "gp_26", "gp_27", "gp_28", "gp_29", "gp_30",
                "gp_21", "gp_22", "gp_23", "gp_24",  "gp_31", "gp_32", "gp_33", "gp_34", "gp_35", "gp_36"
                 ]
+
+ddb_gp_factor_bond_etf = [x for x in ddb_gp_factor if x!="gp_28" and x!="gp_29"]
 
 ddb_fok_factor = [ 'fok_2000_120s', 'fok_2000_15s', 'fok_2000_300s', 'fok_2000_30s',
                    'fok_2000_60s', 'fok_500_120s', 'fok_500_15s', 'fok_500_300s',
@@ -258,6 +263,8 @@ long_order_factor = [
     "newLong_300s", "newLong_30s", "newLong_60s", "tox_06", "tox_15", "tox_30", "tox_60"
 ]
 
+bias_factor = ["gp_32", "gp_12", "gp_28", "gp_8", "gp_6", "gp_19", "gp_2", "gp_4", "gp_26", "gp_1"]
+ddb_gp_factor_remove_bias = [x for x in ddb_gp_factor if x not in bias_factor]
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }
 
