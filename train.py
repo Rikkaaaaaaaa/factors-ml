@@ -47,6 +47,7 @@ def train_pipeline(train_args):
         selected_factor_name = feature_selector.select_factor(x_train, y_train)
         dataset.set_selected_factor(selected_factor_name)
         training_factor_name = dataset.selected_factor_name
+        logger.info(f"{test_month}_indus_{indus_type}: Applying feature selection, total training factor num is: {len(training_factor_name)}")
 
     # train model
     model = build_model(opt, test_month=test_month, indus_type=indus_type)
@@ -62,7 +63,9 @@ def init_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         industry = check_indus(opt, test_month)
-        print(f"Including industry: {industry}!")
+        print(
+            f"Loading indus by [{opt['dataset']['indus_class']}] from table [static_data_industry_{opt['dataset']['pool_name']}_history] + [{opt['dataset']['indus_table_suffix']}]]")
+        print(f"Including industry id: {industry}")
         for indus_type in industry:
             if not exists_results(opt, test_month, indus_type):
                 args.append((opt, test_month, indus_type))
