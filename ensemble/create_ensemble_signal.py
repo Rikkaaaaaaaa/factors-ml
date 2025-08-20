@@ -48,14 +48,14 @@ def read_train_signal_from_csv(signal_root_path):
     return pd.concat(train_signal)
 
 
-def merge_signal(signal_path, ret_name, month):
+def merge_signal(signal_path, ret_name, month, ret_db_name="dfs://DDB_Returns", ret_table_name='"Returns'):
     # read signal files
     signal = read_signal_from_csv(signal_path)
     if f'ret_{ret_name}' in signal.columns:
         return signal
     # read return from ddb
     tickers = tuple(signal["ticker"].unique())
-    labels = read_ddb_return(month, tickers)
+    labels = read_ddb_return(ret_db_name, ret_table_name, month, tickers)
     labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
     # del null return data
     labels = labels.dropna()
