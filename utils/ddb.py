@@ -61,7 +61,8 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
 
     # select wide table
-    # start_time = time.time()
+    start_time = time.time()
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
     ddb_reader = DDB_connector(DDB_config)
     scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
     ddb_reader.ddb_session.run(scripts)
@@ -70,10 +71,10 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
     factor = ddb_reader.ddb_session.run(scripts)
     ddb_reader.close()
-    # print(f'load data time: {time.time() - start_time}')
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] load data time: {time.time() - start_time}")
 
     # transfer to ticker date time format like sql
-    # start_time = time.time()
+    start_time = time.time()
     factor.rename(columns={"securityCode": "ticker"}, inplace=True)
     factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
     factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
@@ -86,15 +87,15 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     else:
         # else time between [94000, 145700]
         factor = factor[(factor["time"] >= 94000000) & (factor["time"] <= 145700000)]
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] filter data time: {time.time() - start_time}")
+
     # print(f'load date time: {time.time() - start_time}')
     return factor
 
-def read_ddb_return(test_month, tickers, trading_hours=None):
+def read_ddb_return(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
     ddb_reader = DDB_connector(DDB_config)
-    data_base = "dfs://DDB_Returns"
-    table_name = "Returns"
 
     # select wide table
     scripts = "retTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
@@ -108,7 +109,6 @@ def read_ddb_return(test_month, tickers, trading_hours=None):
     ret.insert(0, 'date', ret["time"].dt.strftime('%Y%m%d').astype(int))
     ret["time"] = (ret["time"].dt.hour * 10000000 + ret["time"].dt.minute * 100000 +
                    ret["time"].dt.second * 1000)
-    ret = ret[(ret["time"] >= 94000000) & (ret["time"] <= 145700000)]
 
     # filter by select_period dict
     if isinstance(trading_hours, dict):
@@ -159,8 +159,9 @@ if __name__ == "__main__":
                 data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
             i += 1
 
-
-    labels = read_ddb_return(test_month, tickers)
+    ret_db_name = "dfs://DDB_Returns"
+    ret_table_name = 'Returns'
+    labels = read_ddb_return(ret_db_name,ret_table_name, test_month, tickers)
     labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
     # merge factors and labels by ticker, date, time
     data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
