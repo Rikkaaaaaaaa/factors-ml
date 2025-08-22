@@ -92,6 +92,44 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     # print(f'load date time: {time.time() - start_time}')
     return factor
 
+
+def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, trading_hours=None):
+    test_month = str(test_month)
+    test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
+
+    # select wide table
+    start_time = time.time()
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
+    ddb_reader = DDB_connector(DDB_config)
+    scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
+    ddb_reader.ddb_session.run(scripts)
+    scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
+    ddb_reader.ddb_session.run(scripts)
+    scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
+    factor = ddb_reader.ddb_session.run(scripts)
+    ddb_reader.close()
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] load data time: {time.time() - start_time}")
+
+    # transfer to ticker date time format like sql
+    start_time = time.time()
+    factor.rename(columns={"securityCode": "ticker"}, inplace=True)
+    factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
+    factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
+                      factor["time"].dt.second * 1000)
+    # filter by select_period dict
+    if isinstance(trading_hours, dict):
+        factor = factor[ ((factor["time"] >= trading_hours['am_start_time']*1000) & (factor["time"] <= trading_hours['am_end_time']*1000))
+                         | ((factor["time"] >= trading_hours['pm_start_time'] * 1000) & (factor["time"] <= trading_hours['pm_end_time'] * 1000))
+                         ]
+    else:
+        # else time between [94000, 145700]
+        factor = factor[(factor["time"] >= 93000000) & (factor["time"] <= 145700000)]
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] filter data time: {time.time() - start_time}")
+
+    # print(f'load date time: {time.time() - start_time}')
+    return factor
+
+
 def read_ddb_return(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'

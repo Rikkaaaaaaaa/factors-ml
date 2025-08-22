@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 from utils.mysql import cx_read_sql
 from utils import list2str
-from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb
+from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_factor_low_price
+import dolphindb as ddb
+
 
 def get_ticker_list(pool_name, price_name, test_month, indus_table_suffix=''):
     '''
@@ -55,6 +57,23 @@ def check_indus(opt, first_month):
 
     return set(indus_list)
 
+def check_price_group(opt, first_month):
+    pool_name = opt['dataset']['pool_name']
+    indus_class = opt['dataset']['indus_class']
+    indus_table_suffix = opt['dataset']['indus_table_suffix']
+    if isinstance(indus_table_suffix, str) :
+        if  len(indus_table_suffix) > 0:
+            indus_table_suffix = '_' + indus_table_suffix
+        else:
+            indus_table_suffix =  ''
+    else:
+        raise ValueError(f"Param in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
+    indus_list = []
+    indus_table = cx_read_sql('select distinct {} from static_data_price_{}_history{} where test_month={} and avg_price <= 10'.format(
+                                indus_class, pool_name, indus_table_suffix, first_month))
+    indus_list.extend(list(indus_table[indus_class]))
+    return set(indus_list)
+
 def load_ticker_by_indus(opt, pool, indus_type, test_month):
     # fetch price and indus table from sql
     indus_class = opt['dataset']['indus_class']
@@ -85,6 +104,30 @@ def load_ticker_by_indus(opt, pool, indus_type, test_month):
         raise FileExistsError(f"{test_month}_indus_{indus_type}: The number of tickers(average price > 10) is 0")
 
     return tickers
+
+
+def load_ticker_by_price_group(opt, pool, indus_type, test_month):
+    # fetch price and indus table from sql
+    indus_class = opt['dataset']['indus_class']
+    indus_table_suffix = opt['dataset']['indus_table_suffix']
+    if isinstance(indus_table_suffix, str):
+        if len(indus_table_suffix) > 0:
+            indus_table_suffix = '_' + indus_table_suffix
+        else:
+            indus_table_suffix = ''
+    else:
+        raise ValueError(
+            f"Params in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
+
+
+    indus_table = cx_read_sql('select * from static_data_price_{}_history{} where {}="{}" and test_month={}'.format(pool,
+                               indus_table_suffix, indus_class, indus_type, test_month))
+    tickers = set(indus_table['ticker'])
+    if len(tickers) == 0:
+        raise FileExistsError(f"{test_month}_price_group_{indus_type}: The number of tickers is 0")
+
+    return tickers
+
 
 def load_labels(opt, tickers, month):
     ret_name = opt['dataset']['ret_name']
@@ -128,6 +171,7 @@ def is_rebalanced(test_month, training_month_num):
 
         else:
             return False
+
 def need_rebalanced_factor(check_month, test_month):
     '''
     whether to use relanced factor
@@ -212,3 +256,62 @@ def load_factor_by_table(database, table, tickers, pool_name, loading_month, tes
             factor = read_ddb_factor(database, f'{table}_{pool_name}', loading_month, tickers, trading_hours)
 
     return factor
+
+
+def load_factor_by_table_low_price(database, table, tickers, pool_name, loading_month, test_month, rebalancing_tables, trading_hours=None, training_month_num=3, io_backend='sql'):
+    if len(tickers) == 1:
+        ticker_condition = f'ticker="{tickers[0]}"'
+    else:
+        ticker_condition = f'ticker in {tickers}'
+
+    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and  table in rebalancing_tables :
+        if io_backend == "sql":
+            factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where {ticker_condition}',
+                                 database=database)
+        if io_backend == "ddb":
+            tickers = list(tickers)
+            factor = read_ddb_factor_low_price(database, f'{table}_index_rebalancing_{pool_name}', loading_month, tickers, trading_hours)
+    else:
+        if io_backend == "sql":
+            factor = cx_read_sql(f'select * from {table}_{loading_month} where {ticker_condition}', database=database)
+        if io_backend == "ddb":
+            tickers = list(tickers)
+            factor = read_ddb_factor_low_price(database, f'{table}_{pool_name}', loading_month, tickers, trading_hours)
+
+    return factor
+
+
+
+# =============================== SOP DDB functions =============================
+def read_table(ddb_info, query):
+    host, port, username, password = ddb_info[0], ddb_info[1], ddb_info[2], ddb_info[3]
+    s = ddb.session()
+    s.connect(host, port, username, password)
+    df = s.run(query)
+    s.close()
+    return df
+
+
+def get_sop_fill_flag_ddb(tickers, pool_name, start_month, end_month, tick_ahead, bs_flag):
+    ddb_info = ['10.95.145.91', 8993, "quantStrat", "eqalgo_2024"]
+    start_month_str = str(start_month)[:4] + '.' + str(start_month)[-2:]
+    end_month_str = str(end_month)[:4] + '.' + str(end_month)[-2:]
+
+    if len(tickers) == 1:
+        ticker_condition = f'securityCode="{tickers[0]}"'
+    else:
+        ticker_condition = f'securityCode in {tickers}'
+
+    table_name = f'fill_flag_{pool_name}_{tick_ahead}_{bs_flag}'
+    # fill_flag_query = f'select factorValue from loadTable("dfs://smart_order_position", "{table_name}") where month(tradeTime)>={start_month_str}M, month(tradeTime)<={end_month_str}M, securityCode=`{ticker} pivot by tradeTime, securityCode, factorName'
+    fill_flag_query = f"""
+    tb=select * from loadTable("dfs://smart_order_position", "{table_name}") where month(tradeTime)>={start_month_str}M, month(tradeTime)<={end_month_str}M, {ticker_condition}
+    select factorValue from tb pivot by tradeTime, securityCode, factorName
+    """
+    fill_flag_data = read_table(ddb_info, fill_flag_query)
+
+    fill_flag_data.rename(columns={"securityCode": "ticker"}, inplace=True)
+    fill_flag_data.insert(0, 'date', fill_flag_data["tradeTime"].dt.strftime('%Y%m%d').astype(int))
+    fill_flag_data["time"] = (fill_flag_data["tradeTime"].dt.hour * 10000000 + fill_flag_data["tradeTime"].dt.minute * 100000 +
+                      fill_flag_data["tradeTime"].dt.second * 1000)
+    return fill_flag_data

@@ -76,12 +76,20 @@ def yaml_load(f):
     #     return yaml.load(f, Loader=yaml.FullLoader)
 
 
-def parse_options(root_path, ensure=True):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-option', type=str, default='option/ddb_null_factor_reg/ddb_null_factor_reg_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
-    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
-    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
-    args = parser.parse_args()
+def parse_options(root_path, ensure=True, yaml_path=None):
+    if yaml_path:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-option', type=str, default=os.path.join(root_path, yaml_path), help='Path to option YAML file.')
+        parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+        parser.add_argument('-debug', action='store_true',
+                            help='Whether to use debug mode')  # it'll contain ticker num <= 10
+        args = parser.parse_args()
+    else:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-option', type=str, default='option/ddb_null_factor_reg/ddb_null_factor_reg_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+        parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+        parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+        args = parser.parse_args()
 
     # parse yml to dict
     if not osp.exists(args.option):
@@ -89,7 +97,8 @@ def parse_options(root_path, ensure=True):
     opt = yaml_load(args.option)
 
     # parse cmd flag
-    opt['is_realtime'] = args.is_realtime
+    if not opt['is_realtime']:
+        opt['is_realtime'] = args.is_realtime
     opt['debug'] = args.debug
 
     # random seed
