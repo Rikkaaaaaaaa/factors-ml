@@ -97,7 +97,7 @@ def parse_options(root_path, ensure=True, yaml_path=None):
     opt = yaml_load(args.option)
 
     # parse cmd flag
-    if not hasattr(opt, 'is_realtime'):
+    if not opt.get('is_realtime'):
         opt['is_realtime'] = args.is_realtime
     opt['debug'] = args.debug
 
