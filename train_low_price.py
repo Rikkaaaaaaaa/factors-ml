@@ -63,36 +63,40 @@ def train_pipeline(train_args):
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
 
     # get data set from test month
-    dataset = build_dataset(opt, 202507, 1)
+    dataset = build_dataset(opt, test_month, indus_type)
     factor_train_data, factor_test_data = dataset.load_factor_data()
     # factor selection
     training_factor_name = dataset.training_factor_name
     factor_name_folder = os.path.join(opt['path']['experiments_root'], str(test_month))
-    factor_name_df = pd.DataFrame(columns=['factor_name'])
-    factor_name_df['factor_name'] = training_factor_name
-    factor_name_df.to_csv(os.path.join(factor_name_folder, 'factor_name_low_price.csv'))
+    factor_name_csv = os.path.join(factor_name_folder, 'factor_name_low_price.csv')
+    if not osp.exists(factor_name_csv):
+        factor_name_df = pd.DataFrame(columns=['factor_name'])
+        factor_name_df['factor_name'] = ['const'] + training_factor_name
+        factor_name_df.to_csv(factor_name_csv)
+        logger.info(f"{test_month}: factor name saved")
 
     # for bs_flag in ["b", "s"]
-    bs_flag = "b"
+    bs_flag_list = opt["bs_flag_list"]
+    for bs_flag in bs_flag_list:
+        fill_flag_train, fill_flag_test = dataset.load_fill_flag_data("1", bs_flag)
+        x_train, y_train, merge_key_train = merge_data(factor_train_data, fill_flag_train)
+        x_test, y_test, merge_key_test = merge_data(factor_test_data, fill_flag_test)
+        dataset_train_test = DatasetTrainTest(x_train, y_train, merge_key_train, x_test, y_test, merge_key_test)
 
-    fill_flag_train, fill_flag_test = dataset.load_fill_flag_data("1", bs_flag)
-    x_train, y_train, merge_key_train = merge_data(factor_train_data, fill_flag_train)
-    x_test, y_test, merge_key_test = merge_data(factor_test_data, fill_flag_test)
-    dataset_train_test = DatasetTrainTest(x_train, y_train, merge_key_train, x_test, y_test, merge_key_test)
+        # train model
+        model = build_model(opt, test_month=test_month, indus_type=indus_type)
+        model.train(x_train[training_factor_name], y_train)
+        model.save(bs_flag)
 
-    # train model
-    model = build_model(opt, test_month=test_month, indus_type=indus_type)
-    model.train(x_train[training_factor_name], y_train)
-    model.save(bs_flag)
-
-    # backtesting or record inference_bound
-    backtester = BackTesterLowPrice(opt, test_month, indus_type)
-    backtester.backtest(dataset_train_test, model, bs_flag)
+        # backtesting or record inference_bound
+        backtester = BackTesterLowPrice(opt, test_month, indus_type)
+        backtester.backtest(dataset_train_test, model, bs_flag)
 
 
 def drop_signal_table(signal_table, test_month):
     query = f'delete from {signal_table} where date>={test_month}01 and date<={test_month}31'
     mysql_strategy.delete_query('strategy', query)
+    print(query)
 
 
 def init_args(opt):
@@ -129,7 +133,7 @@ def main(opt):
 
 if __name__ == '__main__':
     root_path = str(Path(__file__).resolve().parents[0])
-    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price.yaml')
+    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_hs300.yaml')
     main(opt)
 
 

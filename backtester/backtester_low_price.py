@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import os.path as osp
 import pandas as pd
@@ -101,7 +103,7 @@ class BackTesterLowPrice():
         """
         merge_key_test, x_test, y_test = factor_data.merge_key_test, factor_data.x_test, factor_data.y_test
         # y_pred = model.predict(self.add_const_if_missing(x_test.fillna(0), factor_data.factor_list))
-        y_pred = predict_rt(x_test, self.opt, self.test_month, self.indus_type, bs_flag)
+        y_pred = predict_rt_function(x_test, self.opt, self.test_month, self.indus_type, bs_flag)
 
         merge_key_test['y_pred'] = y_pred
         merge_key_test['y_test'] = y_test
@@ -125,13 +127,22 @@ class BackTesterLowPrice():
             dynamic_benchmark_fill_rate = np.nanmean(temp_y_test[dynamic_benchmark_label].values)
             dynamic_benchmark_pct = sum(dynamic_benchmark_label) / len(dynamic_benchmark_label)
 
-            # volume signal
+            # volume signal: 4.5/0.5/-1
             if bs_flag == 'b':
                 vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
-                                      np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, 0))
+                                      np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
             else:
                 vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
-                                      np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 0))
+                                      np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
+
+            # # vol_signal: 4.5/0/-1/0
+            # if bs_flag == 'b':
+            #     vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
+            #                           np.where((temp_y_pred > benchmark_dict[ticker][0]) | (temp_y_pred < benchmark_dict[ticker][3]), 0.5, -1))
+            # else:
+            #     vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
+            #                           np.where((temp_y_pred > benchmark_dict[ticker][0]) | (temp_y_pred < benchmark_dict[ticker][3]), -0.5, 1))
+
             temp_pred_data = temp_pred_data.copy()
             temp_pred_data.loc[:, 'vol_signal'] = list(vol_signal)
             temp_pred_data.loc[:, 'bs_flag'] = bs_flag
@@ -152,6 +163,7 @@ class BackTesterLowPrice():
                                  'price_group', 'test_month']
             result_df_all = pd.concat([result_df_all, result_df])
 
+        print(result_df_all)
         self.result_sumamry = result_df_all
         self.final_prediction = final_prediction_label
 
@@ -159,13 +171,14 @@ class BackTesterLowPrice():
         '''
         backtest data and save results. bound values and signals
         '''
-        benchmark_dict = self.get_benchmark_dict(model, factor_data, benchmark=0.7)
+        dynamic_benchmark = self.opt["save_signal"]["dynamic_benchmark"]
+        benchmark_dict = self.get_benchmark_dict(model, factor_data, benchmark=dynamic_benchmark)
         self.calc_volume_signal(model, factor_data, benchmark_dict, bs_flag)
 
         self.save_benchmark(bs_flag)
         self.save_result_summary(bs_flag)
         if (not self.is_realtime) & (self.opt["save_signal"]["save_signal_to_sql"]):
-            self.save_signal_to_sql()
+            self.save_signal_to_sql(bs_flag)
 
         self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: Backtest finish")
 
@@ -177,21 +190,26 @@ class BackTesterLowPrice():
         results_name = 'result_summary_{}_price_group_{}_{}.csv'.format(self.test_month, self.indus_type, bs_flag)
         results_path = osp.join(results_folder, results_name)
         self.result_sumamry.to_csv(results_path, index=False)
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: result summary saved")
 
     def save_benchmark(self, bs_flag):
         '''
         save bound values for all toickers
         '''
-        inference_folder = self.opt['path']['inference_path'][self.test_month]
-        bound_name = 'benchmark_price_group_{}_{}.csv'.format(self.indus_type, bs_flag)
+        inference_folder = osp.join(self.opt['path']['inference_path'][self.test_month], bs_flag)
+        if not osp.exists(inference_folder):
+            os.mkdir(inference_folder)
+        bound_name = 'benchmark_price_group_{}.csv'.format(self.indus_type)
         bound_path = osp.join(inference_folder, bound_name)
         self.benchmark_df.to_csv(bound_path, index=False)
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: benchmark saved")
 
-    def save_signal_to_sql(self):
+    def save_signal_to_sql(self, bs_flag):
         database = self.opt["save_signal"]["sql_database"]
         sql_table_name = self.opt["save_signal"]["sql_table_name"]
         pd_engine = mysql_strategy.create_pd_engine(database)
         result_to_sql(database, self.final_prediction, pd_engine, sql_table_name)
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: signal to sql finished")
 
 
 def result_to_sql(database, order_prediction, pd_engine, result_table_name):
@@ -214,24 +232,23 @@ def predict_proba(theta, X):
     return s
 
 
-def predict_rt(x_test, opt, test_month, indus_type, bs_flag):
-    x_test['const'] = 1
-
+def predict_rt_function(x_test, opt, test_month, indus_type, bs_flag):
     # load factor name
     factor_name_folder = osp.join(opt['path']['experiments_root'], str(test_month))
     factor_name_df = pd.read_csv(osp.join(factor_name_folder, 'factor_name_low_price.csv'))
     factor_list = list(factor_name_df['factor_name'])
-
-    factor_array = x_test[factor_list].values
-    factor_array = np.nan_to_num(factor_array, nan=0)
-
     # load params
-    ckpt_folder = opt['path']['model_path'][test_month]
-    ckpt_name = 'logit_price_group_{}_{}.csv'.format(indus_type, bs_flag)
+    ckpt_folder = osp.join(opt['path']['model_path'][test_month], bs_flag)
+    ckpt_name = 'logit_price_group_{}.csv'.format(indus_type)
     ckpt_path = osp.join(ckpt_folder, ckpt_name)
     params_df = pd.read_csv(ckpt_path, index_col=0)
-
     params = params_df.values[0]
+
+    # process x_data
+    x_test['const'] = 1
+    factor_array = x_test[factor_list].values
+    factor_array = np.nan_to_num(factor_array, nan=0)
+    # predict
     y_pred = predict_proba(params, factor_array)
     return y_pred
 

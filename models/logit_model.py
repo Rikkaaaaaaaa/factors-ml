@@ -38,7 +38,7 @@ class LogitModel():
         self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Logit model init successfully")
 
     @staticmethod
-    def pre_processing(x_train, y_train):
+    def pre_processing_train(x_train, y_train):
         # train data drop na
         x_train = x_train.fillna(0)
         merged_train_data = pd.concat([x_train, y_train], axis=1)
@@ -51,19 +51,21 @@ class LogitModel():
         return x_train, y_train
 
     def train(self, x_train, y_train):
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training Logit model...")
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Training Logit model...")
         # pre_processing
-        x_train, y_train = self.pre_processing(x_train, y_train)
+        x_train, y_train = self.pre_processing_train(x_train, y_train)
         self.model = sm.Logit(y_train.astype(int), sm.add_constant(x_train, has_constant='skip')).fit(disp=False)
         self.factor_list = list(sm.add_constant(x_train, has_constant='skip').columns)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Training finish")
 
 
     def save(self, bs_flag):
-        ckpt_folder = self.opt['path']['model_path'][self.test_month]
-        ckpt_name = 'logit_price_group_{}_{}.csv'.format(self.indus_type, bs_flag)
+        ckpt_folder = osp.join(self.opt['path']['model_path'][self.test_month], bs_flag)
+        if not osp.exists(ckpt_folder):
+            os.mkdir(ckpt_folder)
+        ckpt_name = 'logit_price_group_{}.csv'.format(self.indus_type)
         ckpt_path = osp.join(ckpt_folder, ckpt_name)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}_{bs_flag}: Saving model at {ckpt_path}")
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: Saving model at {ckpt_path}")
 
         pre_params = pd.DataFrame(self.model.params, index=self.factor_list)
         params = pd.DataFrame()

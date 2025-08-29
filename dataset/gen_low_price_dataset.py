@@ -58,6 +58,7 @@ class GenDatasetLowPrice:
 
         # ticker list
         self.ticker_list = self.load_ticker_list()
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: ticker number={len(self.ticker_list)}")
 
     def get_training_month(self, training_month_num=3):
         def get_pre_month(month, pre_num):
@@ -93,23 +94,23 @@ class GenDatasetLowPrice:
             self.is_empty = True
             return
 
-        # # load factor data (multiprocessing)
-        # n_jobs = opt['n_jobs_read_data']
-        # with multiprocessing.Pool(processes=min(len(self.ticker_list), n_jobs)) as pool:
-        #     results = pool.starmap(self.load_factor_data_by_ticker,
-        #                            [(ticker,) for ticker in self.ticker_list])
-        #
-        # train_data = pd.concat([r[0] for r in results])
-        # test_data = pd.concat([r[1] for r in results])
+        # load factor data (multiprocessing)
+        n_jobs = self.opt['n_jobs_read_data']
+        with multiprocessing.Pool(processes=min(len(self.ticker_list), n_jobs)) as pool:
+            results = pool.starmap(self.load_factor_data_by_ticker,
+                                   [(ticker,) for ticker in self.ticker_list])
 
-        # load factor data (single process)
-        data = dict() # restore data by month
-        for month in self.training_month:
-            data[month] = self.load_data_from_sql(self.ticker_list, month, self.pool_name)
-        train_data = pd.concat([data[m] for m in self.training_month])
-        test_data = self.load_data_from_sql(self.ticker_list, self.test_month_new, self.pool_name)
+        train_data = pd.concat([r[0] for r in results])
+        test_data = pd.concat([r[1] for r in results])
 
-        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Finish loading factor and return ")
+        # # load factor data (single process)
+        # data = dict() # restore data by month
+        # for month in self.training_month:
+        #     data[month] = self.load_data_from_sql(self.ticker_list, month, self.pool_name)
+        # train_data = pd.concat([data[m] for m in self.training_month])
+        # test_data = self.load_data_from_sql(self.ticker_list, self.test_month_new, self.pool_name)
+
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Finish loading factor")
 
         if len(train_data) == 0:
             self.is_empty = True
