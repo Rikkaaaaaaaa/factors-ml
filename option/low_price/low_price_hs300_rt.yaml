@@ -1,5 +1,12 @@
-name: low_price_hs300_lgbm
+name: low_price_hs300_rt
 eval_rt: false
+is_realtime: true
+
+save_signal:
+  save_signal_to_sql: true
+  sql_table_name: signal_hs300_low_price_70_20pct
+  sql_database: strategy
+  dynamic_benchmark: 0.7
 
 # factor dataset
 dataset:
@@ -15,7 +22,7 @@ dataset:
 
   # data preprocessing options
   type: 'GenDatasetLowPrice'
-  test_month: [202507]
+  test_month: [202508]
   pool_name: 'hs300'
   indus_class: price_group
   indus_table_suffix: ''
@@ -28,14 +35,8 @@ model:
   type: 'LogitModel'
   n_cpus: 8
 
-save_signal:
-  save_signal_to_sql: true
-  sql_table_name: signal_hs300_low_price_logit_test
-  sql_database: strategy
-
 # low price customize
-n_jobs_read_data: 10
-is_realtime: false
+n_jobs_read_data: 30
 bs_flag_list: ['b', 's']
 tick_ahead : 1
 
