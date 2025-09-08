@@ -24,24 +24,10 @@ def read_train_signal_from_csv(signal_root_path):
     return pd.concat(train_signal)
 
 
-def merge_signal(signal_path, ret_name, month, ret_db_name="dfs://DDB_Returns", ret_table_name='Returns'):
-    # read signal files
-    signal = read_signal_from_csv(signal_path)
-    if f'ret_{ret_name}' in signal.columns:
-        return signal
-    # read return from ddb
-    tickers = tuple(signal["ticker"].unique())
-    labels = read_ddb_return(ret_db_name, ret_table_name, month, tickers)
-    labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
-    # del null return data
-    labels = labels.dropna()
-    df_merge = labels.merge(signal, on=['ticker', 'date', 'time']).dropna()
-    return df_merge
-
 def merge_signal_by_pct(expr_name, ret_name, month):
     expr_path = f"../experiments/{expr_name}"
     signal_path = f"{expr_path}/{month}/signal"
-    signal = merge_signal(signal_path, ret_name, month)
+    signal = read_signal_from_csv(signal_path) # keep data when return=0
     train_proba = read_train_signal_from_csv(f"{expr_path}/{month}/train_signal")
     train_proba = train_proba.sort_values(by=['ticker'])
 
@@ -76,7 +62,7 @@ def merge_signal_by_pct(expr_name, ret_name, month):
 def merge_signal_by_pct2(expr_name, ret_name, month):
     expr_path = f"../experiments/{expr_name}"
     signal_path = f"{expr_path}/{month}/signal"
-    signal = merge_signal(signal_path, ret_name, month)
+    signal = read_signal_from_csv(signal_path) # keep data when return=0
     train_proba = read_train_signal_from_csv(f"{expr_path}/{month}/train_signal")
     train_proba = train_proba.sort_values(by=['ticker'])
 
@@ -115,7 +101,7 @@ def merge_signal_by_pct2(expr_name, ret_name, month):
 def read_signal_and_adjust_main_signal_enhance(expr_name, ret_name, month):
     expr_path = f"../experiments/{expr_name}"
     signal_path = f"{expr_path}/{month}/signal"
-    signal = merge_signal(signal_path, ret_name, month)
+    signal = read_signal_from_csv(signal_path)  # keep data when return=0
     train_proba = read_train_signal_from_csv(f"{expr_path}/{month}/train_signal")
     train_proba = train_proba.sort_values(by=['ticker'])
 
@@ -153,7 +139,7 @@ def read_signal_and_adjust_main_signal_enhance(expr_name, ret_name, month):
 def merge_bond_signal(expr_name, ret_name, month):
     expr_path = f"../experiments/{expr_name}"
     signal_path = f"{expr_path}/{month}/signal"
-    signal = merge_signal(signal_path, ret_name, month, ret_table_name='Returns_bond_etf')
+    signal = read_signal_from_csv(signal_path) # keep data when return=0
     train_proba = read_train_signal_from_csv(f"{expr_path}/{month}/train_signal")
     train_proba = train_proba.sort_values(by=['ticker'])
 
@@ -189,7 +175,6 @@ def merge_bond_signal(expr_name, ret_name, month):
     return signal[["ticker", "date", "time", "new_signal"]]
 
 def ensemble_all_new_6m(months, trading_hours=None):
-
     try:
         # table name
         suffix = 'all_new_pct2'
@@ -282,6 +267,56 @@ def ensemble_all_new_6m_enhance(months, trading_hours=None):
     except Exception as e:
         print(e)
 
+def ensemble_batch3_pct(months, del_month=True, trading_hours=None):
+    trading_hours = {
+        "start_time": 130000,
+        "end_time": 145700,
+    }
+    try:
+        # table name
+        suffix = 'batch3_pct2_mix_am_pm'
+        pool_name = 'hs300'
+        price_level = 'highprice'
+        model_type = 'lgbm'
+        database = 'strategy'
+        table_name = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{suffix}"
+        ensure_table_name(database, table_name)
+
+        for month in months:
+            # read signal and train proba
+            expr_name_15s = f'ddb_null_factor_no_reverse_with_930_940_{pool_name}_highprice_lgbm_15s'
+            expr_name_60s = f'ddb_null_factor_no_reverse_with_930_940_{pool_name}_highprice_lgbm_60s'
+            expr_name_120s = f'ddb_null_factor_no_reverse_with_930_940_{pool_name}_highprice_lgbm_120s'
+            expr_name_300s = f'ddb_null_factor_no_reverse_with_930_940_{pool_name}_highprice_lgbm_300s'
+            # expr_name_mix_60s = 'mix2_1_1_pct20_hs300_highprice_lgbm_60s'
+            # expr_name_mix_120s = 'mix3_1_1_1_pct20_hs300_highprice_lgbm_120s'
+            # expr_name_mix_300s = 'mix4_1_1_1_1_pct20_hs300_highprice_lgbm_300s'
+
+            signal_15s = merge_signal_by_pct2(expr_name_15s, '15s', month).rename(columns={'new_signal':'new_signal_15s'})
+            signal_60s = merge_signal_by_pct2(expr_name_60s, '60s', month).rename(columns={'new_signal':'new_signal_60s'})
+            signal_120s = merge_signal_by_pct2(expr_name_120s, '120s',month).rename(columns={'new_signal':'new_signal_120s'})
+            signal_300s = merge_signal_by_pct2(expr_name_300s, '300s', month).rename(columns={'new_signal':'new_signal_300s'})
+
+            merge_keys = ['ticker', 'date', 'time']
+            merge_signal = signal_15s.merge(signal_60s, on=merge_keys).merge(signal_120s, on=merge_keys).merge(signal_300s, on=merge_keys)
+            merge_signal['merge_signal'] = merge_signal['new_signal_15s'] * 2 + merge_signal['new_signal_60s']*2 + merge_signal['new_signal_120s']*2 + merge_signal['new_signal_300s']*2
+
+            if isinstance(trading_hours, dict):
+                if trading_hours['start_time'] <= trading_hours['end_time']:
+                    print(f"Trading hours:  [{trading_hours['start_time']}, {trading_hours['end_time']}]")
+                start_time = trading_hours['start_time'] * 1000
+                end_time = trading_hours['end_time'] *1000
+                merge_signal = merge_signal.query("time>= @start_time and time <= @end_time")
+            print(f"merge data size is {len(merge_signal)}")
+
+            # filter by upload month
+            merge_signal = merge_signal[(merge_signal.date < (month + 1) * 100) & (merge_signal.date > month * 100)]
+            print(f"Uploading month: {month}")
+            push_single_signal_sql(merge_signal, upload_month=[month], table_name=table_name, database=database, del_month=del_month)
+
+    except Exception as e:
+        print(e)
+
 
 def ensemble_bond_etf_6m(months, trading_hours=None):
 
@@ -341,11 +376,12 @@ def check_dist(signal_data, column,  time_bin=[940, 1000, 1030, 1130, 1400, 1500
     return  abs_signal
 
 if __name__ == "__main__":
-    months = [202501,202502,202503, 202504, 202505, 202506, 202507]
+    months = [202501, 202502,202503,202504, 202505,202506, 202507]
     # ensemble_bond_etf_6m(months)
     # signal = read_signal_and_adjust_main_signal_enhance('ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm_300s', '300s', 202506)
     # ensemble_all_new_6m_enhance(months)
-    ensemble_all_new_6m(months)
+    #ensemble_all_new_6m(months)
+    ensemble_batch3_pct(months, del_month=False) # zz500
 
 
 
