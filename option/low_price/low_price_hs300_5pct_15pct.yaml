@@ -1,12 +1,14 @@
-name: low_price_zz500_logit_70_20pct
+name: low_price_hs300_logit_70_5pct_15pct_20
 eval_rt: false
 is_realtime: false
 
 save_signal:
   save_signal_to_sql: true
-  sql_table_name: signal_zz500_low_price_70_20pct
+  sql_table_name: signal_hs300_low_price_70_5pct_15pct_20
   sql_database: strategy
   dynamic_benchmark: 0.7
+  threshold_columns: [ 'quantile_95', 'quantile_85' ]
+  vol_signal_num: 20
 
 # factor dataset
 dataset:
@@ -18,12 +20,12 @@ dataset:
   std_factor_name: [ 'ddb_base_factor', 'ddb_base_factor_ret', 'ddb_slope_std_factor', 'ddb_gp_factor']
   clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
   log_factor_name: [ 'log_factor' ]
-  rebalancing_tables: ['BaseFokFactor', 'GPFactor']
+  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
 
   # data preprocessing options
   type: 'GenDatasetLowPrice'
   test_month: [202507]
-  pool_name: 'zz500'
+  pool_name: 'hs300'
   indus_class: price_group
   indus_table_suffix: ''
   io_backend: ddb
