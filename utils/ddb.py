@@ -2,6 +2,7 @@ import dolphindb as ddb
 import pandas as pd
 import numpy as np
 import time
+import dolphindb.settings as keys
 
 log_factor_name = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
                   'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
@@ -32,14 +33,22 @@ def preprocess(factor):
     return factor
 
 DDB_config = { "server": "10.95.145.91",
-               "port": 8993,
+               "port": 8992,
                "userName": "quantStrat",
                "userKey": "eqalgo_2024"
             }
 
 class DDB_connector():
     def __init__(self, DDB_config):
-        self.ddb_session = ddb.session(DDB_config["server"], DDB_config["port"], DDB_config["userName"], DDB_config["userKey"])
+        self.ddb_session = ddb.session(
+            DDB_config["server"],
+            DDB_config["port"],
+            DDB_config["userName"],
+            DDB_config["userKey"],
+            keepAliveTime=12000,
+            protocol=keys.PROTOCOL_DDB,
+        )
+        self.ddb_session.setTimeout(3600)
 
     def query_data(self, query):
         res = self.ddb_session.run(query)

@@ -93,11 +93,12 @@ def push_signal_sql(opt, suffix='', upload_month=[], database='strategy', if_exi
     write_table_sql(signal, database, table_name, if_exists=if_exists)
 
 
-def push_single_signal_sql(signal, upload_month=[], table_name='signal_demo', database='strategy', if_exists='append'):
+def push_single_signal_sql(signal, upload_month=[], table_name='signal_demo', database='strategy', if_exists='append',del_month=True):
     '''
     upload signal dataframe to sql server
     '''
     # delete data by month first
-    for month in upload_month:
-        delete_by_month(database=database, table_name=table_name, month=month)
+    if del_month:
+        for month in upload_month:
+            delete_by_month(database=database, table_name=table_name, month=month)
     write_table_sql(signal, database, table_name, if_exists=if_exists)
