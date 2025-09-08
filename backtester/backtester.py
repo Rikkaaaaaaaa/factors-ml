@@ -56,6 +56,7 @@ class BackTester():
             # bound_mode = 'by_ticker'
             tbar = tqdm(self.tickers, leave=False)
             for ticker in tbar:
+                self._ticker = ticker
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
                 # load train data
                 if self.opt['dataset'].get('balance') == 'reverse':
@@ -83,7 +84,6 @@ class BackTester():
                     test_data = factor_data.test_data.query('ticker==@ticker')
                     x_test = test_data[backtest_factor_name]
                     # test ret time date ticker used for signal record
-                    self._ticker = ticker
                     self._test_ret = test_data['ret']
                     self._test_time = test_data['time']
                     self._test_date = test_data['date']
@@ -101,13 +101,17 @@ class BackTester():
                 # compute metric
                 self.compute_metrics()
 
-                # BT mode: append signal dataframe into self.signals
+                # compute signal and proba
+                # RT mode: append train proba into self.train_proba
+                # BT mode: append train proba into self.train_proba and signal dataframe into self.signals
+                self.compute_train_signal()
                 if not self.is_realtime:
                     self.compute_signal()
 
-            # save result and bound both in rt and bt
+            # save result and bound both in RT and BT
             self.save_results()
             self.save_bound()
+            self.save_train_proba()
             # BT mode: save train and test signals
             if not self.is_realtime:
                 self.save_signals()
@@ -197,6 +201,7 @@ class BackTester():
 
         self.signals.append(signal)
 
+    def compute_train_signal(self):
         # if we need to save training proba
         if self.opt['train'].get('save_proba'):
             if not hasattr(self, 'train_signals'):
@@ -216,6 +221,7 @@ class BackTester():
         self.signals = self.signals[['ticker', 'time', 'date', 'signal', 'proba', 'up_bound', 'down_bound', ]]
         self.signals.to_csv(signal_path, index=False)
 
+    def save_train_proba(self):
         # save training proba to train_signal_path
         if self.opt['train'].get('save_proba'):
             train_signal_folder = self.opt['path']['train_signal_path'][self.test_month]
