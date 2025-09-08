@@ -61,7 +61,7 @@ class BackTesterLowPrice():
         y_pred = model.predict(self.add_const_if_missing(x_train, factor_data.factor_list))
 
         # generate benchmark dict
-        benchmark_dict = {}
+        all_benchmark_dict = {}
         merge_key_train['y_train'] = y_train
         merge_key_train['y_pred'] = y_pred
         merge_key_train['count'] = 1
@@ -76,11 +76,28 @@ class BackTesterLowPrice():
                 threshold = pred_in_benchmark.tolist()[-1]
             else:
                 threshold = 1.0
-            benchmark_dict[ticker] = [threshold, y_pred_df['y_pred'].quantile(0.9), y_pred_df['y_pred'].quantile(0.8)]
+            # # prod version: quantile 0.9, quantile 0.8
+            # benchmark_dict[ticker] = [threshold, y_pred_df['y_pred'].quantile(0.9), y_pred_df['y_pred'].quantile(0.8)]
+            # test version:
+            all_benchmark_dict[ticker] = [threshold,
+                                      1, y_pred_df['y_pred'].quantile(0.95), y_pred_df['y_pred'].quantile(0.9),
+                                      y_pred_df['y_pred'].quantile(0.85), y_pred_df['y_pred'].quantile(0.8),
+                                      y_pred_df['y_pred'].quantile(0.75), y_pred_df['y_pred'].quantile(0.7)]
 
-        benchmark_df = pd.DataFrame.from_dict(benchmark_dict, orient='index',
-                                              columns=['dynamic_threshold', 'quantile_90', 'quantile_80'])
-        benchmark_df = benchmark_df.reset_index().rename(columns={'index': 'ticker'})
+        benchmark_df_all = pd.DataFrame.from_dict(all_benchmark_dict, orient='index',
+                                              columns=['dynamic_threshold', 'quantile_100', 'quantile_95',
+                                                       'quantile_90', 'quantile_85', 'quantile_80',
+                                                       'quantile_75', 'quantile_70'])
+        benchmark_df_all = benchmark_df_all.reset_index().rename(columns={'index': 'ticker'})
+        self.benchmark_df_all = benchmark_df_all    # all benchmarks, not saved for now
+
+        if 'threshold_columns' not in self.opt['save_signal'].keys():
+            # prod version: have to make sure column name = ['ticker', 'dynamic_threshold', 'quantile_90', 'quantile_80']
+            save_columns = ['ticker', 'dynamic_threshold', 'quantile_90', 'quantile_80']
+        else:
+            save_columns = ['ticker', 'dynamic_threshold'] + self.opt['save_signal']['threshold_columns']
+        benchmark_df = benchmark_df_all[save_columns]
+        benchmark_dict = benchmark_df.set_index('ticker').apply(list, axis=1).to_dict()
         self.benchmark_df = benchmark_df
         return benchmark_dict
 
@@ -127,21 +144,23 @@ class BackTesterLowPrice():
             dynamic_benchmark_fill_rate = np.nanmean(temp_y_test[dynamic_benchmark_label].values)
             dynamic_benchmark_pct = sum(dynamic_benchmark_label) / len(dynamic_benchmark_label)
 
-            # volume signal: 4.5/0.5/-1
-            if bs_flag == 'b':
-                vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
-                                      np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+            if 'vol_signal_num' not in self.opt['save_signal'].keys():
+                # prod version: volume signal: 4.5/0.5/-1
+                if bs_flag == 'b':
+                    vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
+                                          np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+                else:
+                    vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
+                                          np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
             else:
-                vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
-                                      np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
-
-            # # vol_signal: 4.5/0/-1/0
-            # if bs_flag == 'b':
-            #     vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
-            #                           np.where((temp_y_pred > benchmark_dict[ticker][0]) | (temp_y_pred < benchmark_dict[ticker][3]), 0.5, -1))
-            # else:
-            #     vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
-            #                           np.where((temp_y_pred > benchmark_dict[ticker][0]) | (temp_y_pred < benchmark_dict[ticker][3]), -0.5, 1))
+                vol_signal_num = self.opt['save_signal']['vol_signal_num']
+                # test version: volume signal: 20/0.5/-1
+                if bs_flag == 'b':
+                    vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]) & (temp_y_pred < benchmark_dict[ticker][1]), vol_signal_num,
+                                          np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+                else:
+                    vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]) & (temp_y_pred < benchmark_dict[ticker][1]), -vol_signal_num,
+                                          np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
 
             temp_pred_data = temp_pred_data.copy()
             temp_pred_data.loc[:, 'vol_signal'] = list(vol_signal)
