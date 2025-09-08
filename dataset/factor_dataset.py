@@ -102,7 +102,7 @@ class FactorDataset():
             data[self.test_month] = self.load_data_from_sql(self.test_month, eval_rt=self.eval_rt)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish loading factor and return ")
 
-        #-----Data Preprocessing-----#
+        #---------Data Preprocessing-------#
 
         # split data into train and test set
         train_data, test_data = self.split_data(data)
@@ -128,8 +128,6 @@ class FactorDataset():
         self.transform(train_data, test_data)
         # rebalance training data
         self.rebalance_training_data()
-
-
 
         # logging
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish transforming data and saving preprocess params")
@@ -216,6 +214,7 @@ class FactorDataset():
         except Exception as e:
             self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Error in fetching factor and return from SQL: {e}")
             self.logger.info(traceback.format_exc())
+            raise ValueError(f"{self.test_month}_indus_{self.indus_type}: Error in fetching factor and return from SQL: {e}")
 
         return data
 
@@ -310,6 +309,7 @@ class FactorDataset():
 
         # delete retunr==nan from train_data
         train_data = train_data.query('ret.notna()')
+        train_data = train_data.query('time!=130000000')
         # delete time==130000 from test_data
         test_data = test_data.query('time!=130000000')
         return train_data, test_data
