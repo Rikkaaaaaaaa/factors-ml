@@ -12,6 +12,7 @@ from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
 import multiprocessing
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 
 @DATASET_REGISTRY.register()
@@ -85,7 +86,7 @@ class GenDatasetLowPrice:
         return train_data, test_data
 
     def load_factor_data(self):
-        print('start loading factor data...')
+        print(f'start loading factor data for price_group {self.indus_type}...')
         start_time = time.time()
 
         # Ingest Ticker List
@@ -96,9 +97,14 @@ class GenDatasetLowPrice:
 
         # load factor data (multiprocessing)
         n_jobs = self.opt['n_jobs_read_data']
-        with multiprocessing.Pool(processes=min(len(self.ticker_list), n_jobs)) as pool:
-            results = pool.starmap(self.load_factor_data_by_ticker,
-                                   [(ticker,) for ticker in self.ticker_list])
+        # with multiprocessing.Pool(processes=min(len(self.ticker_list), n_jobs)) as pool:
+        #     results = pool.starmap(self.load_factor_data_by_ticker,
+        #                            [(ticker,) for ticker in self.ticker_list])
+        with ThreadPoolExecutor(max_workers=min(len(self.ticker_list), n_jobs)) as executor:
+            results = list(executor.map(
+                lambda ticker: self.load_factor_data_by_ticker(ticker),
+                self.ticker_list
+            ))
 
         train_data = pd.concat([r[0] for r in results])
         test_data = pd.concat([r[1] for r in results])
@@ -118,7 +124,7 @@ class GenDatasetLowPrice:
 
         # transforming data, including std, clip, save params by ticker
         self.transform(self.ticker_list, train_data, test_data)
-        print('load factor data time: ', time.time() - start_time)
+        print(f'load factor data time for price_group {self.indus_type}: {time.time() - start_time}')
         return self.train_data, self.test_data
 
     @staticmethod
@@ -127,20 +133,40 @@ class GenDatasetLowPrice:
         return fill_flag_data
 
     def load_fill_flag_data(self, tick_ahead, bs_flag):
-        print('start loading fill_flag...')
+        print(f'start loading fill_flag for price_group {self.indus_type}, bs_flag {bs_flag}...')
         start_time = time.time()
-        with multiprocessing.Pool(processes=min(len(self.ticker_list), 10)) as pool:
-            results = pool.starmap(self.load_fill_flag_by_ticker,
-                                   [(ticker, self.pool_name, self.training_month[0],
-                                     self.training_month[-1], tick_ahead, bs_flag) for ticker in self.ticker_list])
+        # with multiprocessing.Pool(processes=min(len(self.ticker_list), 10)) as pool:
+        #     results = pool.starmap(self.load_fill_flag_by_ticker,
+        #                            [(ticker, self.pool_name, self.training_month[0],
+        #                              self.training_month[-1], tick_ahead, bs_flag) for ticker in self.ticker_list])
+        # fill_flag_data_train = pd.concat(results)
+        #
+        # with multiprocessing.Pool(processes=min(len(self.ticker_list), 10)) as pool:
+        #     results = pool.starmap(self.load_fill_flag_by_ticker,
+        #                            [(ticker, self.pool_name, self.test_month_new,
+        #                              self.test_month_new, tick_ahead, bs_flag) for ticker in self.ticker_list])
+        # fill_flag_data_test = pd.concat(results)
+
+        n_jobs = self.opt['n_jobs_read_data']
+        args_list_train = [(ticker, self.pool_name, self.training_month[0],
+                            self.training_month[-1], tick_ahead, bs_flag) for ticker in self.ticker_list]
+        with ThreadPoolExecutor(max_workers=min(len(self.ticker_list), n_jobs)) as executor:
+            results = list(executor.map(
+                lambda args: self.load_fill_flag_by_ticker(*args),
+                args_list_train
+            ))
         fill_flag_data_train = pd.concat(results)
 
-        with multiprocessing.Pool(processes=min(len(self.ticker_list), 10)) as pool:
-            results = pool.starmap(self.load_fill_flag_by_ticker,
-                                   [(ticker, self.pool_name, self.test_month_new,
-                                     self.test_month_new, tick_ahead, bs_flag) for ticker in self.ticker_list])
+        args_list_test = [(ticker, self.pool_name, self.test_month_new,
+                           self.test_month_new, tick_ahead, bs_flag) for ticker in self.ticker_list]
+        with ThreadPoolExecutor(max_workers=min(len(self.ticker_list), n_jobs)) as executor:
+            results = list(executor.map(
+                lambda args: self.load_fill_flag_by_ticker(*args),
+                args_list_test
+            ))
         fill_flag_data_test = pd.concat(results)
-        print('load fill_flag time: ', time.time() - start_time)
+
+        print(f'load fill_flag time for price group {self.indus_type}, bs_flag {bs_flag}: {time.time() - start_time}')
         return fill_flag_data_train, fill_flag_data_test
 
     def load_ticker_list(self):

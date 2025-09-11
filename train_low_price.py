@@ -1,3 +1,4 @@
+import multiprocessing
 import multiprocessing as mp
 import os.path as osp
 import logging
@@ -29,11 +30,6 @@ class DatasetTrainTest:
         self.factor_list = list(sm.add_constant(x_train, has_constant='skip').columns)
 
 
-def init(args):
-    global lock
-    lock = args[0]
-
-
 def merge_data(factor_data, fill_flag_data):
     # first round of pre-processing: factor filter, time_filter, merge, drop_duplicates
     # (dropna: move to pre-processing)
@@ -63,8 +59,11 @@ def train_pipeline(train_args):
     logger = get_root_logger(logger_name=logger_name, log_level=logging.INFO, log_file=log_file)
 
     # get data set from test month
+    dataset_lock.acquire()
     dataset = build_dataset(opt, test_month, indus_type)
-    factor_train_data, factor_test_data = dataset.load_factor_data()
+    factor_train_data, factor_test_data = dataset.load_factor_data()    # need to use lock
+    dataset_lock.release()
+
     # factor selection
     training_factor_name = dataset.training_factor_name
     factor_name_folder = os.path.join(opt['path']['experiments_root'], str(test_month))
@@ -118,13 +117,30 @@ def init_args(opt):
     return args
 
 
+def init_lock(l):
+    global dataset_lock
+    dataset_lock = l
+
+
 def main(opt):
     print(get_env_info())
     # mp training
     global_timer = Timer()
     args = init_args(opt)
-    for arg in args:
-        train_pipeline(arg)
+
+    # multi pricess
+    manager = multiprocessing.Manager()
+    dataset_lock = manager.Lock()
+    process_num = 4
+    main_pool = multiprocessing.Pool(processes=process_num, initializer=init_lock, initargs=(dataset_lock,), maxtasksperchild=1)
+    main_pool.map(train_pipeline, args, chunksize=1)
+    main_pool.close()
+    main_pool.join()
+
+    # # single process
+    # for arg in args:
+    #     train_pipeline(arg)
+
     print("Task time is {}".format(time_str(global_timer.item())))
     # save report
     if not opt['is_realtime']:
@@ -133,7 +149,7 @@ def main(opt):
 
 if __name__ == '__main__':
     root_path = str(Path(__file__).resolve().parents[0])
-    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_hs300.yaml')
+    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_hs300_5pct_15pct.yaml')
     main(opt)
 
 
