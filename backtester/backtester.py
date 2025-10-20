@@ -39,23 +39,23 @@ class BackTester():
         else:
             backtest_factor_name = factor_data.training_factor_name
 
-        try:
-            # get ticker list
-            if self.is_realtime:
-                self.tickers = factor_data.tickers
-            else:
-                # Some tickers may be not consistent with static data, such as realtime data whose tickers are not incomplete
-                self.tickers = factor_data.test_data["ticker"].unique()
+        # get ticker list
+        if self.is_realtime:
+            self.tickers = factor_data.tickers
+        else:
+            # Some tickers may be not consistent with static data, such as realtime data whose tickers are not incomplete
+            self.tickers = factor_data.test_data["ticker"].unique()
 
-            # bound_mode = 'by_indus'
-            if self.opt['test']['bound_mode'] == 'by_indus':
-                self.train_proba = model.predict(factor_data.train_data[backtest_factor_name])
-                # filtered_train_proba = model.predict(factor_data.filtered_train_data[backtest_factor_name])
-                # self.train_proba = np.concatenate((self.train_proba, filtered_train_proba), axis=0)
+        # bound_mode = 'by_indus'
+        if self.opt['test']['bound_mode'] == 'by_indus':
+            self.train_proba = model.predict(factor_data.train_data[backtest_factor_name])
+            # filtered_train_proba = model.predict(factor_data.filtered_train_data[backtest_factor_name])
+            # self.train_proba = np.concatenate((self.train_proba, filtered_train_proba), axis=0)
 
-            # bound_mode = 'by_ticker'
-            tbar = tqdm(self.tickers, leave=False)
-            for ticker in tbar:
+        # bound_mode = 'by_ticker'
+        tbar = tqdm(self.tickers, leave=False)
+        for ticker in tbar:
+            try:
                 self._ticker = ticker
                 tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
                 # load train data
@@ -108,18 +108,20 @@ class BackTester():
                 if not self.is_realtime:
                     self.compute_signal()
 
-            # save result and bound both in RT and BT
-            self.save_results()
-            self.save_bound()
-            self.save_train_proba()
-            # BT mode: save train and test signals
-            if not self.is_realtime:
-                self.save_signals()
-            self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Backtesting finish with {len(self.tickers)} tickers")
+            except Exception as e:
+                traceback.print_exc()
+                self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
 
-        except Exception as e:
-            traceback.print_exc()
-            self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
+        # save result and bound both in RT and BT
+        self.save_results()
+        self.save_bound()
+        self.save_train_proba()
+        # BT mode: save train and test signals
+        if not self.is_realtime:
+            self.save_signals()
+        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Backtesting finish with {len(self.tickers)} tickers")
+
+
 
 
     def compute_metrics(self):
