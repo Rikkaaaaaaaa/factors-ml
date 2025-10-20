@@ -33,7 +33,7 @@ def preprocess(factor):
     return factor
 
 DDB_config = { "server": "10.95.145.91",
-               "port": 8992,
+               "port": 8994,
                "userName": "quantStrat",
                "userKey": "eqalgo_2024"
             }
@@ -87,7 +87,7 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     factor.rename(columns={"securityCode": "ticker"}, inplace=True)
     factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
     factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
-                      factor["time"].dt.second * 1000)
+                      factor["time"].dt.second * 1000 + factor["time"].dt.microsecond // 1000)
     # filter by select_period dict
     if isinstance(trading_hours, dict):
         factor = factor[ ((factor["time"] >= trading_hours['am_start_time']*1000) & (factor["time"] <= trading_hours['am_end_time']*1000))
@@ -124,7 +124,7 @@ def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, tradin
     factor.rename(columns={"securityCode": "ticker"}, inplace=True)
     factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
     factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
-                      factor["time"].dt.second * 1000)
+                      factor["time"].dt.second * 1000 + factor["time"].dt.microsecond // 1000)
     # filter by select_period dict
     if isinstance(trading_hours, dict):
         factor = factor[ ((factor["time"] >= trading_hours['am_start_time']*1000) & (factor["time"] <= trading_hours['am_end_time']*1000))
@@ -155,7 +155,7 @@ def read_ddb_return(data_base, table_name, test_month, tickers, trading_hours=No
     ret.rename(columns={"securityCode": "ticker"}, inplace=True)
     ret.insert(0, 'date', ret["time"].dt.strftime('%Y%m%d').astype(int))
     ret["time"] = (ret["time"].dt.hour * 10000000 + ret["time"].dt.minute * 100000 +
-                   ret["time"].dt.second * 1000)
+                   ret["time"].dt.second * 1000 + ret["time"].dt.microsecond // 1000)
 
     # filter by select_period dict
     if isinstance(trading_hours, dict):
