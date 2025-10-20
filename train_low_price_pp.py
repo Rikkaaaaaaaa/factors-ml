@@ -30,7 +30,7 @@ class DatasetTrainTest:
         self.factor_list = list(sm.add_constant(x_train, has_constant='skip').columns)
 
 
-def merge_data(factor_data, fill_flag_data):
+def merge_data(factor_data, fill_flag_data, y_col_name):
     # first round of pre-processing: factor filter, time_filter, merge, drop_duplicates
     # (dropna: move to pre-processing)
     # factor filter
@@ -77,7 +77,7 @@ def train_pipeline(train_args):
     # for bs_flag in ["b", "s"]
     bs_flag_list = opt["bs_flag_list"]
     for bs_flag in bs_flag_list:
-        fill_flag_train, fill_flag_test = dataset.load_fill_flag_data("1", bs_flag)
+        fill_flag_train, fill_flag_test = dataset.load_return_data("5m", bs_flag)
         x_train, y_train, merge_key_train = merge_data(factor_train_data, fill_flag_train)
         x_test, y_test, merge_key_test = merge_data(factor_test_data, fill_flag_test)
         dataset_train_test = DatasetTrainTest(x_train, y_train, merge_key_train, x_test, y_test, merge_key_test)
@@ -131,7 +131,7 @@ def main(opt):
     # multi pricess
     manager = multiprocessing.Manager()
     dataset_lock = manager.Lock()
-    process_num = 4
+    process_num = 1
     main_pool = multiprocessing.Pool(processes=process_num, initializer=init_lock, initargs=(dataset_lock,), maxtasksperchild=1)
     main_pool.map(train_pipeline, args, chunksize=1)
     main_pool.close()
@@ -149,7 +149,7 @@ def main(opt):
 
 if __name__ == '__main__':
     root_path = str(Path(__file__).resolve().parents[0])
-    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_other_selected_10pct_20pct.yaml')
+    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_zz100_5pct_15pct.yaml')
     main(opt)
 
 
