@@ -48,9 +48,13 @@ def check_indus(opt, first_month):
         raise ValueError(f"Param in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
     indus_list = []
     if opt['dataset']['price_name'] == 'highprice':
+        print('select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
+                                    indus_class, pool_name, indus_table_suffix, first_month))
         indus_table = cx_read_sql('select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
                                     indus_class, pool_name, indus_table_suffix, first_month))
+
         indus_list.extend(list(indus_table[indus_class]))
+
     # default class num of low price is zero
     else:
         indus_list = [0]
@@ -303,6 +307,10 @@ def get_sop_fill_flag_ddb(tickers, pool_name, start_month, end_month, tick_ahead
         ticker_condition = f'securityCode in {tickers}'
 
     table_name = f'fill_flag_{pool_name}_{tick_ahead}_{bs_flag}'
+    # TODO temp version for selected stock pool, can be deleted after 202510
+    if 'selected' in pool_name:
+        table_name = f'fill_flag_{pool_name.split("_")[0]}_{tick_ahead}_{bs_flag}'
+
     # fill_flag_query = f'select factorValue from loadTable("dfs://smart_order_position", "{table_name}") where month(tradeTime)>={start_month_str}M, month(tradeTime)<={end_month_str}M, securityCode=`{ticker} pivot by tradeTime, securityCode, factorName'
     fill_flag_query = f"""
     tb=select * from loadTable("dfs://smart_order_position", "{table_name}") where month(tradeTime)>={start_month_str}M, month(tradeTime)<={end_month_str}M, {ticker_condition}
@@ -313,5 +321,5 @@ def get_sop_fill_flag_ddb(tickers, pool_name, start_month, end_month, tick_ahead
     fill_flag_data.rename(columns={"securityCode": "ticker"}, inplace=True)
     fill_flag_data.insert(0, 'date', fill_flag_data["tradeTime"].dt.strftime('%Y%m%d').astype(int))
     fill_flag_data["time"] = (fill_flag_data["tradeTime"].dt.hour * 10000000 + fill_flag_data["tradeTime"].dt.minute * 100000 +
-                      fill_flag_data["tradeTime"].dt.second * 1000)
+                      fill_flag_data["tradeTime"].dt.second * 1000 + fill_flag_data["tradeTime"].dt.microsecond // 1000)
     return fill_flag_data
