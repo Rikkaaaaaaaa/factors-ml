@@ -73,7 +73,7 @@ def write_table_sql(signal, database, table_name, if_exists='replace'):
                          'time': sqlalchemy.types.BIGINT,
                          })
     create_index('strategy', table_name, ['ticker', 'date', 'time'])
-    print(f"Write signals to sql tabel \'{table_name}\' successfully")
+    print(f"Write signals to sql table \'{table_name}\' successfully")
 
 
 def push_signal_sql(opt, suffix='', upload_month=[], database='strategy', if_exists='append'):
