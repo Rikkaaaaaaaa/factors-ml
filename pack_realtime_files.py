@@ -32,16 +32,25 @@ def save_threshold_pct(train_proba_root_path, output_path):
     return
 
 
-def push_realtime_files(root_path='experiments', exp_name="ddb_factor_hs300_highprice_lgbm",res_name='lgbm_data', res_folder_path='./data', test_month=202307):
-    pool_name = 'hs300'
+def push_realtime_files(config):
+    exp_name = config.exp_name
+    test_month = config.test_month
+    root_path = config.root_path
+    output_root_path= config.output_root_path
+    output_folder_name = config.output_folder_name
+    pool_name = config.pool_name
+
+    # deteck pool name
+    if not pool_name in exp_name:
+        raise ValueError(f"Pool name[{pool_name}] doesn't match exp_name[{exp_name}]!")
+
     highprice_folder = glob.glob(f'{root_path}/{exp_name}*')
     folders = ['15s', '60s', '120s', '300s']
     saved_folders = ['ckpt', 'inference_params', 'preprocess_params', 'train_signal']
-
-    print(f"Packaging all model files in {test_month}...")
+    print(f"Packaging all model files in {test_month} for {pool_name}...")
     for window in folders:
-        window_path = osp.join(res_folder_path, res_name, window)
-        makedirs(window_path)
+        window_path = osp.join(output_root_path, output_folder_name, pool_name, window)
+        makedirs(window_path, exist_ok=True)
         for high_folder in highprice_folder:
             if window in high_folder and pool_name in high_folder:
                 for folder in saved_folders:
@@ -80,9 +89,8 @@ def push_realtime_files(root_path='experiments', exp_name="ddb_factor_hs300_high
                         [shutil.copy2(s, dst) for s in glob.glob(src.rstrip('/')+'/*')]
                         print(f"[Processing {folder}] Files in {src} has been copied to {dst}")
 
-
     # save factor names
-    save_path = osp.join(res_folder_path, "static_data")
+    save_path = osp.join(output_root_path, "static_data")
     if not osp.exists(save_path):
         makedirs(save_path)
     factor_name_path = osp.join(save_path, "factor_name.csv")
@@ -97,12 +105,13 @@ def push_realtime_files(root_path='experiments', exp_name="ddb_factor_hs300_high
         export_static_data(database, table, test_month, save_path)
     print(f"[Processing static data] Static data in MySQL have been saved at {save_path}")
 
-    print(f"Suscessfully package all model files in {test_month} to {res_folder_path}")
+    print(f"Suscessfully package all model files in {test_month} to {output_folder_name}")
 def get_factor_name_from_15s(exp_name):
     # get factor list of 15s
     from utils.option import yaml_load
     from dataset import build_factor_name
     exp_path = osp.join("experiments", f"{exp_name}_15s/{exp_name}_15s.yaml")
+    print(exp_path)
     opt = yaml_load(exp_path)
     training_factor_name = build_factor_name(opt['dataset']['training_factor_name'])
     return training_factor_name
@@ -114,16 +123,25 @@ def export_static_data(database, table, test_month, save_path):
     df.to_csv(osp.join(save_path, f'{table.replace("_history", "")}.csv'), encoding='utf-8')
 
 
-def push_realtime_files_low_price(root_path='experiments', exp_name="low_price_hs300_logit", res_name='logit_data', res_folder_path='./data',
-                                  test_month=202508, pool_name="hs300"):
+def push_realtime_files_low_price(config):
+    exp_name = config.exp_name_low_price
+    test_month = config.test_month
+    root_path = config.root_path
+    output_root_path = config.output_root_path
+    output_folder_name = config.output_folder_name_low_price
+    pool_name = config.pool_name
+
+    # deteck pool name
+    if not pool_name in exp_name:
+        raise ValueError(f"Pool name[{pool_name}] doesn't match exp_name[{exp_name}]!")
+
     low_folder = osp.join(root_path, exp_name)
     saved_folders = ['ckpt', 'inference_params', 'preprocess_params']
-
-    print(f"Packaging all model files in {test_month}...")
+    print(f"Packaging all low price model files in {test_month} for {pool_name}...")
 
     # target_path = osp.join(res_folder_path, pool_name, res_name)  # TODO
-    target_path = osp.join(res_folder_path, res_name)
-    makedirs(target_path)
+    target_path = osp.join(output_root_path, output_folder_name, pool_name)
+    makedirs(target_path, exist_ok=True)
 
     if pool_name in low_folder:
         for folder in saved_folders:
@@ -154,11 +172,11 @@ def push_realtime_files_low_price(root_path='experiments', exp_name="low_price_h
                 for bs_flag in ['b', 's']:
                     dst_with_bs_flag = osp.join(dst, bs_flag)
                     src_with_bs_flag = osp.join(src, bs_flag)
-                    makedirs(dst_with_bs_flag)
+                    makedirs(dst_with_bs_flag, exist_ok=True)
                     [shutil.copy2(s, dst_with_bs_flag) for s in glob.glob(src_with_bs_flag.rstrip('/')+'/*')]
 
     # save factor names
-    save_path = osp.join(res_folder_path, "static_data")
+    save_path = osp.join(output_root_path, "static_data")
     if not osp.exists(save_path):
         makedirs(save_path)
     factor_name_path = osp.join(save_path, "factor_name_low_price.csv")
@@ -170,10 +188,16 @@ def push_realtime_files_low_price(root_path='experiments', exp_name="low_price_h
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='package model files for RT')
-    parser.add_argument('--test_month', type=int, default=202509, help="test_month")
-    parser.add_argument('--pool_name', type=str, default="hs300", help="test_month")
-    parser.add_argument('--exp_name', type=str, default="prod_202509_ddb_null_factor_no_reverse_hs300_highprice_lgbm", help="experiment name")
-    parser.add_argument('--exp_name_low_price', type=str, default="low_price_hs300_rt", help="experiment name low price")
+    parser.add_argument('--root_path', type=str, default='experiments', help="Root path of experiments")
+    parser.add_argument('--test_month', type=int, default=202510, help="test_month")
+    parser.add_argument('--pool_name', type=str, default="zz500", help="pool name")
+    parser.add_argument('--exp_name', type=str, default="prod_202510_ddb_null_factor_no_reverse_zz500_highprice_lgbm", help="experiment name")
+    parser.add_argument('--output_root_path', type=str, default='./data')
+    parser.add_argument('--output_folder_name', type=str, default='lgbm_data')
+    # low price
+    parser.add_argument('--exp_name_low_price', type=str, default="low_price_zz500_rt", help="experiment name low price")
+    parser.add_argument('--output_folder_name-low_price', type=str, default='logit_data')
+
     config = parser.parse_args()
-    push_realtime_files(exp_name=config.exp_name, test_month=config.test_month)
-    push_realtime_files_low_price(exp_name=config.exp_name_low_price, test_month=config.test_month, pool_name=config.pool_name)
+    push_realtime_files(config)
+    push_realtime_files_low_price(config)

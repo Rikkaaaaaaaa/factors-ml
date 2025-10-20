@@ -34,27 +34,98 @@ def eval_result(y_test, y_pred_label):
     return [weighted_return, up_winrate, down_winrate, up_ret, down_ret, up_pct, down_pct, len(y_test), nonzero_pct, abs_ret, avg_ret]
 
 
-def read_signal_from_path(signal_root_path):
-    '''
-    read signal data from one csv file or folder
-    '''
-    if signal_root_path.lower().endswith('csv'):
-        return pd.read_csv(signal_root_path)
+# def read_signal_from_path(signal_root_path):
+#     '''
+#     read signal data from one csv file or folder
+#     '''
+#     if signal_root_path.lower().endswith('csv'):
+#         return pd.read_csv(signal_root_path)
+#
+#     signal_path_list = glob.glob(f"{signal_root_path}/*.csv")
+#     if len(signal_path_list) == 0:
+#         raise FileExistsError(f"There is no signal csv file in {signal_root_path}")
+#     if len(signal_path_list) == 1:
+#         return pd.read_csv(signal_path_list[0])
+#     else:
+#         signal = []
+#         for signal_path in sorted(os.listdir(signal_root_path)):
+#             data = pd.read_csv((os.path.join(signal_root_path, signal_path)))
+#             signal.append(data)
+#         return pd.concat(signal)
 
-    signal_path_list = glob.glob(f"{signal_root_path}/*.csv")
-    if len(signal_path_list) == 0:
-        raise FileExistsError(f"There is no signal csv file in {signal_root_path}")
-    if len(signal_path_list) == 1:
-        return pd.read_csv(signal_path_list[0])
-    else:
-        signal = []
-        for signal_path in sorted(os.listdir(signal_root_path)):
-            data = pd.read_csv((os.path.join(signal_root_path, signal_path)))
-            signal.append(data)
-        return pd.concat(signal)
 
+def read_signal_from_path(signal_paths, time_ranges=None, time_col='time'):
+    """
+    从多个路径读取信号数据，可选择提取特定时间段，并拼接为连续信号
 
-def merge_signal(signal, ret_name, month, ret_db_name="dfs://DDB_Returns", ret_table_name='Returns'):
+    参数:
+        signal_paths (str/list): 单个路径或路径列表（支持文件夹或CSV文件）
+        time_ranges (list): 时间段列表，格式为[(start1, end1), (start2, end2)]
+        time_col (str): 时间列名称，默认为'time'
+
+    返回:
+        pd.DataFrame: 拼接后的信号数据
+    """
+    # 标准化输入为列表
+    if isinstance(signal_paths, str):
+        signal_paths = [signal_paths]
+
+    # 处理时间段参数
+    if time_ranges is None:
+        time_ranges = None
+    elif not isinstance(time_ranges, list):
+        time_ranges = [time_ranges]
+
+    all_signals = []
+    signal_path_num = 0
+    for path in signal_paths:
+        # 处理CSV文件
+        if path.lower().endswith('.csv'):
+            df = pd.read_csv(path)
+            if not df.empty:
+                if time_ranges is None:
+                    all_signals.append(_process_time_range(df, time_ranges, time_col))
+                else:
+                    all_signals.append(_process_time_range(df, time_ranges[signal_path_num], time_col))
+
+        # 处理文件夹
+        elif os.path.isdir(path):
+            csv_files = glob.glob(os.path.join(path, '*.csv'))
+            if not csv_files:
+                raise FileNotFoundError(f"文件夹中未找到CSV文件: {path}")
+
+            for file in sorted(csv_files):
+                df = pd.read_csv(file)
+                if not df.empty:
+                    if time_ranges is None:
+                        all_signals.append(_process_time_range(df, time_ranges, time_col))
+                    else:
+                        all_signals.append(_process_time_range(df, time_ranges[signal_path_num], time_col))
+        signal_path_num += 1
+
+    # 拼接所有信号
+    if not all_signals:
+        raise ValueError("未找到有效信号数据")
+
+    return pd.concat(all_signals, ignore_index=True)
+
+def _process_time_range(df, time_ranges, time_col):
+    """处理单个DataFrame的时间段提取"""
+    if not time_ranges or time_col not in df.columns:
+        return df
+
+    # 提取指定时间段
+    masks = []
+    start, end = time_ranges[0], time_ranges[1]
+    masks.append((df[time_col] >= start*1000) & (df[time_col] <= end*1000))
+
+    combined_mask = masks[0]
+    for mask in masks[1:]:
+        combined_mask |= mask
+
+    return df[combined_mask]
+
+def merge_signal(signal, ret_name, month, trading_hours=None, ret_db_name="dfs://DDB_Returns", ret_table_name='Returns_hs300'):
     '''
     merge signal with ddb return monthly by tcicker,date,time
     '''
@@ -63,7 +134,7 @@ def merge_signal(signal, ret_name, month, ret_db_name="dfs://DDB_Returns", ret_t
         return signal
     # read return from ddb
     tickers = tuple(signal["ticker"].unique())
-    labels = read_ddb_return(ret_db_name, ret_table_name, month, tickers)
+    labels = read_ddb_return(ret_db_name, ret_table_name, month, tickers, trading_hours=trading_hours)
     labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
     # del null return data
     labels = labels.dropna()
@@ -93,17 +164,19 @@ def compute_metrics(df_signal, ret_name, month):
         results.insert(2, date)
         results.insert(3, up_bound)
         results.insert(4, down_bound)
+        results.insert(len(results) - 4, len(tickers))
         report.append(results)
-    report = pd.DataFrame(report, columns=["ticker", "test_month", "test_date", "up_bound", "down_bound", "weighted_return", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct", "down_pct",  "total_sample", "not_zero_rate", "abs_ret", "avg_ret"])
+
+    report = pd.DataFrame(report, columns=["ticker", "test_month", "test_date", "up_bound", "down_bound", "weighted_return", "up_winrate", "down_winrate", "up_ret", "down_ret", "up_pct", "down_pct", "ticker_num", "total_sample", "not_zero_rate", "abs_ret", "avg_ret"])
 
     return report
 
 
-def eval_signals_by_month(result_name, signal_path, month, ret_name, trading_hours=None):
+def eval_signals_by_month(result_name, signal_path, month, ret_name, time_ranges, trading_hours=None):
     try:
         # read signal from csv or folder
-        signal = read_signal_from_path(signal_path)
-        bt_signal = merge_signal(signal, ret_name, month)
+        signal = read_signal_from_path(signal_path, time_ranges)
+        bt_signal = merge_signal(signal, ret_name, month, trading_hours)
         # filter by trading hours
         if isinstance(trading_hours, dict):
             if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
@@ -157,19 +230,12 @@ def analysis_report_by_month(report_name, ret_windows = [ "15s", "60s", "120s", 
     print(f"Summary by month has been saved at {summary_path}")
 
 
-def eval_signals_by_date(result_name, signal_path, month, ret_name, trading_hours=None):
-    # params
-    # ret_name = '300s'
-    # month=202503
-    # result_name = 'bt_ensemble_signal'
-    # #expr_name = f"ddb_factor_hs300_highprice_lgbm_{ret_name}"
-    # #signal_folder_path = f"../experiments/{expr_name}/{month}/signal"
-    # signal_path = f'../ensemble/ensemble_signals/ensemble_manual_selection_300s_weight_3_1_1_1_202503_300s.csv'
+def eval_signals_by_date(result_name, signal_path, month, ret_name, time_ranges, trading_hours=None):
 
     try:
         # read signal
-        signal = read_signal_from_path(signal_path)
-        bt_signal = merge_signal(signal, ret_name, month)
+        signal = read_signal_from_path(signal_path, time_ranges)
+        bt_signal = merge_signal(signal, ret_name, month, trading_hours)
         # filter by trading hours
         if isinstance(trading_hours, dict):
             if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
@@ -260,7 +326,7 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
 
 
 if __name__ == "__main__":
-    months = [202501,202502,202503,202504, 202505, 202506, 202507]
+    months = [202509]
     ret_windows = ['15s', '60s', '120s', '300s']
     # use eval function to treat signal files in experiments folder
 
@@ -326,23 +392,31 @@ if __name__ == "__main__":
     # expr_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
     # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
-    result_name = 'mix4_1_1_1_1_pct40_hs300_highprice_lgbm'
-    expr_name = 'mix4_1_1_1_1_hs300_highprice_lgbm'
-    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+    # result_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
+    # expr_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
+    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
+    # time_ranges = None
 
-    #
+    # mix am pm evaluation
+    result_name = 'mix_am_pm_hs300_highprice_lgbm'
+    expr_name_am = 'ddb_null_factor_no_reverse_am_with_930_940_hs300_highprice_lgbm'
+    expr_name_pm = 'ddb_null_factor_no_reverse_with_930_940_hs300_highprice_lgbm'
+    signal_path = '[f"../experiments/{expr_name_am}_{ret_window}/{month}/signal", f"../experiments/{expr_name_pm}_{ret_window}/{month}/signal" ]'
+    time_ranges = [(93000, 113000), (130000, 145700)]
+
+    # signal time filter
     trading_hours = {
-        "am_start_time": 94000,
+        "am_start_time": 93000,
         "am_end_time": 113000,
-        "pm_start_time": 145715,
+        "pm_start_time": 130000,
         "pm_end_time": 145700
     }
-    trading_hours = None
+    #trading_hours = None
 
     n_jobs = 16
     params = [(result_name,
                eval(signal_path),
-               month, ret_window, trading_hours)
+               month, ret_window, time_ranges, trading_hours)
               for month in months
               for ret_window in ret_windows]
     # eval by month
