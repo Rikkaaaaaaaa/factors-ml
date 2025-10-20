@@ -205,7 +205,7 @@ class FactorDataset():
             # assert len(self.tickers) == len(data['ticker'].unique()), self.logger.info("SQL data missing ticker", missing_tickers)
             if len(missing_tickers) > 0:
                 # raise ValueError(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in {month} Return: {list2str(missing_tickers)}")
-                print(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in {month} Return: {list2str(missing_tickers)}")
+                self.logger.warning(f"{self.test_month}_indus_{self.indus_type}: There are missing tickers in {month} Return: {list2str(missing_tickers)}")
 
             # check Whether data is null
             if len(data) == 0:
