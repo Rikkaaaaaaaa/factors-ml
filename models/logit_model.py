@@ -28,12 +28,13 @@ class LogitModel():
         indus_type(int): one of the indus_class
     """
 
-    def __init__(self, opt, test_month, indus_type):
+    def __init__(self, opt, test_month, indus_type, logger_name=None):
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
         # logging file
-        logger_name = f"month{test_month}_price_group_{indus_type}"
+        if logger_name is None:
+            logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
         self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Logit model init successfully")
 

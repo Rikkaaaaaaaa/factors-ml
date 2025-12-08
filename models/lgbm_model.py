@@ -22,7 +22,7 @@ class LgbmModel():
         indus_type(int): one of the indus_class
     """
 
-    def __init__(self, opt, test_month, indus_type):
+    def __init__(self, opt, test_month, indus_type, logger_name=None):
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
@@ -32,12 +32,14 @@ class LgbmModel():
             self.class_num = self.opt['dataset']['class_num']
         self.num_epoch = self.opt['train']['num_epoch']
         # logging file
-        logger_name = f"month{test_month}_indus{indus_type}"
-        self.logger = get_root_logger(logger_name=logger_name)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: LGBM model init successfully")
+        self.logger_name = logger_name
+        if self.logger_name is None:
+            self.logger_name = f"month{test_month}_indus{indus_type}"
+        self.logger = get_root_logger(logger_name=self.logger_name)
+        self.logger.info(f"[{self.logger_name}] LGBM model init successfully")
 
     def train(self, x_train, y_train):
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LGBM model...")
+        self.logger.info(f"[{self.logger_name}] Training LGBM model...")
         train_matrix = lgb.Dataset(x_train, label=y_train)
 
         # 根据任务类型设置参数
@@ -95,14 +97,14 @@ class LgbmModel():
                 }
 
         self.model = lgb.train(params, train_set=train_matrix, num_boost_round=self.num_epoch)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
+        self.logger.info(f"[{self.logger_name}] Training finish")
 
 
     def save(self):
         ckpt_folder = self.opt['path']['model_path'][self.test_month]
         ckpt_name = 'lgbm_indus{}.txt'.format(self.indus_type)
         ckpt_path = osp.join(ckpt_folder, ckpt_name)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Saving model at {ckpt_path}")
+        self.logger.info(f"[{self.logger_name}] Saving model at {ckpt_path}")
         self.model.save_model(ckpt_path)
 
 
@@ -110,9 +112,17 @@ class LgbmModel():
         return self.model.predict(data)
 
 
+    def load_ckpt(self):
+        ckpt_folder = self.opt['path']['pretrain_model_path'][self.test_month]
+        ckpt_name = 'lgbm_indus{}.txt'.format(self.indus_type)
+        ckpt_path = osp.join(ckpt_folder, ckpt_name)
+        self.logger.info(f"[{self.logger_name}] Loading model at {ckpt_path}")
+        self.model = lgb.Booster(model_file=ckpt_path)
+
+
     def select_factor(self, x_train, y_train):
         # train first
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Start training for factor selection...")
+        self.logger.info(f"[{self.logger_name}] Start training for factor selection...")
         self.train(x_train, y_train)
 
         selection_path = osp.join(self.opt['path']['experiments_root'], str(self.test_month), 'factor_selection')
@@ -141,12 +151,12 @@ class LgbmModel():
 
         # restart training
         self.selected_factor = list(feature_importance['factor_name'])
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Finish factor selection, restart training...")
+        self.logger.info(f"[{self.logger_name}] Finish factor selection, restart training...")
         return self.selected_factor
 
 
     def search_params(self, x_train, y_train, x_test, y_test, callbacks=[]):
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LGBM model...")
+        self.logger.info(f"[{self.logger_name}] Training LGBM model...")
         train_matrix = lgb.Dataset(x_train, label=y_train)
         valid_matrix = lgb.Dataset(x_test, label=y_test)
 
@@ -209,7 +219,7 @@ class LgbmModel():
                                valid_sets=[valid_matrix],
                                callbacks=callbacks,
                                num_boost_round=self.num_epoch)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
+        self.logger.info(f"[{self.logger_name}] Training finish")
 
 
 

@@ -12,23 +12,26 @@ from utils.registry import MODEL_REGISTRY
 @MODEL_REGISTRY.register()
 class LRModel():
 
-    def __init__(self, opt, test_month, indus_type):
+    def __init__(self, opt, test_month, indus_type, logger_name=None):
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
         self.class_num = self.opt['dataset']['class_num']
 
         # logging file
-        logger_name = f"month{test_month}_indus{indus_type}"
-        self.logger = get_root_logger(logger_name=logger_name)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: LR model init successfully")
+        # logging file
+        self.logger_name = logger_name
+        if self.logger_name is None:
+            self.logger_name = f"month{test_month}_indus{indus_type}"
+        self.logger = get_root_logger(logger_name=self.logger_name)
+        self.logger.info(f"[{self.logger_name}] LR model init successfully")
 
     def train(self, x_train, y_train):
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training LR model...")
+        self.logger.info(f"[{self.logger_name}] Training LR model...")
         # self.model = sm.Logit(y_train, sm.add_constant(x_train, has_constant='add')).fit(disp=False)
         self.model = LogisticRegression(fit_intercept=False, n_jobs=self.opt['model']['n_cpus'], random_state=self.opt['manual_seed'],)
         self.model.fit(sm.add_constant(x_train, has_constant='add'), y_train)
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
+        self.logger.info(f"[{self.logger_name}] Training finish")
 
 
     def save(self, ):
@@ -38,7 +41,7 @@ class LRModel():
         # ckpt_path = osp.join(ckpt_folder, ckpt_name)
         # params = pd.DataFrame(self.model.coef_, columns=['coef'])
         # params.to_csv(ckpt_path, index=False)
-        # self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Saving model at {ckpt_path}")
+        # self.logger.info(f"[{self.logger_name}] Saving model at {ckpt_path}")
         pass
 
     def predict(self, data):

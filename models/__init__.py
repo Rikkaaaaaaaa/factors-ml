@@ -15,7 +15,7 @@ model_filenames = [osp.splitext(osp.basename(v))[0] for v in scandir(model_folde
 _model_modules = [importlib.import_module(f'models.{file_name}') for file_name in model_filenames]
 
 
-def build_model(opt, test_month, indus_type):
+def build_model(opt, test_month, indus_type, logger_name=None):
     """Build models from options.
 
     Args:
@@ -23,8 +23,9 @@ def build_model(opt, test_month, indus_type):
             model_type (str): Model type.
     """
     opt = deepcopy(opt)
-    model = MODEL_REGISTRY.get(opt['model']['type'])(opt, test_month, indus_type)
-    logger_name = f"month{test_month}_indus{indus_type}"
+    model = MODEL_REGISTRY.get(opt['model']['type'])(opt, test_month, indus_type, logger_name)
+    if logger_name is None:
+        logger_name = f"month{test_month}_indus{indus_type}"
     logger = get_root_logger(logger_name)
-    logger.info(f'{test_month}_indus_{indus_type}: Model [{model.__class__.__name__}] is created.')
+    logger.info(f'[{logger_name}] Model [{model.__class__.__name__}] is created.')
     return model
