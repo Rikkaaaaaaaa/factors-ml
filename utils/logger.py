@@ -108,6 +108,6 @@ def get_env_info():
     #          )
 
     msg += ('\nVersion Information: '
-            f'\n\tBasic-ALgo: {__version__}')
+            f'\n\tBasic-Algo: {__version__}')
     return msg
 

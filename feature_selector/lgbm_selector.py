@@ -21,10 +21,8 @@ class LGBMSelector():
         logger_name = f"month{test_month}_indus{indus_type}"
         self.logger = get_root_logger(logger_name=logger_name)
 
-
     def get_selected_factor_names(self):
         return self.selector.get_feature_names_out()
-
 
     def train(self, x_train, y_train):
         num_epoch = 200
@@ -70,7 +68,6 @@ class LGBMSelector():
 
         self.model = lgb.train(params, train_set=train_matrix, num_boost_round=num_epoch)
         self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Training finish")
-
 
     def select_factor(self, x_train, y_train):
         # train first
