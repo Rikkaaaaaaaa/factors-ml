@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
 
 
-def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
+def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg, threshold=pd.DataFrame()):
     """
     Compute bound, win rate , mean return, total sample .etc as performance
     :param pre_prob: test probability
@@ -13,32 +14,64 @@ def compute_metric(opt, pre_prob, pre_prob_train, y_test_reg):
     pct_num = [100-opt['test']['threshold_pct'], 100-opt['test']['threshold_pct']]
     class_num = opt['test'].setdefault('direction_num', 2)
 
-    # compute up accuracy
-    up_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[0], class_label=1, class_num=class_num)
-    up_win = compute_win_rate(pre_prob, y_test_reg, up_bound, class_label=1, class_num=class_num)
-    up_trade_num, up_mean_return = compute_return(pre_prob, up_bound, y_test_reg, class_label=1, class_num=class_num)
+    # sample num == 0
+    if len(pre_prob) == 0:
+        summary = {
+            "weighted_return": np.nan,
+            "up_win_rate": np.nan,
+            "down_win_rate": np.nan,
+            "up_mean_ret": np.nan,
+            "down_mean_ret": np.nan,
+            "up_signal_rate": np.nan,
+            "down_signal_rate": np.nan,
+            'up_bound': np.nan,
+            "down_bound": np.nan,
+            "up_trade_num":  np.nan,
+            "down_trade_num": np.nan,
+            "zero_rate": np.nan,
+            "total_sample": np.nan,
+            "abs_ret": np.nan,
+            "avg_ret": np.nan,
+        }
+        # compute up accuracy
+        up_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[0], class_label=1, class_num=class_num)
+        # compute down accuracy
+        down_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[1], class_label=0, class_num=class_num)
+        summary['up_bound'], summary['down_bound'] = up_bound, down_bound
+        summary['total_sample'] = 0
 
-    # compute down accuracy
-    down_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[1], class_label=0, class_num=class_num)
-    down_win = compute_win_rate(pre_prob, y_test_reg, down_bound, class_label=0, class_num=class_num)
-    down_trade_num, down_mean_return = compute_return(pre_prob, down_bound, y_test_reg, class_label=0, class_num=class_num)
+    else:
+        if opt['mode'] == 'eval':
+            up_bound = threshold['up_bound'].values[0]
+            down_bound = threshold['down_bound'].values[0]
+        else:
+            up_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[0], class_label=1, class_num=class_num)
+            down_bound = compute_prob_bound(pre_prob_train, pct_num=pct_num[1], class_label=0, class_num=class_num)
 
-    zero_sample = len(y_test_reg[y_test_reg == 0])
+        # compute up accuracy
+        up_win = compute_win_rate(pre_prob, y_test_reg, up_bound, class_label=1, class_num=class_num)
+        up_trade_num, up_mean_return = compute_return(pre_prob, up_bound, y_test_reg, class_label=1, class_num=class_num)
 
-    summary = dict()
-    summary['weighted_return'] = 0
-    summary['up_win_rate'], summary['down_win_rate'] = up_win, down_win
-    summary['up_mean_ret'], summary['down_mean_ret'] = up_mean_return * 1e4, down_mean_return * 1e4
-    summary['up_signal_rate'] = up_trade_num / len(y_test_reg)
-    summary['down_signal_rate'] = down_trade_num / len(y_test_reg)
-    summary['up_bound'], summary['down_bound'] = up_bound, down_bound
-    summary['up_trade_num'], summary['down_trade_num'] = up_trade_num, down_trade_num
-    summary['weighted_return'] = summary['up_signal_rate'] * summary['up_mean_ret'] - summary['down_signal_rate'] * \
-                                 summary['down_mean_ret']
-    summary['zero_rate'] = zero_sample / len(y_test_reg)
-    summary['total_sample'] = len(y_test_reg)
-    summary['abs_ret'] = np.mean(np.abs(y_test_reg)) * 1e4
-    summary['avg_ret'] = np.mean(y_test_reg) * 1e4
+        # compute down accuracy
+        down_win = compute_win_rate(pre_prob, y_test_reg, down_bound, class_label=0, class_num=class_num)
+        down_trade_num, down_mean_return = compute_return(pre_prob, down_bound, y_test_reg, class_label=0, class_num=class_num)
+
+        zero_sample = len(y_test_reg[y_test_reg == 0])
+
+        summary = dict()
+        summary['weighted_return'] = 0
+        summary['up_win_rate'], summary['down_win_rate'] = up_win, down_win
+        summary['up_mean_ret'], summary['down_mean_ret'] = up_mean_return * 1e4, down_mean_return * 1e4
+        summary['up_signal_rate'] = up_trade_num / len(y_test_reg)
+        summary['down_signal_rate'] = down_trade_num / len(y_test_reg)
+        summary['up_bound'], summary['down_bound'] = up_bound, down_bound
+        summary['up_trade_num'], summary['down_trade_num'] = up_trade_num, down_trade_num
+        summary['weighted_return'] = summary['up_signal_rate'] * summary['up_mean_ret'] - summary['down_signal_rate'] * \
+                                     summary['down_mean_ret']
+        summary['zero_rate'] = zero_sample / len(y_test_reg)
+        summary['total_sample'] = len(y_test_reg)
+        summary['abs_ret'] = np.mean(np.abs(y_test_reg)) * 1e4
+        summary['avg_ret'] = np.mean(y_test_reg) * 1e4
 
     return summary
 
