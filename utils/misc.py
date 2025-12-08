@@ -25,6 +25,19 @@ def exists_results(opt, test_month, indus_type):
     else:
         return False
 
+
+def exists_results_low_price(opt, test_month, indus_type, bs_flag):
+    if opt.get('path') and opt.get('path').get('results_path'):
+        results_folder = opt.get('path').get('results_path')[test_month]
+        results_name = 'result_summary_{}_price_group_{}_{}.csv'.format(test_month, indus_type, bs_flag)
+        results_path = osp.join(results_folder, results_name)
+        if osp.exists(results_path):
+            return True
+        else:
+            return False
+    else:
+        return False
+
 def set_random_seed(seed):
     """Set random seeds."""
     random.seed(seed)
@@ -34,7 +47,7 @@ def set_random_seed(seed):
     # torch.cuda.manual_seed_all(seed)
 
 
-def ensure_path(path, remove=False):
+def ensure_path(path, ensure=True):
     """
     mkdir and check when there exists path
 
@@ -43,12 +56,19 @@ def ensure_path(path, remove=False):
         remove(bool): if exists, whether force to remove path
     """
     basename = os.path.basename(path).rstrip('/')
+    new_session_flag = False
     if os.path.exists(path):
-        if remove or input('{} exists, remove? (y/n)'.format(path)) == 'y':
-            shutil.rmtree(path)
-            os.makedirs(path)
+        if ensure:
+            input_content = input('{} exists, remove? (y/n)'.format(path))
+            if input_content == 'y':
+                new_session_flag = True
+                shutil.rmtree(path)
+                os.makedirs(path)
+        else:
+            pass
     else:
         os.makedirs(path)
+    return new_session_flag
 
 def ensure_table_name(database, table_name):
 
@@ -124,3 +144,28 @@ def scandir(dir_path, suffix=None, recursive=False, full_path=False):
                     continue
 
     return _scandir(dir_path, suffix=suffix, recursive=recursive)
+
+
+def deep_merge_with_log(opt, opt_manager, modified_keys=None, parent_key=''):
+    if modified_keys is None:
+        modified_keys = []
+
+    for key, value in opt_manager.items():
+        full_key = f"{parent_key}.{key}" if parent_key else key
+
+        if key in opt:
+            if isinstance(opt[key], dict) and isinstance(value, dict):
+                # 递归处理嵌套字典
+                deep_merge_with_log(opt[key], value, modified_keys, full_key)
+            elif opt[key] != value:
+                # 记录非字典类型的修改
+                modified_keys.append((full_key, opt[key], value))
+                opt[key] = value
+        # else:
+        #     # 记录新增的键
+        #     modified_keys.append((full_key, None, value))
+        #     opt[key] = value
+
+    return opt, modified_keys
+
+
