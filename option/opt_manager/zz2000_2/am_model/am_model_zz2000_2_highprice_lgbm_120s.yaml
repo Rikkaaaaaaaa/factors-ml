@@ -1,0 +1,55 @@
+base_name: am_model_zz2000_2_highprice_lgbm
+manual_seed: 2023
+n_jobs: 1
+eval_rt: false
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_table:
+    dfs://DDB_Factor_15s: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+  ret_table:
+    dfs://DDB_Returns: 'Returns_zz2000_2'
+  # read from dataset/factor_name.py
+  training_factor_name: [ 'ddb_base_factor', 'ddb_fok_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
+  std_factor_name: [ 'ddb_base_factor', 'ddb_slope_std_factor', 'ddb_gp_factor']
+  clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
+  log_factor_name: [ 'log_factor' ]
+  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+
+  # data preprocessing options
+  type: 'FactorDataset'
+  test_month:  [202511]
+  training_month_num: 6
+  io_backend: ddb # disk
+  pool_name: 'zz2000_2'
+  indus_table_suffix: ''
+  indus_class: group_id
+  avg_price: 10
+  price_name: highprice
+  ret_name: 120s
+  std_type: default # trainingset std
+  drop_null_in_training: false
+  alpha: 0.0005
+  class_num: 2
+  balance: default
+  trading_hours:
+    am_start_time: 93000
+    am_end_time: 113000
+    pm_start_time: 145715
+    pm_end_time: 145700
+
+
+model:
+  type: 'LgbmModel'
+  n_cpus: 8
+
+train:
+  num_epoch: 200
+  save_proba: true
+test:
+  bound_mode: by_ticker # indus/ticker
+  threshold_pct: 20
+
+
+

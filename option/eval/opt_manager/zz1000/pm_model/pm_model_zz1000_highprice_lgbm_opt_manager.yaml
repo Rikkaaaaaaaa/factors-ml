@@ -1,0 +1,18 @@
+base_name: pm_model_zz1000_highprice_lgbm
+manual_seed: 2023
+n_jobs: 4
+mode: eval
+ret_names: [15s, 60s, 120s, 300s]
+test_month: [202512]
+dataset:
+  training_month_num: 6
+  io_backend: ddb # disk
+  pool_name: 'zz1000'
+  indus_table_suffix: ''
+  indus_class: group_id
+  avg_price: 10
+  price_name: highprice
+
+
+
+
