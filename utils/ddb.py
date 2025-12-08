@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import time
 import dolphindb.settings as keys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 log_factor_name = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
                   'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
@@ -33,7 +35,7 @@ def preprocess(factor):
     return factor
 
 DDB_config = { "server": "10.95.145.91",
-               "port": 8994,
+               "port": 8993,
                "userName": "quantStrat",
                "userKey": "eqalgo_2024"
             }
@@ -47,6 +49,7 @@ class DDB_connector():
             DDB_config["userKey"],
             keepAliveTime=12000,
             protocol=keys.PROTOCOL_DDB,
+            compress=True
         )
         self.ddb_session.setTimeout(3600)
 
@@ -100,6 +103,18 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
 
     # print(f'load date time: {time.time() - start_time}')
     return factor
+
+def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, trading_hours=None):
+    n_jobs = 8
+    with ThreadPoolExecutor(max_workers=min(len(tickers), n_jobs)) as executor:
+        results = list(
+            executor.map(
+                lambda ticker: read_ddb_factor(data_base, table_name, test_month, [ticker], trading_hours), tickers
+            )
+        )
+    factors = pd.concat([r for r in results])
+    return factors
+
 
 
 def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, trading_hours=None):
