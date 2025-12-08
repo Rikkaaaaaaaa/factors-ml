@@ -1,6 +1,7 @@
 import multiprocessing as mp
 import os.path as osp
 import logging
+import argparse
 
 from dataset.sql_ops import check_indus
 from dataset import build_dataset
@@ -80,8 +81,13 @@ def main(opt):
 
 
 if __name__ == '__main__':
-    root_path = './'
-    opt, args = parse_options(root_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-root_path', type=str, default='./', help='Root path of project.')
+    parser.add_argument('-option', type=str, default='option/hs300/20251105/20251105_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+    args = parser.parse_args()
+    opt = parse_options(args)
     main(opt)
 
 
