@@ -79,7 +79,6 @@ def push_realtime_files(config):
 
                     # compute and save threshold_pct to csv
                     elif folder == 'train_signal':
-
                         output_path = osp.join(dst, 'threshold_pct.csv')
                         save_threshold_pct(src, output_path)
                         print(f"[Processing threshold pct] Threshold_pct has been computed and saved at {output_path}")
@@ -106,6 +105,7 @@ def push_realtime_files(config):
     print(f"[Processing static data] Static data in MySQL have been saved at {save_path}")
 
     print(f"Suscessfully package all model files in {test_month} to {output_folder_name}")
+
 def get_factor_name_from_15s(exp_name):
     # get factor list of 15s
     from utils.option import yaml_load
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_folder_name', type=str, default='lgbm_data')
     # low price
     parser.add_argument('--exp_name_low_price', type=str, default="low_price_zz500_rt", help="experiment name low price")
-    parser.add_argument('--output_folder_name-low_price', type=str, default='logit_data')
+    parser.add_argument('--output_folder_name_low_price', type=str, default='logit_data')
 
     config = parser.parse_args()
     push_realtime_files(config)
