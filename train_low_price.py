@@ -2,6 +2,7 @@ import multiprocessing
 import multiprocessing as mp
 import os.path as osp
 import logging
+import argparse
 
 from dataset.sql_ops import check_price_group
 from dataset import build_dataset
@@ -11,7 +12,7 @@ from backtester import BackTesterLowPrice
 from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, dict2str
 from utils.publish import save_report_disk, push_signal_sql
-from utils.misc import Timer, time_str, get_time_str, exists_results, ensure_path
+from utils.misc import Timer, time_str, get_time_str, exists_results_low_price, ensure_path
 from pathlib import Path
 import os
 import pandas as pd
@@ -52,7 +53,7 @@ def merge_data(factor_data, fill_flag_data):
 
 
 def train_pipeline(train_args):
-    opt, test_month, indus_type = train_args
+    opt, test_month, indus_type, bs_flag_list = train_args
     # logger init
     logger_name = f"month{test_month}_price_group_{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
@@ -75,7 +76,7 @@ def train_pipeline(train_args):
         logger.info(f"{test_month}: factor name saved")
 
     # for bs_flag in ["b", "s"]
-    bs_flag_list = opt["bs_flag_list"]
+    # bs_flag_list = opt["bs_flag_list"]    # 20251106 update: if not new session, only run bs_flag with no result
     for bs_flag in bs_flag_list:
         fill_flag_train, fill_flag_test = dataset.load_fill_flag_data("1", bs_flag)
         x_train, y_train, merge_key_train = merge_data(factor_train_data, fill_flag_train)
@@ -102,7 +103,7 @@ def init_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         # delete current data in signal table
-        if (not opt["is_realtime"]) & (opt["save_signal"]["save_signal_to_sql"]):
+        if (not opt["is_realtime"]) & (opt["save_signal"]["save_signal_to_sql"]) & opt['new_session_flag']:
             signal_table = opt["save_signal"]["sql_table_name"]
             drop_signal_table(signal_table, test_month)
 
@@ -112,8 +113,16 @@ def init_args(opt):
             f"Loading price_group by [{opt['dataset']['indus_class']}] from table [static_data_price_{opt['dataset']['pool_name']}_history] + [{opt['dataset']['indus_table_suffix']}]]")
         print(f"Including group id: {industry}")
         for indus_type in industry:
-            if not exists_results(opt, test_month, indus_type):
-                args.append((opt, test_month, indus_type))
+            bs_flag_list = opt["bs_flag_list"]
+            bs_flag_list_to_train = []
+            for bs_flag in bs_flag_list:
+                if not exists_results_low_price(opt, test_month, indus_type, bs_flag):
+                    bs_flag_list_to_train.append(bs_flag)
+            if len(bs_flag_list_to_train) != 0:
+                args.append((opt, test_month, indus_type, bs_flag_list_to_train))
+    print("month and bs_flag to train:")
+    for arg in args:
+        print(arg[1], arg[2], arg[3])
     return args
 
 
@@ -131,7 +140,7 @@ def main(opt):
     # multi pricess
     manager = multiprocessing.Manager()
     dataset_lock = manager.Lock()
-    process_num = 4
+    process_num = 2
     main_pool = multiprocessing.Pool(processes=process_num, initializer=init_lock, initargs=(dataset_lock,), maxtasksperchild=1)
     main_pool.map(train_pipeline, args, chunksize=1)
     main_pool.close()
@@ -149,8 +158,16 @@ def main(opt):
 
 if __name__ == '__main__':
     root_path = str(Path(__file__).resolve().parents[0])
-    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_other_selected_10pct_20pct.yaml')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-root_path', type=str, default=root_path, help='Root path of project.')
+    parser.add_argument('-option', type=str, default='option/hs300/20251105/20251105_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+    args = parser.parse_args()
+    # opt = parse_options(args, ensure=True, yaml_path='option/low_price/low_price_zz2000_10pct_20pct.yaml')
+    opt = parse_options(args, ensure=True)
     main(opt)
+
 
 
 
