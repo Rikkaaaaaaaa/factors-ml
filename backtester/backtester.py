@@ -5,6 +5,7 @@ from tqdm import tqdm
 import traceback
 
 from utils.logger import get_root_logger
+from utils import list2str
 from metric.base_metric import compute_metric, compute_realtime_metric
 
 class BackTester():
@@ -18,17 +19,89 @@ class BackTester():
         indus_type(int): one of the indus_class
 
         """
-    def __init__(self, opt, test_month, indus_type):
+    def __init__(self, opt, test_month, indus_type, logger_name=None):
         self.opt = opt
         self.test_month = test_month
         self.indus_type = indus_type
         self.task_type = self.opt['dataset'].setdefault('task_type', 'classification')
-        self.is_realtime = self.opt['is_realtime']
+        self.mode = opt['mode']
         # logging file
-        logger_name = f"month{test_month}_indus{indus_type}"
-        self.logger = get_root_logger(logger_name=logger_name)
-        self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Backtester init successfully')
+        self.logger_name = logger_name
+        if self.logger_name is None:
+            self.logger_name = f"month{test_month}_indus{indus_type}"
+        self.logger = get_root_logger(logger_name=self.logger_name)
+        self.logger.info(f'[{self.logger_name}] Backtester init successfully')
 
+
+    def backtest_eval(self, factor_data, model):
+        '''
+            backtest data and save results. bound values and signals
+        '''
+        if hasattr(factor_data, 'selected_factor_name'):
+            backtest_factor_name = factor_data.selected_factor_name
+        else:
+            backtest_factor_name = factor_data.training_factor_name
+
+        # adjust ticker list
+        test_tickers = set(factor_data.test_data["ticker"].unique())
+        train_tickers = set(factor_data.tickers)
+        if self.mode == 'eval':
+            self.tickers = list(test_tickers & train_tickers)
+            if len(test_tickers) > len(self.tickers):
+                missing_tickers = list(set(test_tickers) - set(self.tickers))
+                self.logger.info(f"[{self.logger_name}]There are missing tickers {list2str(missing_tickers)} in train_data")
+        elif self.mode == 'rt':
+            self.tickers = train_tickers
+        else:
+            # train
+            self.tickers = train_tickers
+
+        # read bound values from csv
+        inference_folder = self.opt['path']['pretrain_inference_path'][self.test_month]
+        bound_name = 'bound_indus{}.csv'.format(self.indus_type)
+        bound_path = osp.join(inference_folder, bound_name)
+        self.threshold = pd.read_csv(bound_path)
+
+        # bound_mode = 'by_ticker'
+        tbar = tqdm(self.tickers, leave=False)
+        for ticker in tbar:
+            try:
+                self._ticker = ticker
+                tbar.set_description(f"[{self.logger_name}] Backtesing ticker {ticker}")
+                # load train data
+                if self.opt['dataset'].get('balance') == 'reverse':
+                    ticker_data_query = 'ticker==@ticker and augment==0'
+                else:
+                    ticker_data_query = 'ticker==@ticker'
+
+                test_data = factor_data.test_data.query('ticker==@ticker')
+                x_test = test_data[backtest_factor_name]
+                # test ret time date ticker used for signal record
+                self._test_ret = test_data['ret']
+                self._test_time = test_data['time']
+                self._test_date = test_data['date']
+                self._pre_proba = model.predict(x_test)
+
+                # compute null idx in test data
+                self.factor_null_idx = np.isnan(test_data[list(backtest_factor_name)].values).all(axis=1)  # facor is all nan
+                self.ret_null_idx = np.isnan(test_data['ret'].values)  # del return nan
+                self._null_idx = self.factor_null_idx + self.ret_null_idx
+
+                # compute metric
+                self.compute_metrics()
+
+                # compute signal
+                if len(self._pre_proba) != 0:
+                    self.compute_signal()
+
+            except Exception as e:
+                # traceback.print_exc()
+                self.logger.info(f'[{self.logger_name}] Error backtesting evaluation in {ticker}', e,exc_info=True)
+
+        # save result and bound both in RT and BT
+        self.save_results()
+        self.save_signals()
+        self.logger.info(f"[{self.logger_name}] Backtesting evaluation finish with {len(self.tickers)} tickers")
 
     def backtest(self, factor_data, model):
         '''
@@ -39,12 +112,29 @@ class BackTester():
         else:
             backtest_factor_name = factor_data.training_factor_name
 
-        # get ticker list
-        if self.is_realtime:
-            self.tickers = factor_data.tickers
+        # # get ticker list
+        # if  self.mode == 'rt':
+        #     self.tickers = factor_data.tickers
+        # else:
+        #     # Some tickers may be not consistent with static data, such as realtime data whose tickers are not incomplete
+        #     self.tickers = factor_data.test_data["ticker"].unique()
+
+        # adjust ticker list
+        test_tickers = set(factor_data.test_data["ticker"].unique())
+        train_tickers = set(factor_data.tickers)
+        if self.mode == 'eval':
+            self.tickers = list(test_tickers & train_tickers)
+            if len(test_tickers) > len(self.tickers):
+                missing_tickers = list(set(test_tickers) - set(self.tickers))
+                self.logger.info(f"[{self.logger_name}]There are missing tickers {list2str(missing_tickers)} in train_data")
+        elif self.mode == 'rt':
+            self.tickers = train_tickers
         else:
-            # Some tickers may be not consistent with static data, such as realtime data whose tickers are not incomplete
-            self.tickers = factor_data.test_data["ticker"].unique()
+            # train
+            self.tickers = train_tickers
+
+        self.tickers = list(self.tickers)
+        self.logger.info(f'[{self.logger_name}] Backtesting ticker num is {len(self.tickers)}')
 
         # bound_mode = 'by_indus'
         if self.opt['test']['bound_mode'] == 'by_indus':
@@ -57,7 +147,7 @@ class BackTester():
         for ticker in tbar:
             try:
                 self._ticker = ticker
-                tbar.set_description(f"{self.test_month}_indus_{self.indus_type}: Backtesing ticker {ticker}")
+                tbar.set_description(f"[{self.logger_name}] Backtesing ticker {ticker}")
                 # load train data
                 if self.opt['dataset'].get('balance') == 'reverse':
                     ticker_data_query = 'ticker==@ticker and augment==0'
@@ -80,7 +170,11 @@ class BackTester():
                     # self.train_proba = np.concatenate((self.train_proba, filtered_train_proba)
 
                 # BT mode: run inference
-                if not self.is_realtime:
+                test_data = factor_data.test_data.query('ticker==@ticker')
+                if len(test_data) == 0 or self.mode == 'rt':
+                    self.compute_bound_only = True
+                else:
+                    self.compute_bound_only = False
                     test_data = factor_data.test_data.query('ticker==@ticker')
                     x_test = test_data[backtest_factor_name]
                     # test ret time date ticker used for signal record
@@ -90,12 +184,10 @@ class BackTester():
                     self._pre_proba = model.predict(x_test)
 
                     # compute null idx in test data
-                    # self._null_idx = np.isnan(test_data[list(backtest_factor_name) + ['ret']].values).any(axis=1)
                     #self._null_idx = np.isnan(test_data[list(backtest_factor_name) + ['ret']].values).all(axis=1) # del all nan
-                    factor_null_idx = np.isnan(test_data[list(backtest_factor_name)].values).all(axis=1) # facor is all nan
-                    ret_null_idx = np.isnan(test_data['ret'].values) # del return nan
-                    # self._null_idx = factor_null_idx + ret_null_idx
-                    self._null_idx = ret_null_idx
+                    self.factor_null_idx = np.isnan(test_data[list(backtest_factor_name)].values).all(axis=1) # facor is all nan
+                    self.ret_null_idx = np.isnan(test_data['ret'].values) # del return nan
+                    self._null_idx = self.factor_null_idx + self.ret_null_idx
                     #self._null_idx = np.isnan(test_data[backtest_factor_name].values).any(axis=1) # factor nan
 
                 # compute metric
@@ -105,24 +197,21 @@ class BackTester():
                 # RT mode: append train proba into self.train_proba
                 # BT mode: append train proba into self.train_proba and signal dataframe into self.signals
                 self.compute_train_signal()
-                if not self.is_realtime:
+                if (self.mode != 'rt') and len(self._pre_proba)!=0:
                     self.compute_signal()
 
             except Exception as e:
-                traceback.print_exc()
-                self.logger.info(f'{self.test_month}_indus_{self.indus_type}: Error backtesting in {ticker}', e)
+                #traceback.print_exc()
+                self.logger.error(f'[{self.logger_name}] Error backtesting in {ticker}', e, exc_info=True)
 
         # save result and bound both in RT and BT
         self.save_results()
         self.save_bound()
         self.save_train_proba()
         # BT mode: save train and test signals
-        if not self.is_realtime:
+        if self.mode != 'rt':
             self.save_signals()
-        self.logger.info(f"{self.test_month}_indus_{self.indus_type}: Backtesting finish with {len(self.tickers)} tickers")
-
-
-
+        self.logger.info(f"[{self.logger_name}] Backtesting finish with {len(self.tickers)} tickers")
 
     def compute_metrics(self):
         '''
@@ -133,10 +222,18 @@ class BackTester():
             self.results = []  # results summary
 
         # compute bound and performance metrics
-        if self.is_realtime:
+        if  self.mode == 'rt':
+            self._metric = compute_realtime_metric(self.opt, self.train_proba)
+        elif self.mode == 'eval':
+            self._metric = compute_metric(self.opt,
+                                          self._pre_proba[~self._null_idx],
+                                          np.zeros_like(self._pre_proba),
+                                          self._test_ret[~self._null_idx],
+                                          self.threshold.query("ticker==@self._ticker")
+            )
+        elif self.mode == 'train' and self.compute_bound_only:
             self._metric = compute_realtime_metric(self.opt, self.train_proba)
         else:
-            # filter null data
             self._metric = compute_metric(self.opt, self._pre_proba[~self._null_idx], self.train_proba, self._test_ret[~self._null_idx])
             # self._metric = compute_metric(self.opt, self._pre_proba, self.train_proba, self._test_ret)
         self.results.append(list(self._metric.values()))
@@ -197,7 +294,7 @@ class BackTester():
         signal_array[signal['proba'] > self._metric['up_bound']] = 1
         signal_array[1 - signal['proba'] > self._metric['down_bound']] = -1
         # set signal to nan when null factor
-        # signal_array[self._null_idx] = 0
+        signal_array[self.factor_null_idx] = 0
         signal['signal'] = signal_array
         #signal['ret'] = self._test_ret.values
 

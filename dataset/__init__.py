@@ -17,7 +17,7 @@ dataset_filenames = [osp.splitext(osp.basename(v))[0] for v in scandir(data_fold
 _dataset_modules = [importlib.import_module(f'dataset.{file_name}') for file_name in dataset_filenames]
 
 
-def build_dataset(opt, test_month, indus_type):
+def build_dataset(opt, test_month, indus_type, logger_name=None):
     """Build dataset from options.
 
     Args:
@@ -26,9 +26,10 @@ def build_dataset(opt, test_month, indus_type):
             type (str): Dataset type.
     """
     #dataset_opt = deepcopy(dataset_opt)
-    dataset = DATASET_REGISTRY.get(opt['dataset']['type'])(opt, test_month, indus_type)
-    logger_name = f"month{test_month}_indus{indus_type}"
+    dataset = DATASET_REGISTRY.get(opt['dataset']['type'])(opt, test_month, indus_type, logger_name)
+    if logger_name is None:
+        logger_name = f"month{test_month}_indus{indus_type}"
     logger = get_root_logger(logger_name)
-    logger.info(f'{test_month}_indus_{indus_type}: Dataset [{dataset.__class__.__name__}] is built.')
+    logger.info(f'[{logger_name}] Dataset [{dataset.__class__.__name__}] is built.')
     return dataset
 
