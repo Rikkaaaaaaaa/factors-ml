@@ -245,15 +245,15 @@ def upload_signal_from_experiments_by_period():
         push_single_signal_sql(merge_signal, upload_month=[month], table_name=table_name, database=database)
 
 def upload_signal_from_experiments():
-    upload_month = [202501, 202502, 202503, 202504, 202505, 202506]
+    upload_month = [202507]
     print("Uploading signal month is ", upload_month)
     # upload_month = [202404]
     # table name
     # expr_name = 'ddb_null_factor_no_reverse'#'ddb_null_factor_no_re_all_new_6m'
     # table_suffix = 'ddb_null_factor_no_re'
-    expr_name = 'ddb_null_factor_no_reverse'
-    table_suffix = 'batch3_no_re'
-    pool_name = 'zz500'
+    expr_name = 'bond_etf_null_factor_no_reverse_with_930_940'
+    table_suffix = 'bond_etf_6m_930_new'
+    pool_name = 'bond_etf'
     price_level = 'highprice'
     model_type = 'lgbm'
     database = 'strategy'
