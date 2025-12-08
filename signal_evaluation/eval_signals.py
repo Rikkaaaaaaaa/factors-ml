@@ -326,7 +326,7 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
 
 
 if __name__ == "__main__":
-    months = [202509]
+    months = [202507]
     ret_windows = ['15s', '60s', '120s', '300s']
     # use eval function to treat signal files in experiments folder
 
@@ -404,6 +404,12 @@ if __name__ == "__main__":
     signal_path = '[f"../experiments/{expr_name_am}_{ret_window}/{month}/signal", f"../experiments/{expr_name_pm}_{ret_window}/{month}/signal" ]'
     time_ranges = [(93000, 113000), (130000, 145700)]
 
+
+    result_name = 'pm_hs300_highprice_lgbm'
+    expr_name_pm = 'pm_loop_hs300_highprice_lgbm'
+    signal_path ='f"../experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal"'
+    time_ranges = None
+
     # signal time filter
     trading_hours = {
         "am_start_time": 93000,
@@ -412,8 +418,8 @@ if __name__ == "__main__":
         "pm_end_time": 145700
     }
     #trading_hours = None
-
-    n_jobs = 16
+    # time_ranges can
+    n_jobs = 1
     params = [(result_name,
                eval(signal_path),
                month, ret_window, time_ranges, trading_hours)
