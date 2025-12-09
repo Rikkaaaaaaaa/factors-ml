@@ -85,8 +85,12 @@ class GenDatasetLowPrice:
         test_data = self.load_data_from_sql([ticker], self.test_month_new, self.pool_name)
         return train_data, test_data
 
+    def load_factor_data_by_ticker_test_only(self, ticker):
+        test_data = self.load_data_from_sql([ticker], self.test_month_new, self.pool_name)
+        return test_data
+
     def load_factor_data(self):
-        print(f'start loading factor data for price_group {self.indus_type}...')
+        self.logger.info(f'start loading factor data for price_group {self.indus_type}...')
         start_time = time.time()
 
         # Ingest Ticker List
@@ -124,7 +128,7 @@ class GenDatasetLowPrice:
 
         # transforming data, including std, clip, save params by ticker
         self.transform(self.ticker_list, train_data, test_data)
-        print(f'load factor data time for price_group {self.indus_type}: {time.time() - start_time}')
+        self.logger.info(f'load factor data time for price_group {self.indus_type}: {time.time() - start_time}')
         return self.train_data, self.test_data
 
     @staticmethod
@@ -133,7 +137,7 @@ class GenDatasetLowPrice:
         return fill_flag_data
 
     def load_fill_flag_data(self, tick_ahead, bs_flag):
-        print(f'start loading fill_flag for price_group {self.indus_type}, bs_flag {bs_flag}...')
+        self.logger.info(f'start loading fill_flag for price_group {self.indus_type}, bs_flag {bs_flag}...')
         start_time = time.time()
         # with multiprocessing.Pool(processes=min(len(self.ticker_list), 10)) as pool:
         #     results = pool.starmap(self.load_fill_flag_by_ticker,
@@ -166,8 +170,26 @@ class GenDatasetLowPrice:
             ))
         fill_flag_data_test = pd.concat(results)
 
-        print(f'load fill_flag time for price group {self.indus_type}, bs_flag {bs_flag}: {time.time() - start_time}')
+        self.logger.info(f'load fill_flag time for price group {self.indus_type}, bs_flag {bs_flag}: {time.time() - start_time}')
         return fill_flag_data_train, fill_flag_data_test
+
+    def load_fill_flag_data_test_only(self, tick_ahead, bs_flag):
+        self.logger.info(f'start loading fill_flag for price_group {self.indus_type}, bs_flag {bs_flag}...')
+        start_time = time.time()
+
+        n_jobs = self.opt['n_jobs_read_data']
+
+        args_list_test = [(ticker, self.pool_name, self.test_month_new,
+                           self.test_month_new, tick_ahead, bs_flag) for ticker in self.ticker_list]
+        with ThreadPoolExecutor(max_workers=min(len(self.ticker_list), n_jobs)) as executor:
+            results = list(executor.map(
+                lambda args: self.load_fill_flag_by_ticker(*args),
+                args_list_test
+            ))
+        fill_flag_data_test = pd.concat(results)
+
+        self.logger.info(f'load fill_flag time for price group {self.indus_type}, bs_flag {bs_flag}: {time.time() - start_time}')
+        return fill_flag_data_test
 
     def load_ticker_list(self):
         # fetch ticker list from mysql table
@@ -224,6 +246,8 @@ class GenDatasetLowPrice:
                     i += 1
 
             # merge factors and labels by ticker, date, time
+            if len(data) == 0:     # 20251102 bug fix: exception handler for stocks with no data in a month
+                return pd.DataFrame()
             data = data[['ticker', 'date', "time"] + self.training_factor_name]
 
             # check missing tickers between return and factors
@@ -260,18 +284,18 @@ class GenDatasetLowPrice:
 
 
     def transform(self, ticker_list, train_data, test_data=None):
-        self.train_data = train_data.reset_index(drop=True)
-        self.test_data = test_data.reset_index(drop=True)
+        self.train_data_list = []
+        self.test_data_list = []
         self.std_params = []
         self.clip_params = []
 
         for ticker in ticker_list:
-
+            # print(ticker)
+            _train_data = train_data[train_data['ticker'] == ticker]
+            _test_data = test_data[test_data['ticker'] == ticker]
             # data clip
             if len(self.clip_factor_name) > 0:
                 # split data to train_x and test_x
-                _train_data = self.train_data.query('ticker==@ticker')
-                _test_data = self.test_data.query('ticker==@ticker')
                 train_x = _train_data[self.clip_factor_name]
                 test_x = _test_data[self.clip_factor_name]
                 # clip type
@@ -290,13 +314,14 @@ class GenDatasetLowPrice:
                         factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
                         factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
                 else:
-                    # fefault 5%~95%
+                    # default 5%~95%
                     factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
                     factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
+
                 train_x = np.clip(train_x, factor_min, factor_max)
                 test_x = np.clip(test_x, factor_min, factor_max)
-                self.train_data.loc[_train_data.index, self.clip_factor_name] = train_x
-                self.test_data.loc[_test_data.index, self.clip_factor_name] = test_x
+                _train_data.loc[:, self.clip_factor_name] = train_x.values
+                _test_data.loc[:, self.clip_factor_name] = test_x.values
                 # save transform params
                 clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])
                 clip_param['factor_name'] = self.clip_factor_name
@@ -307,8 +332,6 @@ class GenDatasetLowPrice:
 
             # data std
             if len(self.std_factor_name) > 0:
-                _train_data = self.train_data.query('ticker==@ticker')
-                _test_data = self.test_data.query('ticker==@ticker')
                 # split data to train_x and test_x
                 train_x = _train_data[self.std_factor_name]
                 test_x = _test_data[self.std_factor_name]
@@ -318,8 +341,8 @@ class GenDatasetLowPrice:
                 factor_std = np.std(train_x, axis=0).values
                 train_x = (train_x - factor_mean) / factor_std
                 test_x = (test_x - factor_mean) / factor_std
-                self.train_data.loc[_train_data.index, self.std_factor_name] = train_x.values
-                self.test_data.loc[_test_data.index, self.std_factor_name] = test_x.values
+                _train_data.loc[:, self.std_factor_name] = train_x.values
+                _test_data.loc[:, self.std_factor_name] = test_x.values
                 # save transform params
                 std_param['factor_name'] = self.std_factor_name
                 std_param['mean'] = factor_mean
@@ -327,6 +350,11 @@ class GenDatasetLowPrice:
                 std_param.insert(0, 'ticker', ticker)
                 self.std_params.append(std_param)
 
+            self.train_data_list.append(_train_data)
+            self.test_data_list.append(_test_data)
+
+        self.train_data = pd.concat(self.train_data_list)
+        self.test_data = pd.concat(self.test_data_list)
 
         # save preprocess params
         save_folder = self.opt['path']['preprocess_path'][self.test_month]
@@ -345,6 +373,72 @@ class GenDatasetLowPrice:
         check_ticker_month = self.training_month + [self.test_month]
         return check_ticker_month
 
+    def transform_test_only(self, ticker_list, test_data):
+        save_folder = self.opt['path']['preprocess_path'][self.test_month]
+        # std
+        std_path = osp.join(save_folder, f"std_params_price_group_{self.indus_type}.csv")
+        std_params = pd.read_csv(std_path)
+        # clip
+        clip_path = osp.join(save_folder, f"clip_params_price_group_{self.indus_type}.csv")
+        clip_params = pd.read_csv(clip_path)
+
+        test_data_list = []
+        for ticker in ticker_list:
+            _test_data = test_data[test_data['ticker'] == ticker]
+            # data clip
+            if len(self.clip_factor_name) > 0:
+                test_x = _test_data[self.clip_factor_name]
+                temp_clip_params = clip_params[clip_params['ticker'] == ticker]
+                factor_min = np.array(temp_clip_params['min'])
+                factor_max = np.array(temp_clip_params['max'])
+
+                test_x = np.clip(test_x, factor_min, factor_max)
+                _test_data.loc[:, self.clip_factor_name] = test_x.values
+
+            # data std
+            if len(self.std_factor_name) > 0:
+                test_x = _test_data[self.std_factor_name]
+                temp_std_params = std_params[std_params['ticker'] == ticker]
+                factor_mean = np.array(temp_std_params['mean'])
+                factor_std = np.array(temp_std_params['std'])
+
+                test_x = (test_x - factor_mean) / factor_std
+                _test_data.loc[:, self.std_factor_name] = test_x.values
+
+            test_data_list.append(_test_data)
+
+        test_data = pd.concat(test_data_list)
+        return test_data
+
+    def load_factor_data_test_only(self):
+        self.logger.info(f'start loading factor data for price_group {self.indus_type}...')
+        start_time = time.time()
+
+        # Ingest Ticker List
+        # read tickers from mysql
+        if self.ticker_list == 0: # no ticker, return None
+            self.is_empty = True
+            return
+
+        # load factor data (multiprocessing)
+        n_jobs = self.opt['n_jobs_read_data']
+        # with multiprocessing.Pool(processes=min(len(self.ticker_list), n_jobs)) as pool:
+        #     results = pool.starmap(self.load_factor_data_by_ticker,
+        #                            [(ticker,) for ticker in self.ticker_list])
+        with ThreadPoolExecutor(max_workers=min(len(self.ticker_list), n_jobs)) as executor:
+            results = list(executor.map(
+                lambda ticker: self.load_factor_data_by_ticker_test_only(ticker),
+                self.ticker_list
+            ))
+
+        test_data = pd.concat(results)
+
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}: Finish loading factor")
+
+        # transforming data, including std, clip, save params by ticker
+        test_data = self.transform_test_only(self.ticker_list, test_data)
+        self.logger.info(f'load factor data time for price_group {self.indus_type}: {time.time() - start_time}')
+        return test_data
 
 
 if __name__ == '__main__':
@@ -352,7 +446,11 @@ if __name__ == '__main__':
     from pathlib import Path
 
     root_path = str(Path(__file__).resolve().parents[1])
-    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price.yaml')
+    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_hs300_10pct_20pct.yaml')
+    # dataset = GenDatasetLowPrice(opt, 202507, 1)
+    # factor_train_data, factor_test_data = dataset.load_factor_data()
+    # fill_flag_train, fill_flag_test = dataset.load_fill_flag_data("1", "b")
+
     dataset = GenDatasetLowPrice(opt, 202507, 1)
-    factor_train_data, factor_test_data = dataset.load_factor_data()
-    fill_flag_train, fill_flag_test = dataset.load_fill_flag_data("1", "b")
+    factor_test_data = dataset.load_factor_data_test_only()
+    fill_flag_test = dataset.load_fill_flag_data_test_only("1", "b")

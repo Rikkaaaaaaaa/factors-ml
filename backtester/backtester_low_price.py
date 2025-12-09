@@ -9,6 +9,9 @@ import traceback
 from utils.logger import get_root_logger
 from utils import mysql_strategy
 import sqlalchemy
+from dataset.sql_ops import check_price_group
+from dataset import build_dataset
+import time
 
 
 class BackTesterLowPrice():
@@ -150,17 +153,25 @@ class BackTesterLowPrice():
                     vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
                                           np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
                 else:
-                    vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
+                    vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
                                           np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
             else:
                 vol_signal_num = self.opt['save_signal']['vol_signal_num']
                 # test version: volume signal: 20/0.5/-1
                 if bs_flag == 'b':
-                    vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]) & (temp_y_pred < benchmark_dict[ticker][1]), vol_signal_num,
-                                          np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+                    if ('up_bound' in self.opt['save_signal'].keys()) and (not self.opt['save_signal']['up_bound']):
+                        vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]), vol_signal_num,
+                            np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+                    else:
+                        vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]) & (temp_y_pred < benchmark_dict[ticker][1]), vol_signal_num,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
                 else:
-                    vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]) & (temp_y_pred < benchmark_dict[ticker][1]), -vol_signal_num,
-                                          np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
+                    if ('up_bound' in self.opt['save_signal'].keys()) and (not self.opt['save_signal']['up_bound']):
+                        vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]), -vol_signal_num,
+                            np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
+                    else:
+                        vol_signal = np.where((temp_y_pred > benchmark_dict[ticker][2]) & (temp_y_pred < benchmark_dict[ticker][1]), -vol_signal_num,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
 
             temp_pred_data = temp_pred_data.copy()
             temp_pred_data.loc[:, 'vol_signal'] = list(vol_signal)
@@ -201,6 +212,24 @@ class BackTesterLowPrice():
 
         self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: Backtest finish")
 
+    def backtest_test_only(self, factor_data, model, bs_flag):
+        '''
+        backtest data and save results. bound values and signals
+        '''
+
+        inference_folder = osp.join(self.opt['path']['inference_path'][self.test_month], bs_flag)
+        bound_name = 'benchmark_price_group_{}.csv'.format(self.indus_type)
+        bound_path = osp.join(inference_folder, bound_name)
+        benchmark_df = pd.read_csv(bound_path)
+        benchmark_dict = benchmark_df.set_index('ticker').apply(list, axis=1).to_dict()
+        self.calc_volume_signal(model, factor_data, benchmark_dict, bs_flag)
+
+        self.save_result_summary(bs_flag)
+        if (not self.is_realtime) & (self.opt["save_signal"]["save_signal_to_sql"]):
+            self.save_signal_to_sql(bs_flag)
+
+        self.logger.info(f"{self.test_month}_price_group_{self.indus_type}_{bs_flag}: Backtest finish")
+
     def save_result_summary(self, bs_flag):
         '''
         save summary to backtesting results for all tickers
@@ -232,13 +261,15 @@ class BackTesterLowPrice():
 
 
 def result_to_sql(database, order_prediction, pd_engine, result_table_name):
+    # eq-algo-v4: need to make sure the signal column name is the same with high price signal column name
+    order_prediction = order_prediction.rename(columns={'vol_signal': 'merge_signal'})
     order_prediction.to_sql(result_table_name, con=pd_engine, index=False, if_exists='append', chunksize=10000,
                             dtype={'ticker': sqlalchemy.types.VARCHAR(length=10),
                                    'date': sqlalchemy.types.BIGINT, 'time': sqlalchemy.types.BIGINT,
                                    'bs_flag': sqlalchemy.types.VARCHAR(length=1),
                                    'y_pred': sqlalchemy.types.DOUBLE,
                                    'y_test': sqlalchemy.types.DOUBLE,
-                                   'vol_signal': sqlalchemy.types.DOUBLE
+                                   'merge_signal': sqlalchemy.types.DOUBLE
                                    })
     # create index
     mysql_strategy.create_index(database, result_table_name, ['ticker', 'date', 'time', 'bs_flag'])
@@ -270,4 +301,16 @@ def predict_rt_function(x_test, opt, test_month, indus_type, bs_flag):
     # predict
     y_pred = predict_proba(params, factor_array)
     return y_pred
+
+
+if __name__ == '__main__':
+    from utils.option import parse_options
+    from pathlib import Path
+
+    root_path = str(Path(__file__).resolve().parents[1])
+    opt, args = parse_options(root_path, ensure=True, yaml_path='option/low_price/low_price_hs300_10pct_20pct.yaml')
+
+    # # backtesting or record inference_bound
+    # backtester = BackTesterLowPrice(opt, test_month, indus_type)
+    # backtester.backtest(dataset_train_test, model, bs_flag)
 

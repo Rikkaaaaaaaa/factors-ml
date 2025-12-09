@@ -22,7 +22,7 @@ dataset:
 
   # data preprocessing options
   type: 'GenDatasetLowPrice'
-  test_month: [202508]
+  test_month: [202512]
   pool_name: 'hs300'
   indus_class: price_group
   indus_table_suffix: ''

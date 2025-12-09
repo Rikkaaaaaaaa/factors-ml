@@ -4,7 +4,7 @@ is_realtime: false
 
 save_signal:
   save_signal_to_sql: true
-  sql_table_name: signal_zz500_low_price_79_5pct_15pct_20
+  sql_table_name: signal_zz500_low_price_70_5pct_15pct_20
   sql_database: strategy
   dynamic_benchmark: 0.7
   threshold_columns: [ 'quantile_95', 'quantile_85' ]
