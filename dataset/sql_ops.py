@@ -37,8 +37,6 @@ def get_ticker_list(pool_name, price_name, test_month, indus_table_suffix=''):
     return tickers
 
 def check_indus(opt, first_month):
-    if opt.get('dataset'):
-        opt = opt['dataset']
     pool_name = opt['pool_name']
     indus_class = opt['indus_class']
     indus_table_suffix = opt['indus_table_suffix']
@@ -51,7 +49,7 @@ def check_indus(opt, first_month):
         raise ValueError(f"Param in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
     indus_list = []
     if opt['price_name'] == 'highprice':
-        print('select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
+        print('[checking industry] select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
                                     indus_class, pool_name, indus_table_suffix, first_month))
         indus_table = cx_read_sql('select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
                                     indus_class, pool_name, indus_table_suffix, first_month))
