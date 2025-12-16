@@ -37,6 +37,8 @@ def get_ticker_list(pool_name, price_name, test_month, indus_table_suffix=''):
     return tickers
 
 def check_indus(opt, first_month):
+    if opt.get('dataset'):
+        opt = opt['dataset']
     pool_name = opt['pool_name']
     indus_class = opt['indus_class']
     indus_table_suffix = opt['indus_table_suffix']
