@@ -130,7 +130,7 @@ def parse_options(args, ensure=True, yaml_path=None, opt_manager=None):
             exp_folder_name = opt['name']
         else:
             raise ValueError('option file need param named [base_name]!')
-    print(f"[option_{opt['dataset']['ret_name']}] Running {opt['mode']} mode in {opt['name']}")
+    print(f"Running {opt['mode']} mode in {opt['name']}")
 
     # experiment path
     experiments_root = opt['path'].get('experiments_root')
@@ -146,7 +146,7 @@ def parse_options(args, ensure=True, yaml_path=None, opt_manager=None):
         else:
             experiments_root = osp.join(root_path, experimens_root_path, exp_folder_name)
         opt['path']['experiments_root'] = experiments_root
-    print(f"[option_{opt['dataset']['ret_name']}] Files will be save at experiment folder path [{experiments_root}]")
+    print(f"Files will be save at experiment folder path [{experiments_root}]")
 
     # ensure path
     if opt['mode'] != 'eval':
@@ -200,7 +200,7 @@ def parse_options(args, ensure=True, yaml_path=None, opt_manager=None):
             pretrain_root = osp.join(root_path, 'experiments', opt['base_name'], exp_folder_name)
         else:
             pretrain_root = osp.join(root_path, 'experiments', exp_folder_name)
-        print(f"[option_{opt['dataset']['ret_name']}] Loading pretrained model from {pretrain_root}")
+        print(f"Loading pretrained model from {pretrain_root}")
 
         opt['path']['pretrain_root'] = pretrain_root
         opt['path']['pretrain_model_path'] = dict()
