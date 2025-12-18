@@ -172,11 +172,11 @@ def compute_metrics(df_signal, ret_name, month):
     return report
 
 
-def eval_signals_by_month(result_name, signal_path, month, ret_name, time_ranges, trading_hours=None):
+def eval_signals_by_month(result_name, signal_path, month, ret_name, stock_pool, time_ranges, trading_hours=None):
     try:
         # read signal from csv or folder
         signal = read_signal_from_path(signal_path, time_ranges)
-        bt_signal = merge_signal(signal, ret_name, month, trading_hours)
+        bt_signal = merge_signal(signal, ret_name, month, trading_hours, ret_table_name=f"Returns_{stock_pool}")
         # filter by trading hours
         if isinstance(trading_hours, dict):
             if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
@@ -230,12 +230,12 @@ def analysis_report_by_month(report_name, ret_windows = [ "15s", "60s", "120s", 
     print(f"Summary by month has been saved at {summary_path}")
 
 
-def eval_signals_by_date(result_name, signal_path, month, ret_name, time_ranges, trading_hours=None):
+def eval_signals_by_date(result_name, signal_path, month, ret_name, stock_pool, time_ranges, trading_hours=None):
 
     try:
         # read signal
         signal = read_signal_from_path(signal_path, time_ranges)
-        bt_signal = merge_signal(signal, ret_name, month, trading_hours)
+        bt_signal = merge_signal(signal, ret_name, month, trading_hours, ret_table_name=f"Returns_{stock_pool}")
         # filter by trading hours
         if isinstance(trading_hours, dict):
             if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
@@ -326,7 +326,7 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
 
 
 if __name__ == "__main__":
-    months = [202507]
+    months = [202510,202511]
     ret_windows = ['15s', '60s', '120s', '300s']
     # use eval function to treat signal files in experiments folder
 
@@ -399,16 +399,17 @@ if __name__ == "__main__":
 
     # mix am pm evaluation
     result_name = 'mix_am_pm_hs300_highprice_lgbm'
-    expr_name_am = 'ddb_null_factor_no_reverse_am_with_930_940_hs300_highprice_lgbm'
-    expr_name_pm = 'ddb_null_factor_no_reverse_with_930_940_hs300_highprice_lgbm'
-    signal_path = '[f"../experiments/{expr_name_am}_{ret_window}/{month}/signal", f"../experiments/{expr_name_pm}_{ret_window}/{month}/signal" ]'
+    expr_name_am = 'am_model_hs300_highprice_lgbm'
+    expr_name_pm = 'pm_model_hs300_highprice_lgbm'
+    signal_path = '[f"../experiments/{expr_name_am}/{expr_name_am}_{ret_window}/{month}/signal", f"../experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal" ]'
     time_ranges = [(93000, 113000), (130000, 145700)]
+    stock_pool = 'hs300'
 
 
-    result_name = 'pm_hs300_highprice_lgbm'
-    expr_name_pm = 'pm_loop_hs300_highprice_lgbm'
-    signal_path ='f"../experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal"'
-    time_ranges = None
+    # result_name = 'pm_hs300_highprice_lgbm'
+    # expr_name_pm = 'pm_loop_hs300_highprice_lgbm'
+    # signal_path ='f"../experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal"'
+    # time_ranges = None
 
     # signal time filter
     trading_hours = {
@@ -419,10 +420,10 @@ if __name__ == "__main__":
     }
     #trading_hours = None
     # time_ranges can
-    n_jobs = 1
+    n_jobs = 16
     params = [(result_name,
                eval(signal_path),
-               month, ret_window, time_ranges, trading_hours)
+               month, ret_window, stock_pool, time_ranges, trading_hours)
               for month in months
               for ret_window in ret_windows]
     # eval by month
