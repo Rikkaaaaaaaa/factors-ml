@@ -83,9 +83,13 @@ def init_args(opt_manager):
     args = []
     for test_month in opt_manager['dataset']['test_month']:
         industry = check_indus(opt_manager, test_month)
-        print(
-            f"Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
-        print(f"Including industry id: {industry}")
+        if opt_manager['dataset'].setdefault('selected_indus'):
+            selected_industry = opt_manager['dataset']['selected_indus']
+            industry = [indus for indus in industry if indus in selected_industry]
+            print(f"[option manager] {test_month}: Selected indus is {selected_industry}")
+
+        print(f"[option manager] {test_month}: Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
+        print(f"[option manager] {test_month}: Running industry id: {industry}")
         for indus_type in industry:
             # check whether any result of sub options doesn't exist
             train_sub_option_names = []
@@ -110,7 +114,7 @@ def main(opt_manager):
     [result.get() for result in results]
     pool.close()
     pool.join()
-    print("Task time is {}".format(time_str(global_timer.item())))
+    print(f"[option manager] Task [{opt_manager['base_name']}] time is {time_str(global_timer.item())}")
     # save report
     if not opt_manager['is_realtime']:
         for sub_opt_name in opt_manager['sub_options'].keys():
