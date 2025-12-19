@@ -1,0 +1,44 @@
+name: low_price_other_selected_logit_70_10pct_20pct_20
+eval_rt: false
+is_realtime: false
+
+save_signal:
+  save_signal_to_sql: true
+  sql_table_name: signal_other_selected_low_price_70_10pct_20pct_20
+  sql_database: strategy
+  dynamic_benchmark: 0.7
+  threshold_columns: [ 'quantile_90', 'quantile_80' ]
+  vol_signal_num: 20
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_table:
+    dfs://DDB_Factor_15s: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+  # read from dataset/factor_name.py
+  training_factor_name: [ 'ddb_base_factor', 'ddb_base_factor_ret', 'ddb_fok_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
+  std_factor_name: [ 'ddb_base_factor', 'ddb_base_factor_ret', 'ddb_slope_std_factor', 'ddb_gp_factor']
+  clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
+  log_factor_name: [ 'log_factor' ]
+  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+
+  # data preprocessing options
+  type: 'GenDatasetLowPrice'
+  test_month: [202509]
+  pool_name: 'other_selected'
+  indus_class: price_group
+  indus_table_suffix: ''
+  io_backend: ddb
+
+train:
+  save_proba: false
+
+model:
+  type: 'LogitModel'
+  n_cpus: 8
+
+# low price customize
+n_jobs_read_data: 30
+bs_flag_list: ['b', 's']
+tick_ahead : 1
+

@@ -1,0 +1,16 @@
+base_name: am_loop_hs300_highprice_lgbm
+manual_seed: 2023
+n_jobs: 1
+ret_names: [15s, 60s, 120s, 300s]
+test_month: [202507,202508,202509,202510]
+training_month_num: 6
+io_backend: ddb # disk
+pool_name: 'hs300'
+indus_table_suffix: ''
+indus_class: group_id
+avg_price: 10
+price_name: highprice
+
+
+
+
