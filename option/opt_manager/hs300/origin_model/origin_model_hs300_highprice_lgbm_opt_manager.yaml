@@ -9,6 +9,7 @@ dataset:
   pool_name: 'hs300'
   indus_table_suffix: ''
   indus_class: group_id
+  selected_indus: [6]
   avg_price: 10
   price_name: highprice
 
