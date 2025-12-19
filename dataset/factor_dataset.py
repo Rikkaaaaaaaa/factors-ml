@@ -79,83 +79,91 @@ class FactorDataset():
 
 
     def load_data(self, cache=False, data=None):
-        #-----Ingest Ticker List-----#
 
-        # read tickers from mysql
-        self.tickers = self.load_ticker_list()
-        if self.debug_mode:
-            self.tickers = self.tickers[: min(len(self.tickers), 2)]
-        if len(self.tickers) == 0: # no ticker, return None
-            self.is_empty = True
-            return
+        try:
+            #-----Ingest Ticker List-----#
 
-        #-----Ingest Factor and Return-----#
-
-        # read data from mysql
-        need_rebalanced_month = check_rebalanced(self.training_month, self.test_month) # for debug
-        self.logger.info(f"[{self.logger_name}] need_rebalanced_month: {need_rebalanced_month} ")
-
-        # restore data by month
-        if data is None:
-            data = dict()
-            if self.mode != 'eval':
-                for month in self.training_month:
-                    data[month] = self.load_data_from_sql(month)
-            if self.mode != 'rt':
-                data[self.test_month] = self.load_data_from_sql(self.test_month)
-            self.logger.info(f"[{self.logger_name}] Finish loading factor and return ")
-        else:
-            data = copy.deepcopy(data)
-            self.logger.info(f"[{self.logger_name}] Loading factor and return from cache ")
-        if cache:
-            cache_data = copy.deepcopy(data)
-
-        #---------Data Preprocessing-------#
-
-        # split data into train and test set
-        train_data, test_data = self.split_data(data)
-
-        if self.mode == 'eval':
-            if len(test_data) == 0:
+            # read tickers from mysql
+            self.tickers = self.load_ticker_list()
+            if self.debug_mode:
+                self.tickers = self.tickers[: min(len(self.tickers), 2)]
+            if len(self.tickers) == 0: # no ticker, return None
                 self.is_empty = True
                 return
-            # delete 1300 in test data
-            test_data = self.del_test_value(test_data)
-            # transforming data, including std, clip, save params by ticker
-            self.logger.info(f"[{self.logger_name}] Start reading preprocess params and transforming test data")
-            self.transform(train_data, test_data)
-            self.logger.info(f"[{self.logger_name}] Finish transforming test data")
-        else:
-            # rt or train mode
-            if len(train_data) == 0 :
-                self.is_empty = True
+
+            #-----Ingest Factor and Return-----#
+
+            # read data from mysql
+            need_rebalanced_month = check_rebalanced(self.training_month, self.test_month) # for debug
+            self.logger.info(f"[{self.logger_name}] need_rebalanced_month: {need_rebalanced_month} ")
+
+            # restore data by month
+            self.logger.info(f"[{self.logger_name}] Start loading factor and return")
+            if data is None:
+                data = dict()
+                if self.mode != 'eval':
+                    for month in self.training_month:
+                        data[month] = self.load_data_from_sql(month)
+                if self.mode != 'rt':
+                    data[self.test_month] = self.load_data_from_sql(self.test_month)
+            else:
+                data = copy.deepcopy(data)
+            self.logger.info(f"[{self.logger_name}] Finish loading factor and return")
+
+            # cache data if 15s
+            if cache:
+                cache_data = copy.deepcopy(data)
+
+            #---------Data Preprocessing-------#
+
+            # split data into train and test set
+            train_data, test_data = self.split_data(data)
+
+            if self.mode == 'eval':
+                if len(test_data) == 0:
+                    self.is_empty = True
+                    return
+                # delete 1300 in test data
+                test_data = self.del_test_value(test_data)
+                # transforming data, including std, clip, save params by ticker
+                self.logger.info(f"[{self.logger_name}] Start reading preprocess params and transforming test data")
+                self.transform(train_data, test_data)
+                self.logger.info(f"[{self.logger_name}] Finish transforming test data")
+            else:
+                # rt or train mode
+                if len(train_data) == 0 :
+                    self.is_empty = True
+                    return
+                # get alpha (i.e.return threshold)
+                self.alpha = self.get_alhpa(train_data)
+                # make classification labels according to returns
+                if self.task_type == 'classification':
+                    train_data, test_data = self.make_label(train_data, test_data)
+                # filter train_data with return
+                train_data = self.filter_by_label(train_data)
+                # delete nan factor in train data
+                train_data = self.del_train_value(train_data)
+                # delete 1300 in test data
+                test_data = self.del_test_value(test_data)
+
+                # transforming data, including std, clip, save params by ticker
+                self.logger.info(f"[{self.logger_name}] Start transforming data and saving preprocess params")
+                self.transform(train_data, test_data)
+                # rebalance training data
+                self.rebalance_training_data()
+                self.logger.info(f"[{self.logger_name}] Finish transforming data and saving preprocess params")
+
+            # count data num
+            self.logger.info(f"[{self.logger_name}] Training data num is {len(train_data)} and test data num is {len(test_data)}")
+
+            if cache:
+                return cache_data
+            else:
                 return
-            # get alpha (i.e.return threshold)
-            self.alpha = self.get_alhpa(train_data)
-            # make classification labels according to returns
-            if self.task_type == 'classification':
-                train_data, test_data = self.make_label(train_data, test_data)
-            # filter train_data with return
-            train_data = self.filter_by_label(train_data)
-            # delete nan factor in train data
-            train_data = self.del_train_value(train_data)
-            # delete 1300 in test data
-            test_data = self.del_test_value(test_data)
 
-            # transforming data, including std, clip, save params by ticker
-            self.logger.info(f"[{self.logger_name}] Start transforming data and saving preprocess params")
-            self.transform(train_data, test_data)
-            # rebalance training data
-            self.rebalance_training_data()
-            self.logger.info(f"[{self.logger_name}] Finish transforming data and saving preprocess params")
+        except Exception as e:
+            self.logger.error(f"[{self.logger_name}] Error in load_data function: {e}", exc_info=True)
 
-        # count data num
-        self.logger.info(f"[{self.logger_name}] Training data num is {len(train_data)} and test data num is {len(test_data)}")
-
-        if cache:
-            return cache_data
-        else:
-            return
 
     def load_ticker_list(self):
         # fetch ticker list from mysql table
