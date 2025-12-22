@@ -124,7 +124,10 @@ def push_static_data(config):
 
     # save history static_data data from sql
     database = "strategy"
-    for table in ["static_data_industry_hs300", "static_data_industry_zz500", "static_data_industry_zz1000", "static_data_price_hs300","static_data_price_zz500","static_data_price_zz1000"]:
+    for table in ["static_data_industry_hs300", "static_data_industry_zz500", "static_data_industry_zz1000", "static_data_industry_zz2000_1",
+                  "static_data_industry_zz2000_2", "static_data_industry_zz2000_3","static_data_industry_other",
+                  "static_data_price_hs300","static_data_price_zz500","static_data_price_zz1000", "static_data_price_zz2000_1",
+                  "static_data_price_zz2000_2", "static_data_price_zz2000_3","static_data_price_other"]:
         table = table + "_history"
         df = read_table(database, f"select * from {table} where test_month={test_month}")
         df.to_csv(osp.join(save_path, f'{table.replace("_history", "")}.csv'), encoding='utf-8')
@@ -214,13 +217,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='package model files for RT')
     parser.add_argument('--root_path', type=str, default='experiments', help="Root path of experiments")
     parser.add_argument('--test_month', type=int, default=202512, help="test_month")
-    parser.add_argument('--pool_name', type=str, default="zz1000", help="pool name")
-    parser.add_argument('--am_exp_name', type=str, default="prod_202512_am_zz1000_highprice_lgbm", help="am experiment name")
-    parser.add_argument('--pm_exp_name', type=str, default="prod_202512_pm_zz1000_highprice_lgbm", help="pm experiment name")
+    parser.add_argument('--pool_name', type=str, default="hs300", help="pool name")
+    parser.add_argument('--am_exp_name', type=str, default="am_model_hs300_highprice_lgbm", help="am experiment name")
+    parser.add_argument('--pm_exp_name', type=str, default="pm_model_hs300_highprice_lgbm", help="pm experiment name")
     parser.add_argument('--output_root_path', type=str, default='./data')
     parser.add_argument('--output_folder_name', type=str, default='lgbm_data')
     # low price
-    parser.add_argument('--exp_name_low_price', type=str, default="low_price_zz1000_rt", help="experiment name low price")
+    parser.add_argument('--exp_name_low_price', type=str, default="low_price_hs300_rt", help="experiment name low price")
     parser.add_argument('--output_folder_name_low_price', type=str, default='logit_data')
     config = parser.parse_args()
 
