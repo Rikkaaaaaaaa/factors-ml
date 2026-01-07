@@ -14,7 +14,6 @@ from utils.publish import save_report_disk, push_signal_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results, ensure_path
 
 
-
 def init_lock(l):
     global dataset_lock
     dataset_lock = l
@@ -81,6 +80,7 @@ def train_pipeline(train_args):
         backtester.backtest(dataset, model)
 
 def init_args(opt_manager):
+    # ... (函数体保持不变) ...
     args = []
 
     for test_month in opt_manager['dataset']['test_month']:
@@ -106,86 +106,64 @@ def init_args(opt_manager):
 def main(opt_manager):
     # mp training
     manager = mp.Manager()
-    # dataset_lock = manager.Lock()
-    from multiprocessing import Semaphore
-    dataset_lock = Semaphore(4)
-
+    dataset_lock = manager.Lock()
     pool = mp.Pool(processes=opt_manager['n_jobs'], initializer=init_lock, initargs=(dataset_lock,), maxtasksperchild=1)
     global_timer = Timer()
     args = init_args(opt_manager)
     
-    # 使用apply_async来获取每个任务的详细状态
-    async_results = []
-    for arg in args:
-        result = pool.apply_async(train_pipeline, (arg,))
-        async_results.append((arg, result))
-    
-    # 等待所有任务完成
-    successful_tasks = []
-    failed_tasks = []
-    
-    for arg, async_result in async_results:
-        opt_manager, test_month, indus_type, train_sub_option_names = arg
-        task_identifier = f"month{test_month}_indus{indus_type}"
-        
+    # 提交所有任务到进程池
+    async_results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
+    failed_tasks = []  # 用于记录失败的任务信息
+    for task_arg, async_result in zip(args, async_results):
         try:
-            # 设置超时时间，避免无限等待
-            result = async_result.get(timeout=3600)  # 1小时超时
-            task_identifier_result, success, error_msg = result
-            if success:
-                successful_tasks.append((task_identifier, 0))  # exitcode 0表示成功
-            else:
-                failed_tasks.append((task_identifier, 1, error_msg))  # exitcode 1表示一般错误
-        except mp.TimeoutError:
-            print(f"[ERROR] Task {task_identifier} timeout after 1 hour!")
-            failed_tasks.append((task_identifier, 124, "Timeout after 1 hour"))  # exitcode 124表示超时
-        except MemoryError as e:
-            print(f"[ERROR] MemoryError in task {task_identifier}: {str(e)}")
-            failed_tasks.append((task_identifier, 137, f"MemoryError: {str(e)}"))  # exitcode 137表示内存错误
+            # 等待任务完成，如果子进程有未捕获的异常，会在这里抛出
+            async_result.get()
         except Exception as e:
-            print(f"[ERROR] Unexpected error in task {task_identifier}: {str(e)}")
-            failed_tasks.append((task_identifier, 1, f"Unexpected error: {str(e)}"))
+            # 从任务参数中提取标识信息
+            _, test_month, indus_type, train_sub_option_names = task_arg
+            # 记录失败任务的关键信息
+            error_info = {
+                'test_month': test_month,
+                'indus_type': indus_type,
+                'sub_options_to_train': train_sub_option_names,
+                'exception_type': type(e).__name__,
+                'exception_msg': str(e),
+                'traceback': traceback.format_exc()  # 获取完整的错误堆栈
+            }
+            failed_tasks.append(error_info)
+            # 立即打印错误，方便实时查看
+            print(f"\n[ERROR] 任务执行失败: {error_info['sub_options_to_train']}")
+            print(f"        异常类型: {error_info['exception_type']}")
+            print(f"        异常信息: {error_info['exception_msg']}")
+            # 立即打印详细堆栈
+            print(f"        错误堆栈:\n{error_info['traceback']}")
     
     pool.close()
     pool.join()
     
-    # 输出训练结果汇总
-    print(f"\n{'='*80}")
-    print(f"[TRAINING SUMMARY] Task [{opt_manager['base_name']}]")
-    print(f"Total time: {time_str(global_timer.item())}")
-    print(f"Successful tasks: {len(successful_tasks)}")
-    print(f"Failed tasks: {len(failed_tasks)}")
-    
-    if successful_tasks:
-        print(f"\nSuccessful tasks (exitcode=0):")
-        for task, exitcode in successful_tasks:
-            print(f"  ✓ {task} (exitcode={exitcode})")
-    
+    # --- 所有任务执行完毕后，汇总报告 ---
+    print(f"\n{'='*60}")
+    print(f"[option manager] 任务 [{opt_manager['base_name']}] 总耗时 {time_str(global_timer.item())}")
     if failed_tasks:
-        print(f"\nFailed tasks:")
-        for task, exitcode, error in failed_tasks:
-            print(f"  ✗ {task} (exitcode={exitcode}): {error}")
+        print(f"[警告] 共有 {len(failed_tasks)} 个任务执行失败:")
+        for i, err in enumerate(failed_tasks, 1):
+            print(f"  失败任务 {i}: test_month={err['test_month']}, indus_type={err['indus_type']}, "
+                  f"sub_options={err['sub_options_to_train']}")
+            print(f"      原因: {err['exception_type']}: {err['exception_msg']}")
+        # 可以选择将详细的错误堆栈记录到文件，避免输出过长
+        error_log_file = f"task_errors_{opt_manager['base_name']}_{get_time_str()}.log"
+        with open(error_log_file, 'w') as f:
+            for err in failed_tasks:
+                f.write(f"Failed task: {err['test_month']}, {err['indus_type']}\n")
+                f.write(f"Exception: {err['traceback']}\n")
+                f.write("-"*50 + "\n")
+        print(f"  详细错误堆栈已保存至: {error_log_file}")
+    else:
+        print(f"[完成] 所有任务执行成功。")
+    print('='*60)
     
-    # 按exitcode统计失败类型
-    exitcode_stats = {}
-    for _, exitcode, _ in failed_tasks:
-        exitcode_stats[exitcode] = exitcode_stats.get(exitcode, 0) + 1
-    
-    if exitcode_stats:
-        print(f"\nFailure statistics by exitcode:")
-        for exitcode, count in exitcode_stats.items():
-            error_type = {
-                1: "General Error",
-                124: "Timeout",
-                137: "Memory Error (OOM)",
-                255: "Fatal Error"
-            }.get(exitcode, f"Unknown Error (code {exitcode})")
-            print(f"  {error_type}: {count} tasks")
-    
-    print(f"{'='*80}\n")
-    
-    # save report
-    if not opt_manager['is_realtime']:
+    # save report 
+    if not opt_manager['is_realtime'] and not failed_tasks: 
         for sub_opt_name in opt_manager['sub_options'].keys():
             opt = opt_manager['sub_options'][sub_opt_name]
             save_report_disk(opt)
