@@ -75,7 +75,7 @@ def ensure_table_name(database, table_name):
     if input('Signals will be saved to {}.{} (y/n)'.format(database, table_name)) == 'y':
         pass
     else:
-        pass
+        return -1
 
 def mkdir(path):
     if not os.path.exists(path):
