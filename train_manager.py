@@ -2,6 +2,8 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 import argparse
+import traceback
+import gc
 
 from dataset.sql_ops import check_indus
 from dataset import build_dataset
@@ -12,7 +14,6 @@ from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, parse_opt_manager, dict2str
 from utils.publish import save_report_disk, push_signal_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results, ensure_path
-
 
 
 def init_lock(l):
@@ -80,9 +81,11 @@ def train_pipeline(train_args):
         backtester = BackTester(opt, test_month, indus_type, logger_name=logger_name)
         backtester.backtest(dataset, model)
 
+        del dataset, x_train, y_train
+        gc.collect()
+
 def init_args(opt_manager):
     args = []
-
     for test_month in opt_manager['dataset']['test_month']:
         industry = check_indus(opt_manager, test_month)
         if opt_manager['dataset'].setdefault('selected_indus'):
@@ -106,84 +109,15 @@ def init_args(opt_manager):
 def main(opt_manager):
     # mp training
     manager = mp.Manager()
-    # dataset_lock = manager.Lock()
-    from multiprocessing import Semaphore
-    dataset_lock = Semaphore(4)
-
+    dataset_lock = manager.Lock()
     pool = mp.Pool(processes=opt_manager['n_jobs'], initializer=init_lock, initargs=(dataset_lock,), maxtasksperchild=1)
     global_timer = Timer()
     args = init_args(opt_manager)
-    
-    # 使用apply_async来获取每个任务的详细状态
-    async_results = []
-    for arg in args:
-        result = pool.apply_async(train_pipeline, (arg,))
-        async_results.append((arg, result))
-    
-    # 等待所有任务完成
-    successful_tasks = []
-    failed_tasks = []
-    
-    for arg, async_result in async_results:
-        opt_manager, test_month, indus_type, train_sub_option_names = arg
-        task_identifier = f"month{test_month}_indus{indus_type}"
-        
-        try:
-            # 设置超时时间，避免无限等待
-            result = async_result.get(timeout=3600)  # 1小时超时
-            task_identifier_result, success, error_msg = result
-            if success:
-                successful_tasks.append((task_identifier, 0))  # exitcode 0表示成功
-            else:
-                failed_tasks.append((task_identifier, 1, error_msg))  # exitcode 1表示一般错误
-        except mp.TimeoutError:
-            print(f"[ERROR] Task {task_identifier} timeout after 1 hour!")
-            failed_tasks.append((task_identifier, 124, "Timeout after 1 hour"))  # exitcode 124表示超时
-        except MemoryError as e:
-            print(f"[ERROR] MemoryError in task {task_identifier}: {str(e)}")
-            failed_tasks.append((task_identifier, 137, f"MemoryError: {str(e)}"))  # exitcode 137表示内存错误
-        except Exception as e:
-            print(f"[ERROR] Unexpected error in task {task_identifier}: {str(e)}")
-            failed_tasks.append((task_identifier, 1, f"Unexpected error: {str(e)}"))
-    
+    results = [pool.apply_async(train_pipeline, (arg,)) for arg in args]
+    [result.get() for result in results]
     pool.close()
     pool.join()
-    
-    # 输出训练结果汇总
-    print(f"\n{'='*80}")
-    print(f"[TRAINING SUMMARY] Task [{opt_manager['base_name']}]")
-    print(f"Total time: {time_str(global_timer.item())}")
-    print(f"Successful tasks: {len(successful_tasks)}")
-    print(f"Failed tasks: {len(failed_tasks)}")
-    
-    if successful_tasks:
-        print(f"\nSuccessful tasks (exitcode=0):")
-        for task, exitcode in successful_tasks:
-            print(f"  ✓ {task} (exitcode={exitcode})")
-    
-    if failed_tasks:
-        print(f"\nFailed tasks:")
-        for task, exitcode, error in failed_tasks:
-            print(f"  ✗ {task} (exitcode={exitcode}): {error}")
-    
-    # 按exitcode统计失败类型
-    exitcode_stats = {}
-    for _, exitcode, _ in failed_tasks:
-        exitcode_stats[exitcode] = exitcode_stats.get(exitcode, 0) + 1
-    
-    if exitcode_stats:
-        print(f"\nFailure statistics by exitcode:")
-        for exitcode, count in exitcode_stats.items():
-            error_type = {
-                1: "General Error",
-                124: "Timeout",
-                137: "Memory Error (OOM)",
-                255: "Fatal Error"
-            }.get(exitcode, f"Unknown Error (code {exitcode})")
-            print(f"  {error_type}: {count} tasks")
-    
-    print(f"{'='*80}\n")
-    
+    print(f"[option manager] Task [{opt_manager['base_name']}] time is {time_str(global_timer.item())}")
     # save report
     if not opt_manager['is_realtime']:
         for sub_opt_name in opt_manager['sub_options'].keys():
