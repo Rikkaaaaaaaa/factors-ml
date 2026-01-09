@@ -59,7 +59,7 @@ def train_pipeline(train_args):
             logger.info(f"[{logger_name}] Suscessfully load data from [cache data] with cost={time_str(load_timer.item())}")
 
         if dataset.is_empty:
-            logger.info(f"[{logger_name}] Dataset is empty!")
+            logger.error(f"[{logger_name}] Dataset is empty!")
             return
         x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data[label_col_name]
 
@@ -118,20 +118,36 @@ def main(opt_manager):
     pool.close()
     pool.join()
     print(f"[option manager] Task [{opt_manager['base_name']}] time is {time_str(global_timer.item())}")
-    # save report
-    if not opt_manager['is_realtime']:
+
+    # check remaining tasks and save report
+    remaining_args = init_args(opt_manager)
+    pending_tasks = []
+    for (opt_manager, test_month, indus_type, train_sub_option_names) in remaining_args:
         for sub_opt_name in opt_manager['sub_options'].keys():
-            opt = opt_manager['sub_options'][sub_opt_name]
-            save_report_disk(opt)
+            if not sub_opt_name in train_sub_option_names:
+                continue
+            pending_tasks.append(f"month{test_month}_indus{indus_type}_{sub_opt_name}")
+    # all tasks is over
+    if len(pending_tasks) == 0:
+        print(f"[option manager] Suscessfully complete all tasks in [{opt_manager['base_name']}] ")
+        # save report
+        if not opt_manager['is_realtime']:
+            for sub_opt_name in opt_manager['sub_options'].keys():
+                opt = opt_manager['sub_options'][sub_opt_name]
+                save_report_disk(opt)
+    else:
+        pending_tasks_str = '\n\t'.join(pending_tasks)
+        print(f"[option manager] There are remaining tasks in [{opt_manager['base_name']}]: \n {pending_tasks_str} ")
+
 
 
 if __name__ == '__main__':
     print(get_env_info())
     parser = argparse.ArgumentParser()
-    parser.add_argument('-root_path', type=str, default='./', help='Root path of project.')
-    parser.add_argument('-option', type=str, default='./option/opt_manager/other/am_model/am_model_other_highprice_lgbm_opt_manager.yaml', help='Path to option YAML file.')
-    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
-    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+    parser.add_argument('--root_path', type=str, default='./', help='Root path of project.')
+    parser.add_argument('--option', type=str, default='./option/opt_manager/other/am_model/am_model_other_highprice_lgbm_opt_manager.yaml', help='Path to option YAML file.')
+    parser.add_argument('--is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+    parser.add_argument('--debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()
     opt_manager = parse_opt_manager(args)
     main(opt_manager)
