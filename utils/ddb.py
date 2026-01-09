@@ -4,35 +4,9 @@ import numpy as np
 import time
 import dolphindb.settings as keys
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
-
-log_factor_name = ['book_pressure_15s', 'book_pressure_30s', 'book_pressure_delta_15s', 'higher_bid_amt_15s',
-                  'higher_bid_amt_30s', 'higher_bid_amt_60s', 'lower_ask_amt_15s', 'lower_ask_amt_30s',
-                  'lower_ask_amt_60s',
-                  'net_bid_amt_delta_15s', 'net_bid_amt_delta_30s', 'net_bid_amt_delta_60s', 'indus_book_pressure_15s',
-                  'indus_book_pressure_delta_15s', 'indus_higher_bid_amt_15s', 'indus_higher_bid_amt_30s',
-                  'indus_higher_bid_amt_60s',
-                  'indus_lower_ask_amt_15s', 'indus_lower_ask_amt_30s', 'indus_lower_ask_amt_60s',
-                  'indus_net_bid_amt_delta_15s',
-                  'indus_net_bid_amt_delta_30s', 'indus_net_bid_amt_delta_60s', 'mkt_book_pressure_15s',
-                  'mkt_higher_bid_amt_15s',
-                  'mkt_lower_ask_amt_15s', 'mkt_net_bid_amt_delta_15s']
+from datetime import datetime
 
 
-def preprocess(factor):
-    # preprocessing after fetcing from sql
-    # log factor
-    def get_log_factor_df(df_factors):
-        df_factors[df_factors > 0] = np.log(df_factors[df_factors > 0] + 1)
-        df_factors[df_factors < 0] = -np.log(-df_factors[df_factors < 0] + 1)
-        return df_factors
-
-    for log_factor in log_factor_name:
-        if log_factor in factor.columns:
-            factor.loc[:, log_factor] = get_log_factor_df(factor[log_factor].values)
-    # other ops
-    # ......
-    return factor
 
 DDB_config = { "server": "10.95.145.91",
                "port": 8993,
@@ -71,6 +45,22 @@ def read_ddb(query):
 def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
+    # filter by select_period dict
+    if isinstance(trading_hours, dict):
+        am_start_time = str(trading_hours['am_start_time']).zfill(6)
+        am_start_time = datetime.strptime(am_start_time, "%H%M%S").strftime("%H:%M:%S")
+        am_end_time = str(trading_hours['am_end_time']).zfill(6)
+        am_end_time = datetime.strptime(am_end_time, "%H%M%S").strftime("%H:%M:%S")
+
+        pm_start_time = str(trading_hours['pm_start_time']).zfill(6)
+        pm_start_time = datetime.strptime(pm_start_time, "%H%M%S").strftime("%H:%M:%S")
+        pm_end_time = str(trading_hours['pm_end_time']).zfill(6)
+        pm_end_time = datetime.strptime(pm_end_time, "%H%M%S").strftime("%H:%M:%S")
+
+    else:
+        # default time period
+        am_start_time, am_end_time = "09:40:00", "11:30:00"
+        pm_start_time, pm_end_time = "13:00:00", "14:57:00"
 
     # select wide table
     start_time = time.time()
@@ -78,7 +68,7 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     ddb_reader = DDB_connector(DDB_config)
     scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
     ddb_reader.ddb_session.run(scripts)
-    scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
+    scripts =  f"retTable = select * from factorTable where month(time)={test_month}, securityCode in {tickers}, {am_start_time}<=second(time)<={am_end_time} or {pm_start_time}<=second(time)<={pm_end_time}"
     ddb_reader.ddb_session.run(scripts)
     scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
     factor = ddb_reader.ddb_session.run(scripts)
@@ -91,22 +81,13 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
     factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
                       factor["time"].dt.second * 1000 + factor["time"].dt.microsecond // 1000)
-    # filter by select_period dict
-    if isinstance(trading_hours, dict):
-        factor = factor[ ((factor["time"] >= trading_hours['am_start_time']*1000) & (factor["time"] <= trading_hours['am_end_time']*1000))
-                         | ((factor["time"] >= trading_hours['pm_start_time'] * 1000) & (factor["time"] <= trading_hours['pm_end_time'] * 1000))
-                         ]
-    else:
-        # else time between [94000, 145700]
-        factor = factor[(factor["time"] >= 94000000) & (factor["time"] <= 145700000)]
     #print(f"[{table_name}][{test_month}][{len(tickers)}] filter data time: {time.time() - start_time}")
 
     # print(f'load date time: {time.time() - start_time}')
     return factor
 
-def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, trading_hours=None):
-    n_jobs = 8
-    with ThreadPoolExecutor(max_workers=min(len(tickers), n_jobs)) as executor:
+def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, trading_hours=None, n_threads=8):
+    with ThreadPoolExecutor(max_workers=min(len(tickers), n_threads)) as executor:
         results = list(
             executor.map(
                 lambda ticker: read_ddb_factor(data_base, table_name, test_month, [ticker], trading_hours), tickers
@@ -193,42 +174,42 @@ def get_limit_flag(month, ticker_list):
     df_limit_flag = df_limit_flag.rename(columns={'securityCode': 'ticker'})
     return df_limit_flag
 
-
-if __name__ == "__main__":
-    df_limit_flag = get_limit_flag('202505', ["600519.SH", "300750.SZ"])
-
-    ddb_reader = DDB_connector(DDB_config)
-    res = ddb_reader.query_data("license()")
-    tickers = tuple(["600519.SH", "300750.SZ"])
-
-    factor_tables = ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
-    factor_database = { "dfs://DDB_Factor_15s":factor_tables}
-    test_month = 202401
-    ret_name = "15s"
-
-    data = [pd.DataFrame()]
-    i = 0
-    for database in factor_database:
-        for table in factor_database[database]:
-            # load factors
-            factor = read_ddb_factor(database, table, test_month, tickers)
-            # preprocess(log...)
-            preprocess(factor)
-            # merge factors from every table
-            if i == 0:
-                data = factor
-            else:
-                data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
-            i += 1
-
-    ret_db_name = "dfs://DDB_Returns"
-    ret_table_name = 'Returns'
-    labels = read_ddb_return(ret_db_name,ret_table_name, test_month, tickers)
-    labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
-    # merge factors and labels by ticker, date, time
-    data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
-    data.rename(columns={'ret_' + ret_name: 'ret'}, inplace=True)
-    print(len(data))
+#
+# if __name__ == "__main__":
+#     df_limit_flag = get_limit_flag('202505', ["600519.SH", "300750.SZ"])
+#
+#     ddb_reader = DDB_connector(DDB_config)
+#     res = ddb_reader.query_data("license()")
+#     tickers = tuple(["600519.SH", "300750.SZ"])
+#
+#     factor_tables = ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+#     factor_database = { "dfs://DDB_Factor_15s":factor_tables}
+#     test_month = 202401
+#     ret_name = "15s"
+#
+#     data = [pd.DataFrame()]
+#     i = 0
+#     for database in factor_database:
+#         for table in factor_database[database]:
+#             # load factors
+#             factor = read_ddb_factor(database, table, test_month, tickers)
+#             # preprocess(log...)
+#             preprocess(factor)
+#             # merge factors from every table
+#             if i == 0:
+#                 data = factor
+#             else:
+#                 data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
+#             i += 1
+#
+#     ret_db_name = "dfs://DDB_Returns"
+#     ret_table_name = 'Returns'
+#     labels = read_ddb_return(ret_db_name,ret_table_name, test_month, tickers)
+#     labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
+#     # merge factors and labels by ticker, date, time
+#     data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
+#     data.rename(columns={'ret_' + ret_name: 'ret'}, inplace=True)
+#     print(len(data))
 
 
 
