@@ -87,6 +87,7 @@ class FactorDataset():
             self.tickers = self.load_ticker_list()
             if self.debug_mode:
                 self.tickers = self.tickers[: min(len(self.tickers), 2)]
+                self.logger.info(f"[{self.logger_name}] Enable DEBUG: ticker num has been truncted to {len(self.tickers)}")
             if len(self.tickers) == 0: # no ticker, return None
                 self.is_empty = True
                 return
@@ -215,6 +216,8 @@ class FactorDataset():
                     factor = load_factor_by_table(database, table, self.tickers, self.pool_name, month, self.test_month,
                                                   self.rebalancing_tables, self.trading_hours,
                                                   self.training_month_num, self.io_backend)
+                    if len(factor) == 0:
+                        raise FileExistsError(f"[{self.logger_name}] No factor exists in [{database}.{table}] !")
                     # preprocessing
                     self.preprocess(factor)
                     # merge factors from every table
