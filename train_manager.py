@@ -84,6 +84,7 @@ def init_args(opt_manager):
     args = []
     for test_month in opt_manager['dataset']['test_month']:
         industry = check_indus(opt_manager, test_month)
+        industry = [indus for indus in industry  if indus!=-1]
         print(f"[option manager] Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
         print(f"Including industry id: {industry}")
         for indus_type in industry:
