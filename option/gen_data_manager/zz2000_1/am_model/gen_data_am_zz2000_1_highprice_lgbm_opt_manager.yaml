@@ -1,0 +1,17 @@
+base_name: gen_data_am_zz2000_1_highprice_lgbm
+manual_seed: 2023
+n_jobs: 1
+ret_names: [15s, 60s, 120s, 300s]
+dataset:
+  test_month: [202511]
+  training_month_num: 6
+  io_backend: ddb # disk
+  pool_name: 'zz2000_1'
+  indus_table_suffix: ''
+  indus_class: group_id
+  avg_price: 10
+  price_name: highprice
+
+
+
+

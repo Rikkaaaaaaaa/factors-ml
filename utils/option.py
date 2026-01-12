@@ -81,7 +81,7 @@ def parse_options(args, ensure=True, yaml_path=None, opt_manager=None):
     if not yaml_path:
         yaml_path = args.option
     if not osp.exists(yaml_path):
-        raise FileExistsError(f"No such option file named", args.option)
+        raise FileExistsError(f"No such option file named", yaml_path)
     opt = yaml_load(yaml_path)
 
     # parse argparser
@@ -264,6 +264,7 @@ def parse_opt_manager(args, ensure=True, yaml_path=None):
         experiments_root = osp.join(root_path, 'eval_experiments')
     experiments_root = osp.join(experiments_root, opt_manager['base_name'])
     opt_manager['experiments_root'] = experiments_root
+
     # ensure experiments_root
     if opt_manager['mode'] != 'eval':
         ensure_path(experiments_root)
@@ -272,7 +273,7 @@ def parse_opt_manager(args, ensure=True, yaml_path=None):
     # sub options init
     opt_manager['opt_folder_path'] = os.path.dirname(args.option)
     sub_options = {}
-    # update multi return option, such as xxx_hs300_highprice_lgbm_15s.yaml
+    # update multi-return option, such as xxx_hs300_highprice_lgbm_15s.yaml
     for ret_name in opt_manager['ret_names']:
         sub_opt_path = os.path.join(opt_manager['opt_folder_path'], f"{opt_manager['base_name']}_{ret_name}.yaml")
         sub_options[ret_name] = parse_options(args, ensure=False, yaml_path=sub_opt_path, opt_manager=opt_manager)

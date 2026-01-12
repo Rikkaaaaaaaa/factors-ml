@@ -371,6 +371,39 @@ def ensemble_batch3_pct(months, del_month=True, trading_hours=None, eval=False):
         print(e)
 
 
+def ensemble_signal_by_pct(option, del_month=True, trading_hours=None, eval=False):
+    try:
+        for month in  option['test_month']:
+            base_name = f"{option['expr_prefix']}_{option['pool_name']}_{option['price_level']}_lgbm"
+            expr_name_15s = f"{base_name}/{base_name}_15s"
+            expr_name_60s = f"{base_name}/{base_name}_60s"
+            expr_name_120s = f"{base_name}/{base_name}_120s"
+            expr_name_300s = f"{base_name}/{base_name}_300s"
+
+            signal_15s = merge_signal_by_pct2(expr_name_15s, '15s', month, eval).rename(columns={'new_signal':'new_signal_15s'})
+            signal_60s = merge_signal_by_pct2(expr_name_60s, '60s', month, eval).rename(columns={'new_signal':'new_signal_60s'})
+            signal_120s = merge_signal_by_pct2(expr_name_120s, '120s',month, eval).rename(columns={'new_signal':'new_signal_120s'})
+            signal_300s = merge_signal_by_pct2(expr_name_300s, '300s', month, eval).rename(columns={'new_signal':'new_signal_300s'})
+
+            merge_keys = ['ticker', 'date', 'time']
+            merge_signal = signal_15s.merge(signal_60s, on=merge_keys).merge(signal_120s, on=merge_keys).merge(signal_300s, on=merge_keys)
+            merge_signal['merge_signal'] = merge_signal['new_signal_15s'] * 2 + merge_signal['new_signal_60s']*2 + merge_signal['new_signal_120s']*2 + merge_signal['new_signal_300s']*2
+            if isinstance(trading_hours, dict):
+                if trading_hours['start_time'] <= trading_hours['end_time']:
+                    print(f"Trading hours:  [{trading_hours['start_time']}, {trading_hours['end_time']}]")
+                start_time = trading_hours['start_time'] * 1000
+                end_time = trading_hours['end_time'] *1000
+                merge_signal = merge_signal.query("time>= @start_time and time <= @end_time")
+            print(f"merge data size is {len(merge_signal)}")
+
+            # filter by upload month
+            merge_signal = merge_signal[(merge_signal.date < (month + 1) * 100) & (merge_signal.date > month * 100)]
+            print(f"Uploading month: {month}")
+            push_single_signal_sql(merge_signal, upload_month=[month], table_name=option['table_name'], database=option['database'], del_month=del_month)
+
+    except Exception as e:
+        print(e)
+
 def ensemble_batch3_pct_am(months, pool_name, del_month=True, trading_hours=None, signal_930_940='mix', eval=False):
     trading_hours = {
         "start_time": 93000,
@@ -379,7 +412,6 @@ def ensemble_batch3_pct_am(months, pool_name, del_month=True, trading_hours=None
     try:
         # table name
         suffix = 'batch3_pct2_mix_am_pm'
-        #pool_name = 'zz500'
         price_level = 'highprice'
         model_type = 'lgbm'
         database = 'strategy'
@@ -443,7 +475,6 @@ def ensemble_batch3_pct_pm(months, pool_name, del_month=False, trading_hours=Non
     try:
         # table name
         suffix = 'batch3_pct2_mix_am_pm'
-        #pool_name = 'zz500'
         price_level = 'highprice'
         model_type = 'lgbm'
         database = 'strategy'
@@ -496,10 +527,49 @@ def ensemble_batch3_pct_pm(months, pool_name, del_month=False, trading_hours=Non
         print(e)
 
 
-def ensemble_batch3_pct_mix_am_pm(months, eval=False):
-    ensemble_batch3_pct_am(months, pool_name='zz2000', del_month=True, trading_hours=None, eval=eval)
-    ensemble_batch3_pct_pm(months, pool_name='zz2000', del_month=False, trading_hours=None, eval=eval)
+def ensemble_batch3_pct_mix_am_pm(pool_name, months, eval=False):
 
+    ensemble_batch3_pct_am(months, pool_name=pool_name, del_month=True, trading_hours=None, eval=eval)
+    ensemble_batch3_pct_pm(months, pool_name=pool_name, del_month=False, trading_hours=None, eval=eval)
+
+def ensemble_mix_am_pm(test_month, am_expr_prefix, pm_expr_prefix, model_type, pool_name, price_level='highprice', eval=False):
+    '''
+    ensemble new signal to sql with am and pm model
+    '''
+    option = dict()
+    option['price_level'] = price_level
+    option['model_type'] = model_type
+    option['pool_name'] = pool_name
+    option['test_month'] = test_month
+
+    # define sql output table name
+    sql_table_suffix = 'mlp_am_lgbm_pm' #'batch3_pct2_mix_am_pm'
+    option['database'] = 'strategy'
+    option['table_name'] = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{sql_table_suffix}"
+    if ensure_table_name(option['database'], option['table_name']) == -1:
+        print("Suscessfully cancel uploading!")
+        return
+
+
+    am_trading_hours = {
+        "start_time": 93000,
+        "end_time": 113000,
+    }
+
+    pm_trading_hours = {
+        "start_time": 130000,
+        "end_time": 145700,
+    }
+
+    if am_expr_prefix:
+        print(f"Uploading am signal with prefix={am_expr_prefix}")
+        option['expr_prefix'] = am_expr_prefix
+        ensemble_signal_by_pct(option, del_month=True, trading_hours=am_trading_hours, eval=eval)
+
+    if pm_expr_prefix:
+        print(f"Uploading pm signal with prefix={pm_expr_prefix}")
+        option['expr_prefix'] = pm_expr_prefix
+        ensemble_signal_by_pct(option, del_month=False, trading_hours=pm_trading_hours, eval=eval)
 
 def ensemble_batch3_pct_mix_am_pm_930_940_15s_signal(months):
     ensemble_batch3_pct_am(months, pool_name='zz1000', del_month=True, trading_hours=None, signal_930_940='15s')
@@ -565,15 +635,21 @@ def check_dist(signal_data, column,  time_bin=[940, 1000, 1030, 1130, 1400, 1500
 
 
 if __name__ == "__main__":
-    months = [202512]
-    eval=False
+    months = [202511]
+    pool_name = "hs300"
+    eval=True
     # ensemble_bond_etf_6m(months)
     # signal = read_signal_and_adjust_main_signal_enhance('ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm_300s', '300s', 202506)
     # ensemble_all_new_6m_enhance(months)
     #ensemble_all_new_6m(months)
     # ensemble_batch3_pct(months, del_month=True)
-    ensemble_batch3_pct_mix_am_pm(months, eval=False)
+    # ensemble_batch3_pct_mix_am_pm(pool_name,months, eval=eval)
     # ensemble_batch3_pct_mix_am_pm_930_940_15s_signal(months)
+
+    test_month= [202511]
+    am_expr_prefix = ''
+    pm_expr_prefix = 'pm_model'
+    ensemble_mix_am_pm(test_month, am_expr_prefix, pm_expr_prefix, model_type='lgbm', pool_name='hs300', price_level='highprice', eval=True)
 
 
 

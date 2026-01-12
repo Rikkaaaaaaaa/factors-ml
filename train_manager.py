@@ -2,6 +2,8 @@ import multiprocessing as mp
 import os.path as osp
 import logging
 import argparse
+import traceback
+import gc
 
 from dataset.sql_ops import check_indus
 from dataset import build_dataset
@@ -12,7 +14,6 @@ from utils.logger import get_root_logger, get_env_info
 from utils.option import parse_options, parse_opt_manager, dict2str
 from utils.publish import save_report_disk, push_signal_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results, ensure_path
-
 
 
 def init_lock(l):
@@ -58,7 +59,7 @@ def train_pipeline(train_args):
             logger.info(f"[{logger_name}] Suscessfully load data from [cache data] with cost={time_str(load_timer.item())}")
 
         if dataset.is_empty:
-            logger.info(f"[{logger_name}] Dataset is empty!")
+            logger.error(f"[{logger_name}] Dataset is empty!")
             return
         x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data[label_col_name]
 
@@ -80,13 +81,19 @@ def train_pipeline(train_args):
         backtester = BackTester(opt, test_month, indus_type, logger_name=logger_name)
         backtester.backtest(dataset, model)
 
+        del dataset, x_train, y_train
+        gc.collect()
+
 def init_args(opt_manager):
     args = []
     for test_month in opt_manager['dataset']['test_month']:
         industry = check_indus(opt_manager, test_month)
-        industry = [indus for indus in industry  if indus!=-1]
-        print(f"[option manager] Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
-        print(f"Including industry id: {industry}")
+        if opt_manager['dataset'].setdefault('selected_indus'):
+            selected_industry = opt_manager['dataset']['selected_indus']
+            industry = [indus for indus in industry if indus in selected_industry]
+            print(f"[option manager] {test_month}: Selected indus is {selected_industry}")
+        print(f"[option manager] {test_month}: Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
+        print(f"[option manager] {test_month}: Running industry id: {industry}")
         for indus_type in industry:
             # check whether any result of sub options doesn't exist
             train_sub_option_names = []
@@ -110,21 +117,37 @@ def main(opt_manager):
     [result.get() for result in results]
     pool.close()
     pool.join()
-    print("Task time is {}".format(time_str(global_timer.item())))
-    # save report
-    if not opt_manager['is_realtime']:
+    print(f"[option manager] Task [{opt_manager['base_name']}] time is {time_str(global_timer.item())}")
+
+    # check remaining tasks and save report
+    remaining_args = init_args(opt_manager)
+    pending_tasks = []
+    for (opt_manager, test_month, indus_type, train_sub_option_names) in remaining_args:
         for sub_opt_name in opt_manager['sub_options'].keys():
-            opt = opt_manager['sub_options'][sub_opt_name]
-            save_report_disk(opt)
+            if not sub_opt_name in train_sub_option_names:
+                continue
+            pending_tasks.append(f"month{test_month}_indus{indus_type}_{sub_opt_name}")
+    # all tasks is over
+    if len(pending_tasks) == 0:
+        print(f"[option manager] Suscessfully complete all tasks in [{opt_manager['base_name']}] ")
+        # save report
+        if not opt_manager['is_realtime']:
+            for sub_opt_name in opt_manager['sub_options'].keys():
+                opt = opt_manager['sub_options'][sub_opt_name]
+                save_report_disk(opt)
+    else:
+        pending_tasks_str = '\n\t'.join(pending_tasks)
+        print(f"[option manager] There are remaining tasks in [{opt_manager['base_name']}]: \n {pending_tasks_str} ")
+
 
 
 if __name__ == '__main__':
     print(get_env_info())
     parser = argparse.ArgumentParser()
-    parser.add_argument('-root_path', type=str, default='./', help='Root path of project.')
-    parser.add_argument('-option', type=str, default='./option/opt_manager/other/am_model/am_model_other_highprice_lgbm_opt_manager.yaml', help='Path to option YAML file.')
-    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
-    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+    parser.add_argument('--root_path', type=str, default='./', help='Root path of project.')
+    parser.add_argument('--option', type=str, default='./option/opt_manager/other/am_model/am_model_other_highprice_lgbm_opt_manager.yaml', help='Path to option YAML file.')
+    parser.add_argument('--is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+    parser.add_argument('--debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()
     opt_manager = parse_opt_manager(args)
     main(opt_manager)

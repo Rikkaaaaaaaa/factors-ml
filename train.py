@@ -37,7 +37,7 @@ def train_pipeline(train_args):
     dataset = build_dataset(opt, test_month=test_month, indus_type=indus_type)
     dataset.load_data()
     if dataset.is_empty:
-        logger.info(f"{test_month}_indus_{indus_type}: Dataset is empty!")
+        logger.error(f"{test_month}_indus_{indus_type}: Dataset is empty!")
         return
     x_train, y_train = dataset.train_data[dataset.training_factor_name], dataset.train_data[label_col_name]
 
@@ -91,10 +91,10 @@ def main(opt):
 if __name__ == '__main__':
     print(get_env_info())
     parser = argparse.ArgumentParser()
-    parser.add_argument('-root_path', type=str, default='./', help='Root path of project.')
-    parser.add_argument('-option', type=str, default='option/hs300/20251105/20251105_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
-    parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
-    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
+    parser.add_argument('--root_path', type=str, default='./', help='Root path of project.')
+    parser.add_argument('--option', type=str, default='option/hs300/20251105/20251105_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('--is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
+    parser.add_argument('--debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()
     opt = parse_options(args)
     main(opt)

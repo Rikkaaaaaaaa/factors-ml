@@ -1,0 +1,30 @@
+name: gen_factor_no_std_for_rl_20240724
+manual_seed: 2023
+n_jobs: 16
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_table:
+    strategy: ['factor']
+    factor_test: [ 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
+  training_factor_name: [ 'base_factor', 'ofl_factor', 'fok_factor', 'slope_factor', 'genetic_programming_factor_2_div_open' ]
+  std_factor_name: []
+  clip_factor_name: [ 'base_factor', 'ofl_factor', 'slope_factor', 'genetic_programming_factor_2_div_open']
+  log_factor_name: [ 'log_factor' ]
+
+  # data preprocessing options
+  type: 'GenDataset'
+  test_month: [202311, 202312, 202401]
+  io_backend: sql # disk
+  pool_name: ['hs300']
+  indus_class: wind1
+  avg_price: 10
+  price_name: highprice
+  std_type: default # trainingset std
+
+
+
+
+
+
