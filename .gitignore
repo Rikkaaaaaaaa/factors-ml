@@ -8,4 +8,5 @@
 /scripts/*csv
 /signal_evaluation/*csv
 
-
+**/__pycache__/
+*.py[cod]
