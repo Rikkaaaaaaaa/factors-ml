@@ -100,7 +100,7 @@ def init_args(opt_manager):
                     train_data_path = f"{result_folder}/train_data_indus{indus_type}_{test_month}_{sub_opt['dataset']['ret_name']}.parquet"
                     test_data_path = f"{result_folder}/test_data_indus{indus_type}_{test_month}_{sub_opt['dataset']['ret_name']}.parquet"
                     if osp.exists(train_data_path) and osp.exists(test_data_path):
-                        print(f"[option manager] {test_month}: Data of [{sub_opt['name']}] have been generated at {train_data_path}!")
+                        print(f"[option manager] {test_month}: Data of [{sub_opt['name']}] have existed at {train_data_path}!")
                         continue
                     # if not exists one of sub options, append to args
                     train_sub_option_names.append(sub_opt_name)
