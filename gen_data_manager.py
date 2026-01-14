@@ -69,6 +69,7 @@ def train_pipeline(train_args):
         test_data_path = f"{result_folder}/test_data_indus{indus_type}_{test_month}_{opt['dataset']['ret_name']}.parquet"
         dataset.train_data.to_parquet(train_data_path)
         dataset.test_data.to_parquet(test_data_path)
+        logger.info(f"[{logger_name}] Suscessfully save parquet data at {train_data_path}")
 
         del dataset
         gc.collect()
