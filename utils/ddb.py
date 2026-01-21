@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import time
 import dolphindb.settings as keys
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 
@@ -17,13 +17,17 @@ DDB_config = { "server": "10.95.145.91",
 class DDB_connector():
     def __init__(self, DDB_config):
         self.ddb_session = ddb.session(
-            DDB_config["server"],
-            DDB_config["port"],
-            DDB_config["userName"],
-            DDB_config["userKey"],
-            keepAliveTime=12000,
-            protocol=keys.PROTOCOL_DDB,
-            compress=True
+            protocol=keys.PROTOCOL_DDB, 
+            compress=True,
+            keepAliveTime=12000
+        )
+        # 创建连接；开启重连
+        self.ddb_session.connect(
+            host=DDB_config["server"], 
+            port=DDB_config["port"], 
+            userid=DDB_config["userName"],
+            password=DDB_config["userKey"],
+            reconnect=True
         )
         self.ddb_session.setTimeout(3600)
 
@@ -67,11 +71,11 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
     #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
     ddb_reader = DDB_connector(DDB_config)
     scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
-    ddb_reader.ddb_session.run(scripts)
+    ddb_reader.ddb_session.run(scripts, priority=9)
     scripts =  f"retTable = select * from factorTable where month(time)={test_month}, securityCode in {tickers}, {am_start_time}<=second(time)<={am_end_time} or {pm_start_time}<=second(time)<={pm_end_time}"
-    ddb_reader.ddb_session.run(scripts)
+    ddb_reader.ddb_session.run(scripts, priority=9)
     scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
-    factor = ddb_reader.ddb_session.run(scripts)
+    factor = ddb_reader.ddb_session.run(scripts, priority=9)
     ddb_reader.close()
     #print(f"[{table_name}][{test_month}][{len(tickers)}] load data time: {time.time() - start_time}")
 
@@ -83,18 +87,81 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
                       factor["time"].dt.second * 1000 + factor["time"].dt.microsecond // 1000)
     #print(f"[{table_name}][{test_month}][{len(tickers)}] filter data time: {time.time() - start_time}")
 
-    # print(f'load date time: {time.time() - start_time}')
+    #print(f'load date time: {time.time() - start_time}')
     return factor
 
-def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, trading_hours=None, n_threads=8):
-    with ThreadPoolExecutor(max_workers=min(len(tickers), n_threads)) as executor:
-        results = list(
-            executor.map(
-                lambda ticker: read_ddb_factor(data_base, table_name, test_month, [ticker], trading_hours), tickers
+# def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, trading_hours=None, n_threads=8):
+#     with ThreadPoolExecutor(max_workers=min(len(tickers), n_threads)) as executor:
+#         results = list(
+#             executor.map(
+#                 lambda ticker: read_ddb_factor(data_base, table_name, test_month, [ticker], trading_hours), tickers
+#             )
+#         )
+#     factors = pd.concat([r for r in results])
+#     return factors
+
+
+
+def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, trading_hours=None, 
+                            batch_size=4, n_threads=8):
+    """
+    批量读取因子数据，每批最多batch_size个ticker
+    
+    参数:
+        data_base: 数据库名称
+        table_name: 表名称
+        test_month: 测试月份
+        tickers: ticker列表
+        trading_hours: 交易时段配置
+        batch_size: 每批处理的ticker数量，默认4
+        n_threads: 线程数，默认8
+    """
+    #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
+    start_time = time.time()
+    # 将ticker列表分批
+    ticker_batches = []
+    for i in range(0, len(tickers), batch_size):
+        batch = tickers[i:i + batch_size]
+        ticker_batches.append(batch)
+    
+    #print(f"总共{len(tickers)}个ticker，分为{len(ticker_batches)}批，每批最多{batch_size}个")
+    
+    total_start_time = time.time()
+    
+    # 使用线程池并行处理各批次
+    with ThreadPoolExecutor(max_workers=min(len(ticker_batches), n_threads)) as executor:
+        # 提交所有批次任务
+        future_to_batch = {}
+        for batch_idx, batch in enumerate(ticker_batches):
+            future = executor.submit(
+                read_ddb_factor, 
+                data_base, table_name, test_month, batch, trading_hours
             )
-        )
-    factors = pd.concat([r for r in results])
-    return factors
+            future_to_batch[future] = (batch_idx, batch)
+        
+        # 收集结果
+        results = []
+        for future in as_completed(future_to_batch):
+            batch_idx, batch = future_to_batch[future]
+            try:
+                batch_result = future.result()
+                if not batch_result.empty:
+                    results.append(batch_result)
+                    #print(f"批次{batch_idx+1}完成，包含{len(batch)}个ticker，获取{len(batch_result)}行数据")
+                else:
+                    pass
+                    #print(f"批次{batch_idx+1}完成，但未获取到数据")
+            except Exception as e:
+                print(f"批次{batch_idx+1}处理失败: {e}")
+    
+    # 合并所有批次结果
+    if results:
+        factors = pd.concat(results, ignore_index=True)
+        #print(f"[{table_name}][{test_month}][{len(tickers)}] 所有批次处理完成，总耗时: {time.time() - total_start_time:.2f}s, 合并后总数据量: {len(factors)}行")
+        return factors
+    else:
+        print("未获取到任何数据")
+        return pd.DataFrame()
 
 
 
@@ -107,11 +174,11 @@ def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, tradin
     #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
     ddb_reader = DDB_connector(DDB_config)
     scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
-    ddb_reader.ddb_session.run(scripts)
+    ddb_reader.ddb_session.run(scripts, priority=9)
     scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
-    ddb_reader.ddb_session.run(scripts)
+    ddb_reader.ddb_session.run(scripts, priority=9)
     scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
-    factor = ddb_reader.ddb_session.run(scripts)
+    factor = ddb_reader.ddb_session.run(scripts, priority=9)
     ddb_reader.close()
     #print(f"[{table_name}][{test_month}][{len(tickers)}] load data time: {time.time() - start_time}")
 
@@ -142,9 +209,9 @@ def read_ddb_return(data_base, table_name, test_month, tickers, trading_hours=No
 
     # select wide table
     scripts = "retTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
-    ddb_reader.ddb_session.run(scripts)
+    ddb_reader.ddb_session.run(scripts, priority=9)
     scripts =  "select * from retTable where month(time)={} and securityCode in {}".format(test_month, tickers)
-    ret = ddb_reader.ddb_session.run(scripts)
+    ret = ddb_reader.ddb_session.run(scripts, priority=9)
     ddb_reader.close()
 
     # transfer to ticker date time format like sql
