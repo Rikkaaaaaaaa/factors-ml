@@ -11,6 +11,7 @@ from dataset import build_factor_name
 from dataset.sql_ops import load_ticker_by_indus, load_labels, align_factor_ticker, load_factor_by_table, check_rebalanced
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
+from utils.misc import Timer, time_str
 
 
 @DATASET_REGISTRY.register()
@@ -62,6 +63,7 @@ class FactorDataset():
         self.std_factor_name = build_factor_name(self.opt['dataset']['std_factor_name'])
         self.clip_factor_name = build_factor_name(self.opt['dataset']['clip_factor_name'])
         self.log_factor_name = build_factor_name(self.opt['dataset']['log_factor_name'])
+        self.log_factor_name = list(set(self.training_factor_name) & set(self.log_factor_name ))
         self.train_data_column_name = ['ticker', 'date', 'time'] + self.training_factor_name + ['ret']
 
         # bool params
@@ -169,15 +171,21 @@ class FactorDataset():
     def load_ticker_list(self):
         # fetch ticker list from mysql table
         try:
-            ticker_list = []
+            load_timer = Timer()
+            load_timer.start()
             # load ticker list
+            ticker_list = []
+            self.logger.info(f"[{self.logger_name}] Loading ticker list from mysql...")
             cur_ticker = load_ticker_by_indus(self.opt, self.pool_name, self.indus_type, self.test_month)
             ticker_list.extend(cur_ticker)
-
+            self.logger.info(f"[{self.logger_name}] Suscessfully load ticker list from mysql with cost={time_str(load_timer.item())}")
+            
             # align training and testing ticker list
+            self.logger.info(f"[{self.logger_name}] Aligning ticker list...")
             all_ticker = cur_ticker.copy()
             check_ticker_month = self.get_check_ticker_month()
             ticker_list = align_factor_ticker(self.factor_table, all_ticker, self.pool_name, check_ticker_month, self.test_month, self.rebalancing_tables, self.training_month_num, self.io_backend, self.logger_name)
+            self.logger.info(f"[{self.logger_name}] Suscessfully align ticker list with cost={time_str(load_timer.item())}")
 
             # ordered ticker list
             ticker_list = sorted(ticker_list)
@@ -218,8 +226,7 @@ class FactorDataset():
                                                   self.training_month_num, self.io_backend)
                     if len(factor) == 0:
                         raise FileExistsError(f"[{self.logger_name}] No factor exists in [{database}.{table}] !")
-                    # preprocessing
-                    self.preprocess(factor)
+        
                     # merge factors from every table
                     if i == 0:
                         data = factor
@@ -228,6 +235,8 @@ class FactorDataset():
                             del factor['limitFlag']
                         data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
                     i += 1
+            # preprocessing
+            self.preprocess(data)
             # load labels
             labels = load_labels(self.opt, self.tickers, month)
 
@@ -256,18 +265,22 @@ class FactorDataset():
 
 
     def preprocess(self, factor):
-        # preprocessing after fetcing from sql
-        # log factor
-        def get_log_factor_df(df_factors):
-            df_factors[df_factors > 0] = np.log(df_factors[df_factors > 0] + 1)
-            df_factors[df_factors < 0] = -np.log(-df_factors[df_factors < 0] + 1)
-            return df_factors
+        # # preprocessing after fetcing from sql
+        # # log factor
+        # def get_log_factor_df(df_factors):
+        #     df_factors[df_factors > 0] = np.log(df_factors[df_factors > 0] + 1)
+        #     df_factors[df_factors < 0] = -np.log(-df_factors[df_factors < 0] + 1)
+        #     return df_factors
 
-        for log_factor in self.log_factor_name:
-            if log_factor in factor.columns:
-                factor.loc[:, log_factor] = get_log_factor_df(factor[log_factor].values)
-        # other ops
-        # ......
+        # for log_factor in self.log_factor_name:
+        #     if log_factor in factor.columns:
+        #         factor.loc[:, log_factor] = get_log_factor_df(factor[log_factor].values)
+        # # other ops
+        # # ......
+
+        # new preprocessing after fetcing from sql
+        data = factor[self.log_factor_name].values
+        factor.loc[:, self.log_factor_name] = np.sign(data) * np.log(np.abs(data)+1)
         return factor
 
 
