@@ -1,6 +1,6 @@
 base_name: pm_model_other_highprice_lgbm
 manual_seed: 2023
-n_jobs: 8
+n_jobs: 1
 ret_names: [15s, 60s, 120s, 300s]
 dataset:
   test_month: [202512]
