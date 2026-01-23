@@ -152,7 +152,7 @@ def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, tradin
                     pass
                     #print(f"批次{batch_idx+1}完成，但未获取到数据")
             except Exception as e:
-                print(f"批次{batch_idx+1}处理失败: {e}")
+                print(f"[{table_name}][{test_month}][{len(tickers)}] Error: 批次{batch_idx+1}处理失败: {e}")
     
     # 合并所有批次结果
     if results:
@@ -160,7 +160,7 @@ def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, tradin
         #print(f"[{table_name}][{test_month}][{len(tickers)}] 所有批次处理完成，总耗时: {time.time() - total_start_time:.2f}s, 合并后总数据量: {len(factors)}行")
         return factors
     else:
-        print("未获取到任何数据")
+        print(f"[{table_name}][{test_month}][{len(tickers)}] Error: 未获取到任何数据!")
         return pd.DataFrame()
 
 
