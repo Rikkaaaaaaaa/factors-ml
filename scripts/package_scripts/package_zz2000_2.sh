@@ -1,0 +1,3 @@
+ python -u pack_realtime_files_for_mix_model.py  --root_path experiments  --test_month 202601 --pool_name zz2000_2  \
+ --am_exp_name prod_am_zz2000_2_highprice_lgbm --pm_exp_name prod_pm_zz2000_2_highprice_lgbm \
+ --exp_name_low_price low_price_zz2000_2_rt
