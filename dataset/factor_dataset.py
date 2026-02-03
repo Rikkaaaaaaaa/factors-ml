@@ -463,8 +463,8 @@ class FactorDataset():
                         factor_std = ticker_std_params.set_index('factor_name').loc[self.std_factor_name].reset_index()['std'].values
                         factor_mean = ticker_std_params.set_index('factor_name').loc[self.std_factor_name].reset_index()['mean'].values
                     else:
-                        factor_mean = np.nanmean(train_x, axis=0).values
-                        factor_std = np.nanstd(train_x, axis=0).values
+                        factor_mean = np.mean(train_x, axis=0).values
+                        factor_std = np.std(train_x, axis=0).values
                         # save transform params
                         std_param = pd.DataFrame(columns=['factor_name', 'mean', 'std'])
                         std_param['factor_name'] = self.std_factor_name
