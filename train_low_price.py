@@ -103,7 +103,10 @@ def init_args(opt):
     args = []
     for test_month in opt['dataset']['test_month']:
         # delete current data in signal table
-        if (not opt["is_realtime"]) & (opt["save_signal"]["save_signal_to_sql"]) & opt['new_session_flag']:
+        # option1: delete signal only when inputting y
+        # if (not opt["is_realtime"]) & (opt["save_signal"]["save_signal_to_sql"]) & opt['new_session_flag']:
+        # option2: delete signal no matter input y/n
+        if (not opt["is_realtime"]) & (opt["save_signal"]["save_signal_to_sql"]):
             signal_table = opt["save_signal"]["sql_table_name"]
             drop_signal_table(signal_table, test_month)
 
@@ -140,7 +143,7 @@ def main(opt):
     # multi pricess
     manager = multiprocessing.Manager()
     dataset_lock = manager.Lock()
-    process_num = 2
+    process_num = 4
     main_pool = multiprocessing.Pool(processes=process_num, initializer=init_lock, initargs=(dataset_lock,), maxtasksperchild=1)
     main_pool.map(train_pipeline, args, chunksize=1)
     main_pool.close()

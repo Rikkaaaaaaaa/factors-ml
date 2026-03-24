@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
     parser.add_argument('-debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()
-    opt = parse_options(args, ensure=False, yaml_path='option/low_price/low_price_hs300_0pct_20pct.yaml')
+    opt = parse_options(args, ensure=False, yaml_path='option/low_price/low_price_other_pct_eval.yaml')
 
     for test_month in opt['dataset']['test_month']:
         # delete current data in signal table

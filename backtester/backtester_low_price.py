@@ -148,13 +148,24 @@ class BackTesterLowPrice():
             dynamic_benchmark_pct = sum(dynamic_benchmark_label) / len(dynamic_benchmark_label)
 
             if 'vol_signal_num' not in self.opt['save_signal'].keys():
-                # prod version: volume signal: 4.5/0.5/-1
-                if bs_flag == 'b':
-                    vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
-                                          np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+                if 'pct' in self.opt['save_signal'].keys():
+                    # pct version: 1/2/10/-1
+                    if bs_flag == 'b':
+                        vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][1], 1,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][2], 2,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][0], 10, -1)))
+                    else:
+                        vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][1], -1,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][2], -2,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][0], -10, 1)))
                 else:
-                    vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
-                                          np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
+                    # prod version: volume signal: 4.5/0.5/-1
+                    if bs_flag == 'b':
+                        vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], 4.5,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][0], 0.5, -1))
+                    else:
+                        vol_signal = np.where(temp_y_pred > benchmark_dict[ticker][2], -4.5,
+                                              np.where(temp_y_pred > benchmark_dict[ticker][0], -0.5, 1))
             else:
                 vol_signal_num = self.opt['save_signal']['vol_signal_num']
                 # test version: volume signal: 20/0.5/-1
