@@ -1,10 +1,10 @@
-name: low_price_hs300_rt
+name: low_price_zz2000_1_rt
 eval_rt: false
-is_realtime: false
+is_realtime: true
 
 save_signal:
   save_signal_to_sql: true
-  sql_table_name: signal_hs300_low_price_rt_eval
+  sql_table_name: signal_zz2000_1_low_price_70_20pct
   sql_database: strategy
   dynamic_benchmark: 0.7
 
@@ -18,12 +18,12 @@ dataset:
   std_factor_name: [ 'ddb_base_factor', 'ddb_base_factor_ret', 'ddb_slope_std_factor', 'ddb_gp_factor']
   clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
   log_factor_name: [ 'log_factor' ]
-  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+  rebalancing_tables: ['BaseFokFactor', 'GPFactor']
 
   # data preprocessing options
   type: 'GenDatasetLowPrice'
-  test_month: [202512]
-  pool_name: 'hs300'
+  test_month: [202603]
+  pool_name: 'zz2000_1'
   indus_class: price_group
   indus_table_suffix: ''
   io_backend: ddb

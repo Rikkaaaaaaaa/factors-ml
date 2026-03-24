@@ -1,12 +1,14 @@
-name: low_price_hs300_rt
+name: low_price_hs300_logit_70_pct
 eval_rt: false
-is_realtime: true
+is_realtime: false
 
 save_signal:
   save_signal_to_sql: true
-  sql_table_name: signal_hs300_low_price_70_20pct
+  sql_table_name: signal_hs300_low_price_70_pct
   sql_database: strategy
   dynamic_benchmark: 0.7
+  threshold_columns: [ 'quantile_90', 'quantile_80' ]
+  pct: true
 
 # factor dataset
 dataset:
@@ -22,7 +24,7 @@ dataset:
 
   # data preprocessing options
   type: 'GenDatasetLowPrice'
-  test_month: [202603]
+  test_month: [202601, 202602]
   pool_name: 'hs300'
   indus_class: price_group
   indus_table_suffix: ''
