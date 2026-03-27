@@ -51,8 +51,6 @@ def check_indus(opt, first_month):
         raise ValueError(f"Param in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
     indus_list = []
     if opt['price_name'] == 'highprice':
-        print('[checking industry] select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
-                                    indus_class, pool_name, indus_table_suffix, first_month))
         indus_table = cx_read_sql('select distinct {} from static_data_industry_{}_history{} where test_month={}'.format(
                                     indus_class, pool_name, indus_table_suffix, first_month))
 
@@ -317,6 +315,8 @@ def get_sop_fill_flag_ddb(tickers, pool_name, start_month, end_month, tick_ahead
     table_name = f'fill_flag_{pool_name}_{tick_ahead}_{bs_flag}'
     # TODO temp version for selected stock pool, can be deleted after 202510
     if 'selected' in pool_name:
+        table_name = f'fill_flag_{pool_name.split("_")[0]}_{tick_ahead}_{bs_flag}'
+    if 'zz2000_' in pool_name:
         table_name = f'fill_flag_{pool_name.split("_")[0]}_{tick_ahead}_{bs_flag}'
 
     # fill_flag_query = f'select factorValue from loadTable("dfs://smart_order_position", "{table_name}") where month(tradeTime)>={start_month_str}M, month(tradeTime)<={end_month_str}M, securityCode=`{ticker} pivot by tradeTime, securityCode, factorName'
