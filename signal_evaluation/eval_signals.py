@@ -143,7 +143,7 @@ def merge_signal(signal, ret_name, month, trading_hours=None, ret_db_name="dfs:/
     return df_merge
 
 def compute_metrics(df_signal, ret_name, month):
-    tickers = tuple(df_signal["ticker"].unique())
+    tickers = df_signal["ticker"].unique()
     # backtest by ticker
     report = []
     for ticker in tickers:
@@ -179,10 +179,6 @@ def eval_signals_by_month(result_name, signal_path, month, ret_name, stock_pool,
         bt_signal = merge_signal(signal, ret_name, month, trading_hours, ret_table_name=f"Returns_{stock_pool}")
         # filter by trading hours
         if isinstance(trading_hours, dict):
-            if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
-                print(f"Trading hours: AM-[{trading_hours['am_start_time']}, {trading_hours['am_end_time']}]")
-            if trading_hours['pm_start_time'] <= trading_hours['pm_end_time']:
-                print(f"Trading hours: PM-[{trading_hours['pm_start_time']}, {trading_hours['pm_end_time']}]")
             bt_signal = bt_signal[((bt_signal["time"] >= trading_hours['am_start_time'] * 1000) & (
                         bt_signal["time"] <= trading_hours['am_end_time'] * 1000))
                                   | ((bt_signal["time"] >= trading_hours['pm_start_time'] * 1000) & (
@@ -238,10 +234,6 @@ def eval_signals_by_date(result_name, signal_path, month, ret_name, stock_pool, 
         bt_signal = merge_signal(signal, ret_name, month, trading_hours, ret_table_name=f"Returns_{stock_pool}")
         # filter by trading hours
         if isinstance(trading_hours, dict):
-            if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
-                print(f"Trading hours: AM-[{trading_hours['am_start_time'] }, {trading_hours['am_end_time']}]")
-            if trading_hours['pm_start_time'] <= trading_hours['pm_end_time']:
-                print(f"Trading hours: PM-[{trading_hours['pm_start_time']}, {trading_hours['pm_end_time']}]")
             bt_signal = bt_signal[((bt_signal["time"] >= trading_hours['am_start_time'] * 1000) & (bt_signal["time"] <= trading_hours['am_end_time'] * 1000))
                       | ((bt_signal["time"] >= trading_hours['pm_start_time'] * 1000) & (bt_signal["time"] <= trading_hours['pm_end_time'] * 1000))
             ]
@@ -326,15 +318,17 @@ def analysis_summary_by_date(report_name, ret_windows = [ "15s", "60s", "120s", 
 
 
 if __name__ == "__main__":
-    months = [202510,202511]
+    # default params
+    # default
+    trading_hours = None
     ret_windows = ['15s', '60s', '120s', '300s']
-    # use eval function to treat signal files in experiments folder
-
-    #signal_path = 'f"../87_experiments/manual_factor_select_results/ddb_factor_select_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
-    #result_name = 'manual_factor_selection'
-
-    #signal_path = 'f"../experiments/ddb_factor_all_new_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
-    #result_name = 'ddb_factor_all_new'
+    # signal time filter
+    trading_hours = {
+        "am_start_time": 93000,
+        "am_end_time": 113000,
+        "pm_start_time": 130000,
+        "pm_end_time": 145700
+    }
 
     signal_path = 'f"../experiments/ddb_null_factor_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
     result_name = 'ddb_null_factor'
@@ -345,31 +339,6 @@ if __name__ == "__main__":
     signal_path =  'f"../ensemble/ensemble_signals/create_mix2s_ret_signal/create_mix2s_ret_signal_{month}_{ret_window}.csv"'
     result_name = 'mix2s_ret_signal'
 
-    # signal_path = 'f"../ensemble/ensemble_signals/create_mix2_ret_signal/create_mix2_ret_signal_{month}_{ret_window}.csv"'
-    # result_name = 'mix2_ret_signal'
-
-    #signal_path = 'f"../experiments/ddb_factor_all_new_manual_selection_hs300_highprice_lgbm_{ret_window}/{month}/signal"'
-    #result_name = 'ddb_factor_all_new_manual_selection'
-
-    #result_name = 'ensemble_manual_selection_300s_weight_3_1_1_1'
-    #signal_path = 'f"../ensemble/ensemble_signals/ensemble_manual_selection_300s_weight_3_1_1_1/ensemble_manual_selection_300s_weight_3_1_1_1_{month}_{ret_window}.csv"'
-
-    #result_name = 'ensemble_with_all_weight_3_1_1_1'
-    #signal_path = 'f"../ensemble/ensemble_signals/ensemble_with_all_weight_3_1_1_1/ensemble_with_all_weight_3_1_1_1_{month}_{ret_window}.csv"'
-
-    result_name = 'ddb_null_factor_new_indus_in_open_hs300_highprice_lgbm'
-    expr_name = 'ddb_null_factor_new_indus_hs300_highprice_lgbm'
-    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-    #
-    # result_name = 'ddb_null_factor_in_open_hs300_highprice_lgbm'
-    # expr_name = 'ddb_null_factor_hs300_highprice_lgbm'
-    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-
-    # result_name = 'ddb_null_factor_new_open_hs300_highprice_lgbm'
-    # expr_name = 'ddb_null_factor_new_open_hs300_highprice_lgbm'
-    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-
-    #
     result_name = 'bond_null_factor_no_reverse_am_bond_etf_highprice_lgbm'
     expr_name = 'bond_null_factor_no_reverse_am_bond_etf_highprice_lgbm'
     signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
@@ -378,53 +347,60 @@ if __name__ == "__main__":
     expr_name = 'mix4_1_1_1_1_pct20_hs300_highprice_lgbm'
     signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
 
-    result_name = 'ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm'
-    expr_name = 'ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm'
-    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-
-
-    result_name = 'ddb_null_factor_no_re_all_new_6m_select300s_no_bias0.1_hs300_highprice_lgbm'
-    expr_name = 'ddb_null_factor_no_re_all_new_6m_select300s_no_bias0.1_hs300_highprice_lgbm'
-    signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-
-    # # batch3 prod
-    # result_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
-    # expr_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
-    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-
-    # result_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
-    # expr_name = 'ddb_null_factor_no_reverse_hs300_highprice_lgbm'
-    # signal_path = 'f"../experiments/{expr_name}_{ret_window}/{month}/signal"'
-    # time_ranges = None
 
     # mix am pm evaluation
-    result_name = 'mix_am_pm_hs300_highprice_lgbm'
-    expr_name_am = 'am_model_hs300_highprice_lgbm'
-    expr_name_pm = 'pm_model_hs300_highprice_lgbm'
+    stock_pool = 'bond_etf'
+    test_month = [202510,202511,202512]
+    result_name = f'mix_am_pm_{stock_pool}_highprice_lgbm'
+    expr_name_am = f'am_model_{stock_pool}_highprice_lgbm'
+    expr_name_pm = f'pm_model_{stock_pool}_highprice_lgbm'
     signal_path = '[f"../experiments/{expr_name_am}/{expr_name_am}_{ret_window}/{month}/signal", f"../experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal" ]'
-    time_ranges = [(93000, 113000), (130000, 145700)]
-    stock_pool = 'hs300'
+    time_ranges = [(93000, 113000), (130000, 145700)] # am and pm time
 
+    # only pm model
+    stock_pool = 'bond_etf'
+    test_month = [202510,202511,202512]
+    result_name = f'pm_{stock_pool}_highprice_lgbm'
+    expr_name = f'pm_model_{stock_pool}_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}/{expr_name}_{ret_window}/{month}/signal"'
+    time_ranges = None
 
-    # result_name = 'pm_hs300_highprice_lgbm'
-    # expr_name_pm = 'pm_loop_hs300_highprice_lgbm'
-    # signal_path ='f"../experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal"'
-    # time_ranges = None
+    # mix am pm evaluation for zz500
+    stock_pool = 'zz500'
+    test_month = [202603]
+    # result_name = f'mix_am_pm_{stock_pool}_highprice_lgbm'
+    # expr_name_am = f'am_model_{stock_pool}_highprice_lgbm'
+    # expr_name_pm = f'pm_model_{stock_pool}_highprice_lgbm'
+    result_name = f'prod_mix_am_pm_{stock_pool}_highprice_lgbm'
+    expr_name_am = f'prod_am_{stock_pool}_highprice_lgbm'
+    expr_name_pm = f'prod_pm_{stock_pool}_highprice_lgbm'
+    signal_path = '[f"../eval_experiments/{expr_name_am}/{expr_name_am}_{ret_window}/{month}/signal", f"../eval_experiments/{expr_name_pm}/{expr_name_pm}_{ret_window}/{month}/signal" ]'
+    time_ranges = [(93000, 113000), (130000, 130000)] # am and pm time
 
-    # signal time filter
-    trading_hours = {
-        "am_start_time": 93000,
-        "am_end_time": 113000,
-        "pm_start_time": 130000,
-        "pm_end_time": 145700
-    }
-    #trading_hours = None
-    # time_ranges can
-    n_jobs = 16
+    """
+    # am lgbm
+    stock_pool = 'other'
+    test_month = [202512]
+    result_name = f'am_{stock_pool}_highprice_lgbm'
+    expr_name = f'am_model_{stock_pool}_highprice_lgbm'
+    signal_path = 'f"../experiments/{expr_name}/{expr_name}_{ret_window}/{month}/signal"'
+    time_ranges = [(93000, 113000)]"""
+
+    # ----------- print parmas------------------#
+    print(f"Test month is {test_month}")
+    print(f"Signal time ranges is {time_ranges}")
+    if isinstance(trading_hours, dict):
+        if trading_hours['am_start_time'] <= trading_hours['am_end_time']:
+            print(f"Trading hours: AM-[{trading_hours['am_start_time']}, {trading_hours['am_end_time']}]")
+        if trading_hours['pm_start_time'] <= trading_hours['pm_end_time']:
+            print(f"Trading hours: PM-[{trading_hours['pm_start_time']}, {trading_hours['pm_end_time']}]")
+
+    #------------multi processing evaluation-----#
+    n_jobs = 4
     params = [(result_name,
                eval(signal_path),
                month, ret_window, stock_pool, time_ranges, trading_hours)
-              for month in months
+              for month in test_month
               for ret_window in ret_windows]
     # eval by month
     with Pool(processes=n_jobs) as pool:
