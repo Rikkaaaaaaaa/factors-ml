@@ -70,12 +70,14 @@ def ensure_path(path, ensure=True):
         os.makedirs(path)
     return new_session_flag
 
-def ensure_table_name(database, table_name):
-
-    if input('Signals will be saved to {}.{} (y/n)'.format(database, table_name)) == 'y':
-        pass
+def ensure_table_name(database, table_name, skip=False):
+    if skip:
+        print('Signals will be saved to {}.{}'.format(database, table_name))
     else:
-        return -1
+        if input('Signals will be saved to {}.{} (y/n)'.format(database, table_name)) == 'y':
+            pass
+        else:
+            return -1
 
 def mkdir(path):
     if not os.path.exists(path):
