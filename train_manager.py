@@ -87,12 +87,12 @@ def train_pipeline(train_args):
 def init_args(opt_manager):
     args = []
     for test_month in opt_manager['dataset']['test_month']:
+        print(f"[option manager] {test_month}: Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
         industry = check_indus(opt_manager, test_month)
         if opt_manager['dataset'].setdefault('selected_indus'):
             selected_industry = opt_manager['dataset']['selected_indus']
             industry = [indus for indus in industry if indus in selected_industry]
             print(f"[option manager] {test_month}: Selected indus is {selected_industry}")
-        print(f"[option manager] {test_month}: Loading indus by [{opt_manager['dataset']['indus_class']}] from table [static_data_industry_{opt_manager['dataset']['pool_name']}_history] + [{opt_manager['dataset']['indus_table_suffix']}]]")
         print(f"[option manager] {test_month}: Running industry id: {industry}")
         for indus_type in industry:
             # check whether any result of sub options doesn't exist
