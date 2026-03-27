@@ -56,7 +56,7 @@ class FactorDataset():
         self.pool_name = self.opt['dataset']['pool_name']
         self.factor_table = self.opt['dataset']['factor_table']
         self.rebalancing_tables = self.opt['dataset']['rebalancing_tables']
-        self.eval_factor_table = self.opt['dataset'].get('eval_factor_table')
+        self.eval_factor_table = self.opt['dataset'].get('eval_factor_table', self.factor_table)
 
         # build factor names
         self.training_factor_name =  build_factor_name(self.opt['dataset']['training_factor_name']) # list(set(_train_data.columns) - set(del_column))
