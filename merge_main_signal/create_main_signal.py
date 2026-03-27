@@ -532,7 +532,7 @@ def ensemble_batch3_pct_mix_am_pm(pool_name, months, eval=False):
     ensemble_batch3_pct_am(months, pool_name=pool_name, del_month=True, trading_hours=None, eval=eval)
     ensemble_batch3_pct_pm(months, pool_name=pool_name, del_month=False, trading_hours=None, eval=eval)
 
-def ensemble_mix_am_pm(test_month, am_expr_prefix, pm_expr_prefix, model_type, pool_name, price_level='highprice', eval=False):
+def ensemble_mix_am_pm(test_month, am_expr_prefix, pm_expr_prefix, sql_table_suffix, model_type, pool_name, price_level='highprice', eval=False):
     '''
     ensemble new signal to sql with am and pm model
     '''
@@ -543,10 +543,9 @@ def ensemble_mix_am_pm(test_month, am_expr_prefix, pm_expr_prefix, model_type, p
     option['test_month'] = test_month
 
     # define sql output table name
-    sql_table_suffix = 'mlp_am_lgbm_pm' #'batch3_pct2_mix_am_pm'
     option['database'] = 'strategy'
     option['table_name'] = f"ensemble_signal_{pool_name}_{price_level}_{model_type}_{sql_table_suffix}"
-    if ensure_table_name(option['database'], option['table_name']) == -1:
+    if ensure_table_name(option['database'], option['table_name'], skip=True) == -1:
         print("Suscessfully cancel uploading!")
         return
 
@@ -635,9 +634,7 @@ def check_dist(signal_data, column,  time_bin=[940, 1000, 1030, 1130, 1400, 1500
 
 
 if __name__ == "__main__":
-    months = [202511]
-    pool_name = "hs300"
-    eval=True
+
     # ensemble_bond_etf_6m(months)
     # signal = read_signal_and_adjust_main_signal_enhance('ddb_null_factor_no_re_all_new_6m_hs300_highprice_lgbm_300s', '300s', 202506)
     # ensemble_all_new_6m_enhance(months)
@@ -646,10 +643,23 @@ if __name__ == "__main__":
     # ensemble_batch3_pct_mix_am_pm(pool_name,months, eval=eval)
     # ensemble_batch3_pct_mix_am_pm_930_940_15s_signal(months)
 
-    test_month= [202511]
-    am_expr_prefix = ''
-    pm_expr_prefix = 'pm_model'
-    ensemble_mix_am_pm(test_month, am_expr_prefix, pm_expr_prefix, model_type='lgbm', pool_name='hs300', price_level='highprice', eval=True)
+    test_month= [202603]
+    pool_names = ["hs300", "zz500", "zz1000", "zz2000_1", "zz2000_2", "zz2000_3", "other"]
+    for pool_name in pool_names:
+        am_expr_prefix = 'prod_am'#'am_model' #
+        pm_expr_prefix = 'prod_pm' #'pm_model' #
+        sql_table_suffix = 'batch3_pct2_mix_am_pm' #'batch3_pct2_mix_am_pm' # 'mlp_am_lgbm_pm' #
+
+        ensemble_mix_am_pm(
+            test_month,
+           am_expr_prefix,
+           pm_expr_prefix,
+           sql_table_suffix,
+           model_type='lgbm',
+           pool_name=pool_name,
+           price_level='highprice',
+           eval=True
+        )
 
 
 
