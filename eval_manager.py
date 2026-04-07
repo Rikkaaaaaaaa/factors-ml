@@ -95,8 +95,8 @@ def init_args(opt_manager):
             train_sub_option_names = []
             for sub_opt_name in opt_manager['sub_options'].keys():
                 sub_opt = opt_manager['sub_options'][sub_opt_name]
-                # if not exists_results(sub_opt, test_month, indus_type) or opt_manager['mode']=='eval':
-                if not exists_results(sub_opt, test_month, indus_type):
+                if not exists_results(sub_opt, test_month, indus_type) or opt_manager['mode']=='eval':
+                #if not exists_results(sub_opt, test_month, indus_type):
                     # if not exists one of sub options, append to args
                     train_sub_option_names.append(sub_opt_name)
             args.append((opt_manager, test_month, indus_type, train_sub_option_names))
