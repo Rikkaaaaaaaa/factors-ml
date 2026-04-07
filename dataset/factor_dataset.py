@@ -166,6 +166,7 @@ class FactorDataset():
 
         except Exception as e:
             self.logger.error(f"[{self.logger_name}] Error in load_data function: {e}", exc_info=True)
+            raise
 
 
     def load_ticker_list(self):
