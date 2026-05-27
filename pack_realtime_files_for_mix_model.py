@@ -240,10 +240,10 @@ if __name__ == '__main__':
     parser.add_argument('--am_exp_name', type=str, default="prod_am_zz2000_2_highprice_lgbm", help="am experiment name")
     parser.add_argument('--pm_exp_name', type=str, default="prod_pm_zz2000_2_highprice_lgbm", help="pm experiment name")
     parser.add_argument('--output_root_path', type=str, default='./data_debug')
-    parser.add_argument('--output_folder_name', type=str, default='lgbm_data')
+    parser.add_argument('--output_folder_name', type=str, default='lgbm')
     # low price
     parser.add_argument('--exp_name_low_price', type=str, default="low_price_zz2000_2_rt", help="experiment name low price")
-    parser.add_argument('--output_folder_name_low_price', type=str, default='logit_data')
+    parser.add_argument('--output_folder_name_low_price', type=str, default='logit')
     config = parser.parse_args()
 
     # save highprice am and pm model
