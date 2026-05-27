@@ -1,0 +1,12 @@
+/experiments/
+/eval_experiments/
+/.idea/
+/experiment*
+/data
+/summary/
+/*csv
+/scripts/*csv
+/signal_evaluation/*csv
+
+**/__pycache__/
+*.py[cod]

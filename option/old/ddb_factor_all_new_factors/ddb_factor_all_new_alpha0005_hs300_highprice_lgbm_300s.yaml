@@ -1,0 +1,46 @@
+name: ddb_factor_all_new_alpha0005_hs300_highprice_lgbm_300s
+manual_seed: 2023
+n_jobs: 8
+eval_rt: false
+
+# factor dataset
+dataset:
+  # factor name options
+  factor_table:
+    dfs://DDB_Factor_15s: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+    dfs://Test_Factor_15s: ['GPFactor', 'longOrderFactor']
+  # read from dataset/factor_name.py
+  training_factor_name: [ 'ddb_base_factor', 'ddb_fok_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor', 'ddb_gp_factors_batch2', 'long_order_factor']
+  std_factor_name: [ 'ddb_base_factor', 'ddb_slope_std_factor', 'ddb_gp_factor', 'long_order_factor']
+  clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor', 'long_order_factor']
+  log_factor_name: [ 'log_factor' ]
+  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+
+  # data preprocessing options
+  type: 'FactorDataset'
+  test_month: [202404, 202405, 202406, 202407, 202408, 202409, 202410, 202411, 202412, 202501,202502,202503]
+  io_backend: ddb # disk
+  pool_name: ['hs300']
+  indus_class: wind1
+  avg_price: 10
+  price_name: highprice
+  ret_name: 300s
+  std_type: default # trainingset std
+  drop_null_in_training: false
+  alpha: 0.0005
+  class_num: 2
+  balance: reverse
+
+model:
+  type: 'LgbmModel'
+  n_cpus: 8
+
+train:
+  num_epoch: 200
+  save_proba: true
+test:
+  bound_mode: by_ticker # indus/ticker
+  threshold_pct: 20
+
+
+
