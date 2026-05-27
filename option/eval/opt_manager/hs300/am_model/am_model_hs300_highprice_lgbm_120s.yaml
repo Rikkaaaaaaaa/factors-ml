@@ -17,7 +17,7 @@ dataset:
   std_factor_name: [ 'ddb_base_factor', 'ddb_slope_std_factor', 'ddb_gp_factor']
   clip_factor_name: [ 'ddb_base_factor', 'ddb_ofl_factor', 'ddb_slope_factor', 'ddb_gp_factor']
   log_factor_name: [ 'log_factor' ]
-  rebalancing_tables: ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
+  rebalancing_tables: ['BaseFokFactor', 'GPFactor']
 
   # data preprocessing options
   type: 'FactorDataset'
