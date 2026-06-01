@@ -1,6 +1,7 @@
 import os.path as osp
 import importlib
 
+from dataset.factor_name_hk import build_factor_name_hk
 from dataset.sql_ops import check_indus, get_ticker_list
 from dataset.factor_name import build_factor_name
 from dataset.factor_name_low_price import build_factor_name_low_price
@@ -8,7 +9,7 @@ from utils import scandir
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
 
-__all__ = ['build_factor_name', 'build_dataset', 'build_factor_name_low_price']
+__all__ = ['build_dataset', 'build_factor_name', 'build_factor_name_low_price', 'build_factor_name_hk']
 # automatically scan and import dataset modules for registry
 # scan all the files under the data folder with '_dataset' in file names
 data_folder = osp.dirname(osp.abspath(__file__))

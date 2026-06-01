@@ -46,6 +46,7 @@ class BackTesterLowPrice():
         # train data drop na
         x_train = x_train.fillna(0)
         merged_train_data = pd.concat([merge_key_train, x_train, y_train], axis=1)
+        merged_train_data = pd.concat([merge_key_train, x_train, y_train], axis=1)
         merged_train_data = merged_train_data.dropna()
         merged_train_data = merged_train_data.reset_index(drop=True)
 
