@@ -173,11 +173,16 @@ def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, tradin
     start_time = time.time()
     #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
     ddb_reader = DDB_connector(DDB_config)
-    scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
-    ddb_reader.ddb_session.run(scripts, priority=9)
-    scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
-    ddb_reader.ddb_session.run(scripts, priority=9)
-    scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
+    scripts = f"""
+        factorTable = loadTable(\"{data_base}\", \"{table_name}\")
+        retTable = select * from factorTable where month(time)={test_month} and securityCode in {tickers}
+        select factorValue from retTable pivot by time, securityCode, factorName
+    """
+    # scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
+    # ddb_reader.ddb_session.run(scripts, priority=9)
+    # scripts =  "retTable = select * from factorTable where month(time)={} and securityCode in {}".format(test_month, tickers)
+    # ddb_reader.ddb_session.run(scripts, priority=9)
+    # scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
     factor = ddb_reader.ddb_session.run(scripts, priority=9)
     ddb_reader.close()
     #print(f"[{table_name}][{test_month}][{len(tickers)}] load data time: {time.time() - start_time}")
