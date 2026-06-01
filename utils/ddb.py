@@ -39,12 +39,16 @@ class DDB_connector():
     def close(self):
         self.ddb_session.close()
 
-def read_ddb(query):
-    ddb = DDB_connector(DDB_config)
-    res = ddb.query_data(query)
-    ddb.close()
 
-    return res
+def read_ddb(query, connector=None):
+    owns_connector = connector is None
+    ddb_conn = connector or DDB_connector(DDB_config)
+    try:
+        return ddb_conn.query_data(query)
+    finally:
+        if owns_connector:
+            ddb_conn.close()
+
 
 def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
@@ -67,20 +71,26 @@ def read_ddb_factor(data_base, table_name, test_month, tickers, trading_hours=No
         pm_start_time, pm_end_time = "13:00:00", "14:57:00"
 
     # select wide table
-    start_time = time.time()
+    # start_time = time.time()
     #print(f"[{table_name}][{test_month}][{len(tickers)}] Connecting DDB")
     ddb_reader = DDB_connector(DDB_config)
+    # avoid errors by async query
+    scripts = f"""factorTable = loadTable(\"{data_base}\", \"{table_name}\")
+                    retTable = select * from factorTable where month(time)={test_month}, securityCode in {tickers}, {am_start_time}<=second(time)<={am_end_time} or {pm_start_time}<=second(time)<={pm_end_time}
+                    select factorValue from retTable pivot by time, securityCode, factorName"""
+    factor = ddb_reader.ddb_session.run(scripts, priority=9)
+    """
     scripts = "factorTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
     ddb_reader.ddb_session.run(scripts, priority=9)
     scripts =  f"retTable = select * from factorTable where month(time)={test_month}, securityCode in {tickers}, {am_start_time}<=second(time)<={am_end_time} or {pm_start_time}<=second(time)<={pm_end_time}"
     ddb_reader.ddb_session.run(scripts, priority=9)
     scripts = "select factorValue from retTable pivot by time, securityCode, factorName"
-    factor = ddb_reader.ddb_session.run(scripts, priority=9)
+    factor = ddb_reader.ddb_session.run(scripts, priority=9)"""
     ddb_reader.close()
     #print(f"[{table_name}][{test_month}][{len(tickers)}] load data time: {time.time() - start_time}")
 
     # transfer to ticker date time format like sql
-    start_time = time.time()
+    # start_time = time.time()
     factor.rename(columns={"securityCode": "ticker"}, inplace=True)
     factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
     factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
@@ -164,7 +174,6 @@ def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, tradin
         return pd.DataFrame()
 
 
-
 def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
@@ -213,9 +222,9 @@ def read_ddb_return(data_base, table_name, test_month, tickers, trading_hours=No
     ddb_reader = DDB_connector(DDB_config)
 
     # select wide table
-    scripts = "retTable = loadTable(\"{}\", \"{}\")".format(data_base, table_name)
-    ddb_reader.ddb_session.run(scripts, priority=9)
-    scripts =  "select * from retTable where month(time)={} and securityCode in {}".format(test_month, tickers)
+    scripts = f"""retTable = loadTable(\"{data_base}\", \"{table_name}\")
+                select * from retTable where month(time)={test_month} and securityCode in {tickers}
+                """
     ret = ddb_reader.ddb_session.run(scripts, priority=9)
     ddb_reader.close()
 
@@ -246,42 +255,6 @@ def get_limit_flag(month, ticker_list):
     df_limit_flag = df_limit_flag.rename(columns={'securityCode': 'ticker'})
     return df_limit_flag
 
-#
-# if __name__ == "__main__":
-#     df_limit_flag = get_limit_flag('202505', ["600519.SH", "300750.SZ"])
-#
-#     ddb_reader = DDB_connector(DDB_config)
-#     res = ddb_reader.query_data("license()")
-#     tickers = tuple(["600519.SH", "300750.SZ"])
-#
-#     factor_tables = ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
-#     factor_database = { "dfs://DDB_Factor_15s":factor_tables}
-#     test_month = 202401
-#     ret_name = "15s"
-#
-#     data = [pd.DataFrame()]
-#     i = 0
-#     for database in factor_database:
-#         for table in factor_database[database]:
-#             # load factors
-#             factor = read_ddb_factor(database, table, test_month, tickers)
-#             # preprocess(log...)
-#             preprocess(factor)
-#             # merge factors from every table
-#             if i == 0:
-#                 data = factor
-#             else:
-#                 data = pd.merge(factor, data, on=['ticker', 'date', 'time'])
-#             i += 1
-#
-#     ret_db_name = "dfs://DDB_Returns"
-#     ret_table_name = 'Returns'
-#     labels = read_ddb_return(ret_db_name,ret_table_name, test_month, tickers)
-#     labels = labels[['ticker', 'date', "time", f'ret_{ret_name}']]
-#     # merge factors and labels by ticker, date, time
-#     data = pd.merge(data, labels, on=['ticker', 'date', 'time'])
-#     data.rename(columns={'ret_' + ret_name: 'ret'}, inplace=True)
-#     print(len(data))
 
 
 
