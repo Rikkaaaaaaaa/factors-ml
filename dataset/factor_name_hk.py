@@ -168,6 +168,7 @@ log_factor = factor_list_orig.strip().splitlines()
 # build factor name dict
 FACTOR_NAME = {k: eval(k) for k in __all__ }
 
+
 # build factor name func
 def build_factor_name_hk(name):
     factor_name = []
