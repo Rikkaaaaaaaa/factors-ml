@@ -3,8 +3,7 @@ import pandas as pd
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
 from utils import list2str
-from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_factor_low_price, read_ddb_factor_by_ticker
-from utils.ddb_hk import read_ddb_factor_hk, read_ddb_return_hk, read_ddb_hk, read_ddb_factor_low_price_hk, read_ddb_factor_by_ticker_hk
+from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_hk, read_ddb_factor_low_price, read_ddb_factor_by_ticker
 import dolphindb as ddb
 
 
@@ -211,13 +210,13 @@ def load_labels_hk(opt, tickers, month):
     if io_backend == 'ddb':
         data_base = list(opt['dataset']['ret_table'].keys())[0]
         table_name =  opt['dataset']['ret_table'][data_base]
-        labels = read_ddb_return_hk(data_base, table_name, month, tickers, opt['dataset']['trading_hours'])
+        labels = read_ddb_return(data_base, table_name, month, tickers, opt['dataset']['trading_hours'], is_hk=True)
 
     # mix return by weights
     if opt['dataset'].get('mix_return'):
         data_base = list(opt['dataset']['ret_table'].keys())[0]
         table_name = opt['dataset']['ret_table'][data_base]
-        labels = read_ddb_return_hk(data_base, table_name, month, tickers, opt['dataset']['trading_hours'])
+        labels = read_ddb_return(data_base, table_name, month, tickers, opt['dataset']['trading_hours'], is_hk=True)
 
         ret_cols = opt['dataset']['mix_return']['ret_cols']
         weights = opt['dataset']['mix_return']['weights']
@@ -387,7 +386,7 @@ def load_factor_by_table_hk(database, table, tickers, pool_name, loading_month, 
         if io_backend == "ddb":
             tickers = list(tickers)
             #factor = read_ddb_factor(database, f'{table}_index_rebalancing_{pool_name}', loading_month, tickers, trading_hours)
-            factor = read_ddb_factor_by_ticker_hk(database, f'{table}_index_rebalancing', loading_month, tickers,trading_hours)
+            factor = read_ddb_factor_by_ticker(database, f'{table}_index_rebalancing', loading_month, tickers,trading_hours, is_hk=True)
 
     else:
         if io_backend == "sql":
@@ -395,7 +394,7 @@ def load_factor_by_table_hk(database, table, tickers, pool_name, loading_month, 
         if io_backend == "ddb":
             tickers = list(tickers)
             #factor = read_ddb_factor(database, f'{table}_{pool_name}', loading_month, tickers, trading_hours)
-            factor = read_ddb_factor_by_ticker_hk(database, f'{table}', loading_month, tickers, trading_hours)
+            factor = read_ddb_factor_by_ticker(database, f'{table}', loading_month, tickers, trading_hours, is_hk=True)
 
     return factor
 
