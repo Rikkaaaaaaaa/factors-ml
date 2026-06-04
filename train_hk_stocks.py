@@ -100,7 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('-root_path', type=str, default=root_path, help='Root path of project.')
     parser.add_argument('-option', type=str, default=os.path.join(root_path, 'option/hk_stocks/hk_lgbm_debug_15s.yaml'), help='Path to option YAML file.')
     parser.add_argument('-is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
-    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode', default=True) # it'll contain ticker num <= 10
+    parser.add_argument('-debug', action='store_true', help='Whether to use debug mode', default=False) # it'll contain ticker num <= 10
     args = parser.parse_args()
     opt = parse_options(args)
     main(opt)

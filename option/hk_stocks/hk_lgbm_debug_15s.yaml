@@ -13,14 +13,14 @@ dataset:
   # read from dataset/factor_name.py
   training_factor_name: ['ddb_test_factor']
   std_factor_name: ['ddb_test_factor']
-  clip_factor_name: ['ddb_test_factor']
+  clip_factor_name: ['clip_factor']
   log_factor_name: ['log_factor']
   rebalancing_tables: []
 
   # data preprocessing options
   type: 'FactorHKDataset'
   test_month: [202606]
-  training_month_num: 1
+  training_month_num: 2
   io_backend: ddb # disk
   pool_name: 'hk'
   indus_table_suffix: ''
