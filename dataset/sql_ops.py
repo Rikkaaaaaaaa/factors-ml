@@ -127,25 +127,20 @@ def load_ticker_by_indus_hk(opt, pool, indus_type, test_month):
         raise ValueError(
             f"Params in opt['dataset']['indus_table_suffix'] must be string 'old' or '', but now it is {indus_table_suffix}")
 
-    # if price_name == 'highprice':
-    #     indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where {}="{}" and test_month={}'.format(pool,
-    #                                indus_table_suffix, indus_class, indus_type, test_month))
-    #     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price > {} and test_month={}'.format(
-    #                                pool, avg_price, test_month))
-    # if price_name == 'lowprice':
-    #     # Note that lowprice stocks have no indus_type, default is 0
-    #     indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where test_month={}'.format(pool, indus_table_suffix, test_month))
-    #     price_table = cx_read_sql('select * from static_data_price_{}_history where avg_price <= {} and test_month={}'.format(pool, avg_price, test_month))
-    #
-    # tickers = set(indus_table['ticker']) & set(price_table['ticker'])
-
-    # TODO 目前未实现按照高价股和低价股分组
-    indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where {}="{}" and test_month={}'.format(pool,
-                               indus_table_suffix, indus_class, indus_type, test_month))
+    if price_name == 'highprice':
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where {}="{}" and test_month={}'.format(pool,
+                                   indus_table_suffix, indus_class, indus_type, test_month))
+        price_table = cx_read_sql('select * from static_data_{}_liquidity_history where avg_price > {} and test_month={}'.format(
+                                   pool, avg_price, test_month))
+    if price_name == 'lowprice':
+        # Note that lowprice stocks have no indus_type, default is 0
+        indus_table = cx_read_sql('select * from static_data_industry_{}_history{} where test_month={}'.format(pool, indus_table_suffix, test_month))
+        price_table = cx_read_sql('select * from static_data_{}_liquidity_history where avg_price <= {} and test_month={}'.format(pool, avg_price, test_month))
 
     liquidity_table = cx_read_sql(
         'select * from static_data_hk_liquidity_history where test_month={} and liquidity_group=1'.format(test_month))
-    tickers = set(indus_table['ticker']) & set(liquidity_table['ticker'])
+
+    tickers = set(indus_table['ticker']) & set(price_table['ticker']) & set(liquidity_table['ticker'])
 
     if len(tickers) == 0:
         raise ValueError(f"{test_month}_indus_{indus_type}: The number of tickers(average price > {avg_price}) is 0")
