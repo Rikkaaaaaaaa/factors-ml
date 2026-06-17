@@ -11,10 +11,35 @@ try:
 except ImportError:
     cx = None
 
-host = '10.95.145.83'
-user = 'junxiang.ruan'
-password = 'Et20230209'
-port = 3306
+DEFAULT_MYSQL_CONFIG = {
+    'host': '10.95.145.83',
+    'user': 'junxiang.ruan',
+    'password': 'Et20230209',
+    'port': 3306,
+}
+
+host = DEFAULT_MYSQL_CONFIG['host']
+user = DEFAULT_MYSQL_CONFIG['user']
+password = DEFAULT_MYSQL_CONFIG['password']
+port = DEFAULT_MYSQL_CONFIG['port']
+
+
+def get_mysql_config():
+    return {
+        'host': host,
+        'user': user,
+        'password': password,
+        'port': port,
+    }
+
+
+def set_mysql_config(config=None):
+    global host, user, password, port
+    config = config or {}
+    host = config.get('host', DEFAULT_MYSQL_CONFIG['host'])
+    user = config.get('user', DEFAULT_MYSQL_CONFIG['user'])
+    password = config.get('password', DEFAULT_MYSQL_CONFIG['password'])
+    port = config.get('port', DEFAULT_MYSQL_CONFIG['port'])
 
 def create_index(database, table_name, index_cols):
     try:

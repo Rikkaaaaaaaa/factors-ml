@@ -13,6 +13,8 @@ import pymysql
 import yaml
 from scipy.stats import rankdata
 
+from dataset.factor_name_long_term import build_factor_name_long_term, build_factor_table_long_term
+
 
 DEFAULT_FACTORS = [
     "ma_close_ret_10",
@@ -110,11 +112,14 @@ class DDBConnector:
 
 
 def parse_args():
+    from pathlib import Path
+
+    root_path = str(Path(__file__).resolve().parents[1])
     parser = argparse.ArgumentParser(description="Analyze derived factor IC / rankIC on long-short returns.")
     parser.add_argument(
         "--config",
         type=str,
-        default="scripts/configs/derived_factor_ic_demo.yaml",
+        default=os.path.join(root_path, "scripts/configs/derived_factor_ic_demo.yaml"),
         help="Path to YAML config.",
     )
     parser.add_argument("--month", type=int, default=None, help="Override month in YYYYMM format.")
@@ -226,18 +231,29 @@ def get_tickers(config, connector):
     raise ValueError(f"Unsupported ticker_source: [{ticker_source}]")
 
 
+def standardize_time_keys(df):
+    df = df.copy()
+    if "ticker" in df.columns:
+        df["ticker"] = df["ticker"].astype(str)
+    if "date" in df.columns:
+        df["date"] = pd.to_numeric(df["date"], errors="coerce").astype("Int64").astype(np.int64)
+    if "time" in df.columns:
+        df["time"] = pd.to_numeric(df["time"], errors="coerce").astype("Int64").astype(np.int64)
+    return df
+
+
 def normalize_time_columns(df, source_time_col="time", ticker_col="securityCode"):
     df = df.copy()
     if ticker_col in df.columns:
         df = df.rename(columns={ticker_col: "ticker"})
-    df.insert(0, "date", df[source_time_col].dt.strftime("%Y%m%d").astype(int))
+    df.insert(0, "date", df[source_time_col].dt.strftime("%Y%m%d").astype("int64"))
     df["time"] = (
         df[source_time_col].dt.hour * 10000000
         + df[source_time_col].dt.minute * 100000
         + df[source_time_col].dt.second * 1000
         + df[source_time_col].dt.microsecond // 1000
-    )
-    return df
+    ).astype("int64")
+    return standardize_time_keys(df)
 
 
 def apply_trading_hours_filter(df, trading_hours):
@@ -305,6 +321,7 @@ def load_factor_tables(config, connector, tickers):
             if factor.empty:
                 print(f"Warning: factor table [{resolved_table_name}] is empty, skip it.")
                 continue
+            factor = standardize_time_keys(factor)
 
             duplicate_cols = [
                 col for col in factor.columns if col in seen_columns and col not in TIME_KEYS and col not in ignored_non_factor_cols
@@ -319,10 +336,11 @@ def load_factor_tables(config, connector, tickers):
     if len(factor_frames) == 0:
         raise ValueError("No factor data loaded from any configured factor table.")
 
-    merged_factor = factor_frames[0]
+    merged_factor = standardize_time_keys(factor_frames[0])
     for factor in factor_frames[1:]:
         if "limitFlag" in factor.columns:
             factor = factor.drop(columns=["limitFlag"])
+        factor = standardize_time_keys(factor)
         merged_factor = merged_factor.merge(factor, on=TIME_KEYS, how="inner")
 
     factor_cols = config["factors"]
@@ -347,6 +365,7 @@ def load_return_data(config, connector, tickers):
     if ret.empty:
         raise ValueError(f"No return data found in [{return_table_name}] for month [{config['month']}]")
     ret = normalize_time_columns(ret, source_time_col="time", ticker_col="securityCode")
+    ret = standardize_time_keys(ret)
     ret = apply_trading_hours_filter(ret, config.get("trading_hours"))
     if config.get("date") is not None:
         ret = ret[ret["date"] == config["date"]].copy()
@@ -708,7 +727,16 @@ def build_runtime_config(args):
     runtime["date"] = args.date if args.date is not None else raw_config.get("date")
     runtime["pool"] = args.pool if args.pool is not None else raw_config["pool"]
     runtime["save_detail"] = args.save_detail or raw_config.get("save_detail", False)
-    runtime["factors"] = raw_config.get("factors", DEFAULT_FACTORS)
+    factor_groups = raw_config.get("factor_groups")
+    if factor_groups is not None:
+        runtime["factors"] = build_factor_name_long_term(factor_groups)
+    else:
+        runtime["factors"] = raw_config.get("factors", DEFAULT_FACTORS)
+    factor_table_groups = raw_config.get("factor_table_groups")
+    if factor_table_groups is not None:
+        runtime["factor_tables"] = build_factor_table_long_term(factor_table_groups)
+    else:
+        runtime["factor_tables"] = raw_config["factor_tables"]
     runtime["return_cols"] = raw_config.get("return_cols", DEFAULT_RETURN_COLS)
     runtime["return_table_name"] = raw_config.get("return_table_name", f'Returns_long_short_{runtime["pool"]}')
     runtime["min_time_series_size"] = raw_config.get(

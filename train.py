@@ -7,9 +7,9 @@ from dataset.sql_ops import check_indus
 from dataset import build_dataset
 from models import build_model
 from feature_selector import build_selector
-from backtester import BackTester
+from backtester import build_backtester
 from utils.logger import get_root_logger, get_env_info
-from utils.option import parse_options, dict2str
+from utils.option import parse_options, dict2str, apply_runtime_connection_override
 from utils.publish import save_report_disk, push_signal_sql
 from utils.misc import Timer, time_str, get_time_str, exists_results, ensure_path
 
@@ -21,6 +21,7 @@ def init(args):
 
 def train_pipeline(train_args):
     opt, test_month, indus_type = train_args
+    apply_runtime_connection_override(opt)
     # logger init
     logger_name = f"month{test_month}_indus{indus_type}"
     log_file = osp.join(opt['path']['log'], f"{logger_name}_{get_time_str()}.log")
@@ -56,7 +57,7 @@ def train_pipeline(train_args):
     model.save()
 
     # backtesting or record inference_bound
-    backtester = BackTester(opt, test_month, indus_type)
+    backtester = build_backtester(opt, test_month, indus_type)
     backtester.backtest(dataset, model)
 
 
@@ -92,7 +93,7 @@ if __name__ == '__main__':
     print(get_env_info())
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_path', type=str, default='./', help='Root path of project.')
-    parser.add_argument('--option', type=str, default='option/hs300/20251105/20251105_hs300_highprice_lgbm_15s.yaml', help='Path to option YAML file.')
+    parser.add_argument('--option', type=str, default='option/long_term/hs300/long_term_hs300_202602_demo.yaml', help='Path to option YAML file.')
     parser.add_argument('--is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
     parser.add_argument('--debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()

@@ -76,6 +76,38 @@ def yaml_load(f):
     #     return yaml.load(f, Loader=yaml.FullLoader)
 
 
+def apply_debug_connection_override(opt):
+    debug_connection = opt.get('debug_connection', {})
+    if not debug_connection:
+        return
+
+    ddb_conf = debug_connection.get('ddb')
+    if ddb_conf:
+        import utils.ddb as ddb_mod
+        import utils.ddb_utils as ddb_utils_mod
+
+        normalized_ddb_conf = dict(ddb_conf)
+        if 'host' in normalized_ddb_conf and 'server' not in normalized_ddb_conf:
+            normalized_ddb_conf['server'] = normalized_ddb_conf['host']
+        if 'user' in normalized_ddb_conf and 'userName' not in normalized_ddb_conf:
+            normalized_ddb_conf['userName'] = normalized_ddb_conf['user']
+        if 'password' in normalized_ddb_conf and 'userKey' not in normalized_ddb_conf:
+            normalized_ddb_conf['userKey'] = normalized_ddb_conf['password']
+        ddb_mod.set_ddb_config(normalized_ddb_conf)
+        ddb_utils_mod.set_ddb_utils_config(normalized_ddb_conf)
+
+    mysql_conf = debug_connection.get('mysql')
+    if mysql_conf:
+        import utils.mysql as mysql_mod
+        import utils.mysql_strategy as mysql_strategy_mod
+        mysql_mod.set_mysql_config(mysql_conf)
+        mysql_strategy_mod.set_mysql_strategy_config(mysql_conf)
+
+
+def apply_runtime_connection_override(opt):
+    apply_debug_connection_override(opt)
+
+
 def parse_options(args, ensure=True, yaml_path=None, opt_manager=None):
     # parse yml to dict
     if not yaml_path:
@@ -83,6 +115,7 @@ def parse_options(args, ensure=True, yaml_path=None, opt_manager=None):
     if not osp.exists(yaml_path):
         raise FileExistsError(f"No such option file named", yaml_path)
     opt = yaml_load(yaml_path)
+    apply_debug_connection_override(opt)
 
     # parse argparser
     if not opt.get('is_realtime'):

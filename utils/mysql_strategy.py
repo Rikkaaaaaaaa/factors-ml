@@ -5,10 +5,26 @@ import pymysql
 import connectorx as cx
 
 
-host = '10.95.145.83'
-user = 'taorui'
-password = 'Et20231207'
-port = 3306
+DEFAULT_MYSQL_STRATEGY_CONFIG = {
+    'host': '10.95.145.83',
+    'user': 'taorui',
+    'password': 'Et20231207',
+    'port': 3306,
+}
+
+host = DEFAULT_MYSQL_STRATEGY_CONFIG['host']
+user = DEFAULT_MYSQL_STRATEGY_CONFIG['user']
+password = DEFAULT_MYSQL_STRATEGY_CONFIG['password']
+port = DEFAULT_MYSQL_STRATEGY_CONFIG['port']
+
+
+def set_mysql_strategy_config(config=None):
+    global host, user, password, port
+    config = config or {}
+    host = config.get('host', DEFAULT_MYSQL_STRATEGY_CONFIG['host'])
+    user = config.get('user', DEFAULT_MYSQL_STRATEGY_CONFIG['user'])
+    password = config.get('password', DEFAULT_MYSQL_STRATEGY_CONFIG['password'])
+    port = config.get('port', DEFAULT_MYSQL_STRATEGY_CONFIG['port'])
 
 
 def create_pd_engine(database):

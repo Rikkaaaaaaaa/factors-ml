@@ -6,19 +6,36 @@ import dolphindb.settings as keys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
+DEFAULT_DDB_CONFIG = {
+    "server": "10.95.145.91",
+    "port": 8993,
+    "userName": "quantStrat",
+    "userKey": "eqalgo_2024"
+}
+
+DEFAULT_DDB_CONFIG_HK = {
+    "server": "10.50.129.65",
+    "port": 18921,
+    "userName": "g_eq_algo",
+    "userKey": "pF8^oZ8@zO7I"
+}
+
+DDB_config = DEFAULT_DDB_CONFIG.copy()
+DDB_config_HK = DEFAULT_DDB_CONFIG_HK.copy()
 
 
-DDB_config = { "server": "10.95.145.91",
-               "port": 8993,
-               "userName": "quantStrat",
-               "userKey": "eqalgo_2024"
-            }
+def set_ddb_config(config=None, is_hk=False):
+    if is_hk:
+        DDB_config_HK.clear()
+        DDB_config_HK.update(DEFAULT_DDB_CONFIG_HK)
+        if config:
+            DDB_config_HK.update(config)
+        return
 
-DDB_config_HK = {"server": "10.50.129.65",
-              "port": 18921,
-              "userName": "g_eq_algo",
-              "userKey": "pF8^oZ8@zO7I"
-              }
+    DDB_config.clear()
+    DDB_config.update(DEFAULT_DDB_CONFIG)
+    if config:
+        DDB_config.update(config)
 
 
 class DDB_connector():

@@ -3,7 +3,7 @@ import pandas as pd
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
 from utils import list2str
-from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_hk, read_ddb_factor_low_price, read_ddb_factor_by_ticker, read_ddb_factor_by_ticker_filtered
+from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_hk, read_ddb_factor_low_price, read_ddb_factor_by_ticker, read_ddb_factor_by_ticker_filtered, DDB_config
 import dolphindb as ddb
 
 
@@ -293,7 +293,7 @@ def align_factor_ticker(factor_table, all_ticker, pool_name, check_ticker_month,
                         factor_ticker = read_ddb(f'select distinct(securityCode) as ticker from loadTable("{database}", "{table}_{pool_name}") where month(time)={ddb_month}')
                 # check missing tickers
                 factor_ticker = factor_ticker['ticker']
-                #cur_ticker = cur_ticker & set(factor_ticker)
+                cur_ticker = cur_ticker & set(factor_ticker)
                 missing_tickers = set(all_ticker) - set(factor_ticker)
 
                 if len(missing_tickers) > 0:
@@ -329,7 +329,7 @@ def align_factor_ticker_hk(factor_table, all_ticker, pool_name, check_ticker_mon
                         factor_ticker = read_ddb_hk(f'select distinct(securityCode) as ticker from loadTable("{database}", "{table}") where month(time)={ddb_month}')
                 # check missing tickers
                 factor_ticker = factor_ticker['ticker']
-                #cur_ticker = cur_ticker & set(factor_ticker)
+                cur_ticker = cur_ticker & set(factor_ticker)
                 missing_tickers = set(all_ticker) - set(factor_ticker)
 
                 if len(missing_tickers) > 0:
@@ -457,7 +457,7 @@ def read_table(ddb_info, query):
 
 
 def get_sop_fill_flag_ddb(tickers, pool_name, start_month, end_month, tick_ahead, bs_flag):
-    ddb_info = ['10.95.145.91', 8993, "quantStrat", "eqalgo_2024"]
+    ddb_info = [DDB_config['server'], DDB_config['port'], DDB_config['userName'], DDB_config['userKey']]
     start_month_str = str(start_month)[:4] + '.' + str(start_month)[-2:]
     end_month_str = str(end_month)[:4] + '.' + str(end_month)[-2:]
 
