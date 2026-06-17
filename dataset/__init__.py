@@ -16,6 +16,7 @@ data_folder = osp.dirname(osp.abspath(__file__))
 dataset_filenames = [osp.splitext(osp.basename(v))[0] for v in scandir(data_folder) if v.endswith('_dataset.py')]
 # import all the dataset modules
 _dataset_modules = [importlib.import_module(f'dataset.{file_name}') for file_name in dataset_filenames]
+_dataset_modules.append(importlib.import_module('dataset.factor_dataset_long_term'))
 
 
 def build_dataset(opt, test_month, indus_type, logger_name=None):
