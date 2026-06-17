@@ -4,7 +4,10 @@ import os.path as osp
 import traceback
 import time
 import copy
-from sklearn.preprocessing import StandardScaler
+try:
+    from sklearn.preprocessing import StandardScaler
+except ImportError:
+    StandardScaler = None
 
 from utils import list2str
 from dataset import build_factor_name

@@ -197,7 +197,7 @@ class FactorLongTermDataset(FactorDataset):
     def make_label(self, train_data, test_data):
         def add_label(df):
             up_mask = df[self.long_ret_name] >= self.alpha
-            down_mask = df[self.short_ret_name] <= -1 * self.alpha
+            down_mask = df[self.short_ret_name] >= self.alpha
             both_mask = up_mask & down_mask
             if both_mask.any():
                 self.logger.warning(

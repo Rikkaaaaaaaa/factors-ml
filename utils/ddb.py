@@ -281,6 +281,41 @@ def read_ddb_factor_by_ticker_filtered(data_base, table_name, test_month, ticker
         return pd.DataFrame()
 
 
+def read_ddb_factor_by_ticker_filtered(data_base, table_name, test_month, tickers, trading_hours=None,
+                                       factor_names=None, batch_size=4, n_threads=8, is_hk=False):
+    ticker_batches = []
+    for i in range(0, len(tickers), batch_size):
+        ticker_batches.append(tickers[i:i + batch_size])
+
+    with ThreadPoolExecutor(max_workers=min(len(ticker_batches), n_threads)) as executor:
+        future_to_batch = {}
+        for batch_idx, batch in enumerate(ticker_batches):
+            future = executor.submit(
+                read_ddb_factor_filtered,
+                data_base, table_name, test_month, batch, trading_hours, factor_names, is_hk
+            )
+            future_to_batch[future] = (batch_idx, batch)
+
+        results = []
+        for future in as_completed(future_to_batch):
+            batch_idx, batch = future_to_batch[future]
+            try:
+                batch_result = future.result()
+                if not batch_result.empty:
+                    results.append(batch_result)
+            except Exception as e:
+                print(
+                    f"[{table_name}][{test_month}][{len(tickers)}] "
+                    f"Batch {batch_idx + 1} failed for {len(batch)} tickers: {e}"
+                )
+
+    if results:
+        return pd.concat(results, ignore_index=True)
+
+    print(f"[{table_name}][{test_month}][{len(tickers)}] No factor rows were loaded.")
+    return pd.DataFrame()
+
+
 def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
