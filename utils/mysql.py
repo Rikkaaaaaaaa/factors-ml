@@ -1,8 +1,15 @@
 import pandas as pd
-from sqlalchemy import create_engine
-import sqlalchemy
+try:
+    from sqlalchemy import create_engine
+    import sqlalchemy
+except ImportError:
+    create_engine = None
+    sqlalchemy = None
 import pymysql
-import connectorx as cx
+try:
+    import connectorx as cx
+except ImportError:
+    cx = None
 
 host = '10.95.145.83'
 user = 'junxiang.ruan'
@@ -28,49 +35,77 @@ def create_index(database, table_name, index_cols):
 
 
 def cx_read_sql(query, database='strategy'):
-    conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    data = cx.read_sql(conn, query)
-    return data
+    if cx is not None:
+        conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        return cx.read_sql(conn, query)
+
+    conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database, charset='utf8')
+    try:
+        return pd.read_sql(query, conn)
+    finally:
+        conn.close()
 
 def create_pd_engine(database):
+    if create_engine is None:
+        raise ImportError("sqlalchemy is required for create_pd_engine but is not installed.")
     return create_engine('mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8'.format(user, password, host, port, database))
 
 def read_table(database, query):
     try:
-        conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-        df = cx.read_sql(conn, query)
-        return df
+        if cx is not None:
+            conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+            return cx.read_sql(conn, query)
+        conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database, charset='utf8')
+        try:
+            return pd.read_sql(query, conn)
+        finally:
+            conn.close()
     except Exception as e:
         print('run query"{}" error: {}'.format(query, e))
 
 
 def read_table_by_ticker(database, table_name, ticker):
-    conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
     query = 'select * from {} where ticker="{}"'.format(table_name, ticker)
     try:
-        df = cx.read_sql(conn, query)
-        return df
+        if cx is not None:
+            conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+            return cx.read_sql(conn, query)
+        conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database, charset='utf8')
+        try:
+            return pd.read_sql(query, conn)
+        finally:
+            conn.close()
     except Exception as e:
         print('run query"{}" error: {}'.format(query, e))
 
 
 def read_table_by_date(database, table_name, date):
-    conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
     query = 'select * from {} where date={}'.format(table_name, date)
     try:
-        df = cx.read_sql(conn, query)
-        return df
+        if cx is not None:
+            conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+            return cx.read_sql(conn, query)
+        conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database, charset='utf8')
+        try:
+            return pd.read_sql(query, conn)
+        finally:
+            conn.close()
     except Exception as e:
         print('run query"{}" error: {}'.format(query, e))
 
 
 def read_table_by_ticker_and_period(database, table_name, ticker, start_date, end_date):
-    conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
     query = 'select * from {} where ticker="{}" and date>={} and date<={}'.format(
         table_name, ticker, start_date, end_date)
     try:
-        df = cx.read_sql(conn, query)
-        return df
+        if cx is not None:
+            conn = 'mysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+            return cx.read_sql(conn, query)
+        conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database, charset='utf8')
+        try:
+            return pd.read_sql(query, conn)
+        finally:
+            conn.close()
     except Exception as e:
         print('run query"{}" error: {}'.format(query, e))
 

@@ -273,8 +273,14 @@ def build_factor_name(name):
     factor_name = []
     if isinstance(name, list):
         for n in name:
-            factor_name.extend(FACTOR_NAME[n])
+            if n in FACTOR_NAME:
+                factor_name.extend(FACTOR_NAME[n])
+            else:
+                factor_name.append(n)
     if isinstance(name, str):
-        factor_name = name
+        if name in FACTOR_NAME:
+            factor_name = FACTOR_NAME[name]
+        else:
+            factor_name = [name]
 
     return factor_name
