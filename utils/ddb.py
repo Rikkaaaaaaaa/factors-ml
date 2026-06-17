@@ -198,6 +198,89 @@ def read_ddb_factor_by_ticker(data_base, table_name, test_month, tickers, tradin
         return pd.DataFrame()
 
 
+def _build_ddb_symbol_filter_str(values):
+    if values is None or len(values) == 0:
+        return None
+    escaped_values = [str(v).replace("`", "") for v in values]
+    return "`" + "`".join(escaped_values)
+
+
+def read_ddb_factor_filtered(data_base, table_name, test_month, tickers, trading_hours=None, factor_names=None, is_hk=False):
+    test_month = str(test_month)
+    test_month = test_month[0:4] + '.' + test_month[4:] + 'M'
+    if isinstance(trading_hours, dict):
+        am_start_time = str(trading_hours['am_start_time']).zfill(6)
+        am_start_time = datetime.strptime(am_start_time, "%H%M%S").strftime("%H:%M:%S")
+        am_end_time = str(trading_hours['am_end_time']).zfill(6)
+        am_end_time = datetime.strptime(am_end_time, "%H%M%S").strftime("%H:%M:%S")
+        pm_start_time = str(trading_hours['pm_start_time']).zfill(6)
+        pm_start_time = datetime.strptime(pm_start_time, "%H%M%S").strftime("%H:%M:%S")
+        pm_end_time = str(trading_hours['pm_end_time']).zfill(6)
+        pm_end_time = datetime.strptime(pm_end_time, "%H%M%S").strftime("%H:%M:%S")
+    else:
+        if is_hk:
+            am_start_time, am_end_time = "09:30:00", "12:00:00"
+            pm_start_time, pm_end_time = "13:00:00", "16:00:00"
+        else:
+            am_start_time, am_end_time = "09:40:00", "11:30:00"
+            pm_start_time, pm_end_time = "13:00:00", "14:57:00"
+
+    if is_hk:
+        ddb_reader = DDB_connector(DDB_config_HK)
+    else:
+        ddb_reader = DDB_connector(DDB_config)
+
+    factor_name_condition = ""
+    factor_name_filter = _build_ddb_symbol_filter_str(factor_names)
+    if factor_name_filter is not None:
+        factor_name_condition = f", factorName in {factor_name_filter}"
+
+    scripts = f"""factorTable = loadTable(\"{data_base}\", \"{table_name}\")
+                    retTable = select * from factorTable where month(time)={test_month}, securityCode in {tickers}{factor_name_condition},
+                    ({am_start_time}<=second(time)<={am_end_time} or {pm_start_time}<=second(time)<={pm_end_time})
+                    select factorValue from retTable pivot by time, securityCode, factorName"""
+    factor = ddb_reader.ddb_session.run(scripts, priority=9)
+    ddb_reader.close()
+
+    factor.rename(columns={"securityCode": "ticker"}, inplace=True)
+    factor.insert(0, 'date', factor["time"].dt.strftime('%Y%m%d').astype(int))
+    factor["time"] = (factor["time"].dt.hour * 10000000 + factor["time"].dt.minute * 100000 +
+                      factor["time"].dt.second * 1000 + factor["time"].dt.microsecond // 1000)
+    return factor
+
+
+def read_ddb_factor_by_ticker_filtered(data_base, table_name, test_month, tickers, trading_hours=None,
+                                       factor_names=None, batch_size=4, n_threads=8, is_hk=False):
+    ticker_batches = []
+    for i in range(0, len(tickers), batch_size):
+        ticker_batches.append(tickers[i:i + batch_size])
+
+    with ThreadPoolExecutor(max_workers=min(len(ticker_batches), n_threads)) as executor:
+        future_to_batch = {}
+        for batch_idx, batch in enumerate(ticker_batches):
+            future = executor.submit(
+                read_ddb_factor_filtered,
+                data_base, table_name, test_month, batch, trading_hours, factor_names, is_hk
+            )
+            future_to_batch[future] = (batch_idx, batch)
+
+        results = []
+        for future in as_completed(future_to_batch):
+            batch_idx, batch = future_to_batch[future]
+            try:
+                batch_result = future.result()
+                if not batch_result.empty:
+                    results.append(batch_result)
+            except Exception as e:
+                print(f"[{table_name}][{test_month}][{len(tickers)}] Error: 鎵规{batch_idx + 1}澶勭悊澶辫触: {e}")
+
+    if results:
+        return pd.concat(results, ignore_index=True)
+    else:
+        print(f"[{table_name}][{test_month}][{len(tickers)}] Error: 鏈幏鍙栧埌浠讳綍鏁版嵁!")
+        return pd.DataFrame()
+
+
 def read_ddb_factor_low_price(data_base, table_name, test_month, tickers, trading_hours=None):
     test_month = str(test_month)
     test_month = test_month[0:4] + '.' + test_month[4:] + 'M'

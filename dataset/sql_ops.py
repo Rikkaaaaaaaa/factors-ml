@@ -3,7 +3,7 @@ import pandas as pd
 from utils.mysql import cx_read_sql
 from utils.logger import get_root_logger
 from utils import list2str
-from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_hk, read_ddb_factor_low_price, read_ddb_factor_by_ticker
+from utils.ddb import read_ddb_factor, read_ddb_return, read_ddb, read_ddb_hk, read_ddb_factor_low_price, read_ddb_factor_by_ticker, read_ddb_factor_by_ticker_filtered
 import dolphindb as ddb
 
 
@@ -355,7 +355,7 @@ def load_factor_by_table(database, table, tickers, pool_name, loading_month, tes
         if io_backend == "ddb":
             tickers = list(tickers)
             #factor = read_ddb_factor(database, f'{table}_index_rebalancing_{pool_name}', loading_month, tickers, trading_hours)
-            factor = read_ddb_factor_by_ticker(database, f'{table}_index_rebalancing_{pool_name}', loading_month, tickers,trading_hours)
+            factor = read_ddb_factor_by_ticker(database, f'{table}_index_rebalancing_{pool_name}', loading_month, tickers, trading_hours)
 
     else:
         if io_backend == "sql":
@@ -364,6 +364,34 @@ def load_factor_by_table(database, table, tickers, pool_name, loading_month, tes
             tickers = list(tickers)
             #factor = read_ddb_factor(database, f'{table}_{pool_name}', loading_month, tickers, trading_hours)
             factor = read_ddb_factor_by_ticker(database, f'{table}_{pool_name}', loading_month, tickers, trading_hours)
+
+    return factor
+
+
+def load_factor_by_table_filtered(database, table, tickers, pool_name, loading_month, test_month, rebalancing_tables,
+                                  trading_hours=None, training_month_num=3, io_backend='sql', factor_names=None):
+    if len(tickers) == 1:
+        ticker_condition = f'ticker="{tickers[0]}"'
+    else:
+        ticker_condition = f'ticker in {tickers}'
+
+    if is_rebalanced(test_month, training_month_num) and need_rebalanced_factor(loading_month, test_month) and  table in rebalancing_tables:
+        if io_backend == "sql":
+            factor = cx_read_sql(f'select * from {table}_{loading_month}_index_rebalancing where {ticker_condition}',
+                                 database=database)
+        if io_backend == "ddb":
+            tickers = list(tickers)
+            factor = read_ddb_factor_by_ticker_filtered(
+                database, f'{table}_index_rebalancing_{pool_name}', loading_month, tickers, trading_hours, factor_names
+            )
+    else:
+        if io_backend == "sql":
+            factor = cx_read_sql(f'select * from {table}_{loading_month} where {ticker_condition}', database=database)
+        if io_backend == "ddb":
+            tickers = list(tickers)
+            factor = read_ddb_factor_by_ticker_filtered(
+                database, f'{table}_{pool_name}', loading_month, tickers, trading_hours, factor_names
+            )
 
     return factor
 
