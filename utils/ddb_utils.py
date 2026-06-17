@@ -2,24 +2,41 @@ import dolphindb as ddb
 import numpy as np
 import pandas as pd
 
-# config = {
-#     "ddb_host": "10.95.145.91",
-#     "ddb_port": 8994,
-#     "ddb_username": "quantStrat",
-#     "ddb_password": "eqalgo_2024"
-# }
-class Config():
-    def __init__(self):
-        self.ddb_host = "10.95.145.91"
-        self.ddb_port = 8994
-        self.ddb_username = "quantStrat"
-        self.ddb_password = "eqalgo_2024"
 
-config = Config()
+DEFAULT_DDB_UTILS_CONFIG = {
+    "ddb_host": "10.95.145.91",
+    "ddb_port": 8994,
+    "ddb_username": "quantStrat",
+    "ddb_password": "eqalgo_2024",
+}
+
+ddb_host = DEFAULT_DDB_UTILS_CONFIG["ddb_host"]
+ddb_port = DEFAULT_DDB_UTILS_CONFIG["ddb_port"]
+ddb_username = DEFAULT_DDB_UTILS_CONFIG["ddb_username"]
+ddb_password = DEFAULT_DDB_UTILS_CONFIG["ddb_password"]
+
+
+def set_ddb_utils_config(config=None):
+    global ddb_host, ddb_port, ddb_username, ddb_password
+    config = config or {}
+    ddb_host = config.get("server", config.get("ddb_host", DEFAULT_DDB_UTILS_CONFIG["ddb_host"]))
+    ddb_port = config.get("port", config.get("ddb_port", DEFAULT_DDB_UTILS_CONFIG["ddb_port"]))
+    ddb_username = config.get("userName", config.get("ddb_username", DEFAULT_DDB_UTILS_CONFIG["ddb_username"]))
+    ddb_password = config.get("userKey", config.get("ddb_password", DEFAULT_DDB_UTILS_CONFIG["ddb_password"]))
+
+
+def get_ddb_runtime_config():
+    return {
+        "ddb_host": ddb_host,
+        "ddb_port": ddb_port,
+        "ddb_username": ddb_username,
+        "ddb_password": ddb_password,
+    }
 
 def read_table(query):
+    config = get_ddb_runtime_config()
     s = ddb.session()
-    s.connect(config.ddb_host, config.ddb_port, config.ddb_username, config.ddb_password)
+    s.connect(config["ddb_host"], config["ddb_port"], config["ddb_username"], config["ddb_password"])
     df = s.run(query)
     s.close()
     return df
@@ -78,8 +95,9 @@ def get_vwap_curve_hk(date, ticker):
     if ticker.endswith(".HK"):
         ticker = ticker.split(".")[0]
     query = f'hk_utils::loadVolumeCurve({date}, [`{ticker}])'
+    config = get_ddb_runtime_config()
     s = ddb.session()
-    s.connect(config.ddb_host, config.ddb_port, config.ddb_username, config.ddb_password)
+    s.connect(config["ddb_host"], config["ddb_port"], config["ddb_username"], config["ddb_password"])
     s.run("use hk_utils")
     data = s.run(query)
     data['time'] = data['time'].apply(
@@ -97,8 +115,9 @@ def time_format_convert(time_series):
 
 
 def get_vwap_curve_ashare(date, ticker):
+    config = get_ddb_runtime_config()
     s = ddb.session()
-    s.connect(config.ddb_host, config.ddb_port, config.ddb_username, config.ddb_password)
+    s.connect(config["ddb_host"], config["ddb_port"], config["ddb_username"], config["ddb_password"])
     date_query = f'exec distinct date from loadTable("dfs://algo_params_new","volumePredAshare") where date<{date}, ticker="{ticker}" order by date desc limit 1'
     last_date = s.run(date_query)
     if len(last_date) == 0:
@@ -160,8 +179,9 @@ def get_adv(date, ticker, table_name):
         ticker = ticker.split(".")[0]
     date = '.'.join([date[:4], date[4:6], date[6:8]])
     query = f'hk_utils::calcADV({date}, `{ticker}, "{table_name}")'
+    config = get_ddb_runtime_config()
     s = ddb.session()
-    s.connect(config.ddb_host, config.ddb_port, config.ddb_username, config.ddb_password)
+    s.connect(config["ddb_host"], config["ddb_port"], config["ddb_username"], config["ddb_password"])
     s.run("use hk_utils")
     result = s.run(query)
     s.close()
@@ -173,8 +193,9 @@ def get_mkt_volume(date, ticker, table_name):
     if ticker.endswith(".HK"):
         ticker = ticker.split(".")[0]
     query = f'exec last(lVolume) - first(lVolume) from loadTable("dfs://HKmd","{table_name}") where iTrdDate={date}, strCode=`{ticker}, iTime>=09:30:00, iTime<=16:00:00'
+    config = get_ddb_runtime_config()
     s = ddb.session()
-    s.connect(config.ddb_host, config.ddb_port, config.ddb_username, config.ddb_password)
+    s.connect(config["ddb_host"], config["ddb_port"], config["ddb_username"], config["ddb_password"])
     s.run("use hk_utils")
     result = s.run(query)
     s.close()

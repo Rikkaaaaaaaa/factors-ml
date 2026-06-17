@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from dataset import build_factor_name
+from dataset.factor_name_long_term import build_factor_name_long_term, build_factor_table_long_term
 from dataset.factor_dataset import FactorDataset
 from dataset.sql_ops import load_factor_by_table_filtered, load_labels
 from utils import list2str
@@ -11,6 +12,12 @@ from utils.registry import DATASET_REGISTRY
 @DATASET_REGISTRY.register()
 class FactorLongTermDataset(FactorDataset):
     def __init__(self, opt, test_month, indus_type, logger_name=None, *args, **kwargs):
+        dataset_opt = opt['dataset']
+        if dataset_opt.get('factor_table_groups') and not dataset_opt.get('factor_table'):
+            dataset_opt['factor_table'] = build_factor_table_long_term(dataset_opt['factor_table_groups'])
+        if dataset_opt.get('eval_factor_table_groups') and not dataset_opt.get('eval_factor_table'):
+            dataset_opt['eval_factor_table'] = build_factor_table_long_term(dataset_opt['eval_factor_table_groups'])
+
         super().__init__(opt, test_month, indus_type, logger_name, *args, **kwargs)
 
         self.long_ret_name = self.opt['dataset'].get('long_ret_name', 'long_ret_10min')
@@ -20,11 +27,11 @@ class FactorLongTermDataset(FactorDataset):
             {'1m': 4, '5m': 20, '10m': 40, '30m': 120}
         )
 
-        self.raw_factor_name = list(self.training_factor_name)
+        self.raw_factor_name = build_factor_name_long_term(self.opt['dataset']['training_factor_name'])
         self.raw_log_factor_name = list(self.log_factor_name)
         self.training_factor_name = self.build_long_term_feature_names(self.raw_factor_name)
-        self.std_factor_name = self.expand_feature_names(build_factor_name(self.opt['dataset']['std_factor_name']))
-        self.clip_factor_name = self.expand_feature_names(build_factor_name(self.opt['dataset']['clip_factor_name']))
+        self.std_factor_name = self.expand_feature_names(build_factor_name_long_term(self.opt['dataset']['std_factor_name']))
+        self.clip_factor_name = self.expand_feature_names(build_factor_name_long_term(self.opt['dataset']['clip_factor_name']))
         self.log_factor_name = self.raw_log_factor_name
 
         label_columns = ['ret', self.long_ret_name, self.short_ret_name]

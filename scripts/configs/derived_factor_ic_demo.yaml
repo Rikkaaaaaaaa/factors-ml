@@ -15,8 +15,8 @@ ddb:
 mysql:
   host: 127.0.0.1
   port: 3306
-  user: root
-  password: root
+  user: quantStrat
+  password: eqalgo_2024
   database: strategy
 
 ticker_source: return_table
@@ -26,11 +26,8 @@ price_name: highprice
 trading_hours: null
 min_cross_section_size: 30
 
-factor_tables:
-  dfs://DDB_Factor_15s:
-    - BaseFokFactor
-    - SlopeOflFactor
-    - GPFactor
+factor_table_groups:
+  - long_term_factor_table_15s
 
 return_table_name: Returns_long_short_hs300
 
@@ -39,52 +36,5 @@ return_cols:
   - long_ret_20min
   - long_ret_30min
 
-factors:
-  - ma_close_ret_10
-  - bulk_buy_sell_diff_15s
-  - order_diff_10_15s
-  - ma_close_ret_5
-  - ma_mid_ret_2_10
-  - active_buy_sell_diff_15s
-  - mid_ret_15s
-  - mkt_bulk_active_buy_sell_diff_15s
-  - net_bid_amt_delta_15s
-  - indus_order_diff_1_15s
-  - book_pressure_15s
-  - ma_close_ret_1
-  - mkt_book_pressure_15s
-  - ma_close_ret_2_10
-  - mkt_net_bid_amt_delta_15s
-  - indus_bulk_active_buy_sell_diff_15s
-  - close_ret_15s
-  - book_pressure_delta_15s
-  - indus_close_ret_15s
-  - ma_mid_ret_2_5
-  - indus_mid_ret_15s
-  - indus_order_diff_10_15s
-  - mkt_lower_ask_amt_15s
-  - indus_active_buy_sell_diff_15s
-  - lower_ask_amt_15s
-  - bulk_active_buy_sell_diff_15s
-  - ma_close_ret_2
-  - indus_cancel_diff_10_15s
-  - mkt_close_ret_15s
-  - indus_book_pressure_15s
-  - mkt_active_buy_sell_diff_15s
-  - ma_mid_ret_2
-  - mid_mmt_route_5_5
-  - ma_mid_ret_5
-  - mkt_higher_bid_amt_15s
-  - indus_net_bid_amt_delta_15s
-  - order_diff_1_15s
-  - mid_mmt_route_10_10
-  - indus_book_pressure_delta_15s
-  - ma_close_ret_2_5
-  - ma_mid_ret_10
-  - mid_ret_skew_10
-  - mkt_order_diff_10_15s
-  - indus_lower_ask_amt_15s
-  - higher_bid_amt_15s
-  - indus_higher_bid_amt_15s
-  - ma_mid_ret_1
-  - cancel_diff_10_15s
+factor_groups:
+  - long_term_base_factor_15s
