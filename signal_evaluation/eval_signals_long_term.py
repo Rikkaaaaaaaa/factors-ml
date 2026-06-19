@@ -3,7 +3,7 @@ import glob
 import os
 import os.path as osp
 import sys
-
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
@@ -18,9 +18,17 @@ TIME_KEYS = ["ticker", "date", "time"]
 
 
 def parse_args():
+    root_path = str(Path(__file__).resolve().parents[1])
+    signal_name = "long_term_hs300_highprice_lgbm_10min_demo_202602"
+    window = "long10min"
+    test_month = 202602
+    signal_path = os.path.join(root_path, f"experiments/{signal_name}/{signal_name}_{window}/{test_month}/signal")
+
     parser = argparse.ArgumentParser(description="Evaluate long-term signals with long/short returns.")
-    parser.add_argument("--signal-path", type=str, required=True, help="Signal csv file or folder containing signal csv files.")
-    parser.add_argument("--month", type=int, required=True, help="Month in YYYYMM format.")
+    parser.add_argument("--signal-path", type=str,
+                        default=signal_path,
+                        help="Signal csv file or folder containing signal csv files.")
+    parser.add_argument("--month", type=int, default=test_month, help="Month in YYYYMM format.")
     parser.add_argument("--output-dir", type=str, default=None, help="Output directory for evaluation reports.")
     parser.add_argument("--pool", type=str, default="hs300", help="Stock pool suffix used by return table.")
     parser.add_argument("--ret-db", type=str, default="dfs://DDB_Returns", help="DolphinDB return database name.")
@@ -205,7 +213,8 @@ def main():
     daily_summary = build_daily_summary(signal) if args.save_daily else None
 
     result_name = osp.basename(osp.normpath(args.signal_path))
-    output_dir = args.output_dir or osp.join("signal_evaluation", "outputs", result_name)
+    root_path = str(Path(__file__).resolve().parents[1])
+    output_dir = args.output_dir or osp.join(root_path, "signal_evaluation", "outputs", result_name)
     save_outputs(signal, ticker_report, overall_summary, daily_summary, output_dir, result_name, args.save_daily)
 
 

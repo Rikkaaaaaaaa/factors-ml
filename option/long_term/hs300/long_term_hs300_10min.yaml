@@ -1,0 +1,64 @@
+base_name: long_term_hs300_highprice_lgbm
+manual_seed: 2023
+n_jobs: 1
+eval_rt: false
+
+debug_connection:
+  ddb:
+    server: 10.95.145.91
+    port: 8993
+    userName: quantStrat
+    userKey: eqalgo_2024
+  mysql:
+    host: 10.95.145.83
+    port: 3306
+    user: wuyi
+    password: qtSiioLCmIdhoV5S
+    database: strategy
+
+dataset:
+  factor_table_groups: ['long_term_factor_table_15s']
+  ret_table:
+    dfs://DDB_Returns: 'Returns_long_short_hs300'
+
+  training_factor_name: ['long_term_base_factor_15s']
+  std_factor_name: ['long_term_base_factor_15s']
+  clip_factor_name: ['long_term_base_factor_15s']
+
+  log_factor_name: ['log_factor']
+  rebalancing_tables: []
+
+  type: 'FactorLongTermDataset'
+  test_month: [202602]
+  training_month_num: 6
+  io_backend: ddb
+  pool_name: 'hs300'
+  indus_table_suffix: ''
+  indus_class: group_id
+  avg_price: 10
+  price_name: highprice
+  ret_name: 10min
+  long_ret_name: long_ret_10min
+  short_ret_name: short_ret_10min
+  long_term_window_config:
+    1m: 4
+    5m: 20
+    10m: 40
+    30m: 120
+  std_type: default
+  drop_null_in_training: false
+  alpha: 0.0005
+  class_num: 2
+  balance: default
+
+model:
+  type: 'LgbmModel'
+  n_cpus: 8
+
+train:
+  num_epoch: 200
+  save_proba: true
+
+test:
+  bound_mode: by_ticker
+  threshold_pct: 10
