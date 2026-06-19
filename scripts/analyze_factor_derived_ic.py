@@ -265,6 +265,10 @@ def apply_trading_hours_filter(df, trading_hours):
     return df[am_mask | pm_mask].copy()
 
 
+def sort_factor_frame(df):
+    return df.sort_values(TIME_KEYS).reset_index(drop=True)
+
+
 def read_ddb_factor_table(connector, data_base, table_name, month, tickers, trading_hours=None):
     month_literal = to_ddb_month_literal(month)
     if isinstance(trading_hours, dict):
@@ -380,38 +384,9 @@ def load_return_data(config, connector, tickers):
 
 def build_single_factor_features(factor_df, factor_col):
     factor_df = factor_df[TIME_KEYS + [factor_col]].copy()
-    factor_df = factor_df.sort_values(["ticker", "date", "time"]).reset_index(drop=True)
-    grouped = factor_df.groupby(["ticker", "date"], sort=False)[factor_col]
     features = pd.DataFrame(index=factor_df.index)
 
     features[f"{factor_col}__current"] = factor_df[factor_col]
-    rolling_means = {}
-
-    for label in ["1m", "5m", "10m", "30m"]:
-        window = WINDOW_CONFIG[label]
-        rolling_mean = grouped.transform(lambda x: x.rolling(window=window, min_periods=window).mean())
-        rolling_means[label] = rolling_mean
-        features[f"{factor_col}__mean_{label}"] = rolling_mean
-        features[f"{factor_col}__ewm_{label}"] = grouped.transform(
-            lambda x: x.ewm(span=window, adjust=False, min_periods=window).mean()
-        )
-
-    for label in ["5m", "10m", "30m"]:
-        window = WINDOW_CONFIG[label]
-        rolling_std = grouped.transform(lambda x: x.rolling(window=window, min_periods=window).std(ddof=0))
-        rolling_std = rolling_std.replace(0, np.nan)
-        features[f"{factor_col}__z_{label}"] = (factor_df[factor_col] - rolling_means[label]) / rolling_std
-
-    features[f"{factor_col}__trend_mean_1m_5m"] = rolling_means["1m"] - rolling_means["5m"]
-    features[f"{factor_col}__trend_mean_5m_30m"] = rolling_means["5m"] - rolling_means["30m"]
-
-    sign_series = factor_df[factor_col].gt(0).astype(float)
-    sign_grouped = sign_series.groupby([factor_df["ticker"], factor_df["date"]], sort=False)
-    for label in ["5m", "30m"]:
-        window = WINDOW_CONFIG[label]
-        features[f"{factor_col}__pos_ratio_{label}"] = sign_grouped.transform(
-            lambda x: x.rolling(window=window, min_periods=window).mean()
-        )
 
     result = pd.concat([factor_df[TIME_KEYS], features], axis=1)
     return result
@@ -654,6 +629,7 @@ def analyze_factor_ic(factor_df, return_df, factor_cols, return_cols, min_time_s
     summary_frames = []
     detail_frames = []
     stats_frames = []
+    factor_df = sort_factor_frame(factor_df)
     tasks = [(factor_df[TIME_KEYS + [factor_col]].copy(), factor_col) for factor_col in factor_cols]
 
     if n_jobs <= 1:

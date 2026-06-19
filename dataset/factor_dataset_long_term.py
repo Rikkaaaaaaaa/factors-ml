@@ -28,7 +28,9 @@ class FactorLongTermDataset(FactorDataset):
         )
 
         self.raw_factor_name = build_factor_name_long_term(self.opt['dataset']['training_factor_name'])
-        self.raw_log_factor_name = list(self.log_factor_name)
+        self.raw_log_factor_name = list(
+            set(self.raw_factor_name) & set(build_factor_name_long_term(self.opt['dataset']['log_factor_name']))
+        )
         self.training_factor_name = self.build_long_term_feature_names(self.raw_factor_name)
         self.std_factor_name = self.expand_feature_names(build_factor_name_long_term(self.opt['dataset']['std_factor_name']))
         self.clip_factor_name = self.expand_feature_names(build_factor_name_long_term(self.opt['dataset']['clip_factor_name']))
@@ -46,21 +48,6 @@ class FactorLongTermDataset(FactorDataset):
         for factor_name in raw_factor_names:
             feature_names.extend([
                 f'{factor_name}__current',
-                f'{factor_name}__mean_1m',
-                f'{factor_name}__mean_5m',
-                f'{factor_name}__mean_10m',
-                f'{factor_name}__mean_30m',
-                f'{factor_name}__ewm_1m',
-                f'{factor_name}__ewm_5m',
-                f'{factor_name}__ewm_10m',
-                f'{factor_name}__ewm_30m',
-                f'{factor_name}__z_5m',
-                f'{factor_name}__z_10m',
-                f'{factor_name}__z_30m',
-                f'{factor_name}__trend_mean_1m_5m',
-                f'{factor_name}__trend_mean_5m_30m',
-                f'{factor_name}__pos_ratio_5m',
-                f'{factor_name}__pos_ratio_30m',
             ])
         return feature_names
 
@@ -79,44 +66,19 @@ class FactorLongTermDataset(FactorDataset):
             factor.loc[:, self.log_factor_name] = np.sign(data) * np.log(np.abs(data) + 1)
         return factor
 
+    def sort_factor_frame(self, factor_df):
+        return factor_df.sort_values(['ticker', 'date', 'time']).reset_index(drop=True)
+
     def build_single_factor_features(self, factor_df, factor_col):
         factor_df = factor_df[['ticker', 'date', 'time', factor_col]].copy()
-        factor_df = factor_df.sort_values(['ticker', 'date', 'time']).reset_index(drop=True)
-        grouped = factor_df.groupby(['ticker', 'date'], sort=False)[factor_col]
         features = pd.DataFrame(index=factor_df.index)
 
         features[f'{factor_col}__current'] = factor_df[factor_col]
-        rolling_means = {}
-
-        for label in ['1m', '5m', '10m', '30m']:
-            window = self.window_config[label]
-            rolling_mean = grouped.transform(lambda x: x.rolling(window=window, min_periods=window).mean())
-            rolling_means[label] = rolling_mean
-            features[f'{factor_col}__mean_{label}'] = rolling_mean
-            features[f'{factor_col}__ewm_{label}'] = grouped.transform(
-                lambda x: x.ewm(span=window, adjust=False, min_periods=window).mean()
-            )
-
-        for label in ['5m', '10m', '30m']:
-            window = self.window_config[label]
-            rolling_std = grouped.transform(lambda x: x.rolling(window=window, min_periods=window).std(ddof=0))
-            rolling_std = rolling_std.replace(0, np.nan)
-            features[f'{factor_col}__z_{label}'] = (factor_df[factor_col] - rolling_means[label]) / rolling_std
-
-        features[f'{factor_col}__trend_mean_1m_5m'] = rolling_means['1m'] - rolling_means['5m']
-        features[f'{factor_col}__trend_mean_5m_30m'] = rolling_means['5m'] - rolling_means['30m']
-
-        sign_series = factor_df[factor_col].gt(0).astype(float)
-        sign_grouped = sign_series.groupby([factor_df['ticker'], factor_df['date']], sort=False)
-        for label in ['5m', '30m']:
-            window = self.window_config[label]
-            features[f'{factor_col}__pos_ratio_{label}'] = sign_grouped.transform(
-                lambda x: x.rolling(window=window, min_periods=window).mean()
-            )
 
         return pd.concat([factor_df[['ticker', 'date', 'time']], features], axis=1)
 
     def generate_long_term_features(self, factor):
+        factor = self.sort_factor_frame(factor)
         feature_frames = [factor[['ticker', 'date', 'time']].copy()]
         for factor_name in self.raw_factor_name:
             feature_frames.append(

@@ -22,10 +22,10 @@ dataset:
     dfs://DDB_Returns: 'Returns_long_short_hs300'
 
   training_factor_name: ['long_term_base_factor_15s']
-  std_factor_name: ['long_term_base_factor_15s']
-  clip_factor_name: ['long_term_base_factor_15s']
+  std_factor_name: ['long_term_std_factor_15s']
+  clip_factor_name: ['long_term_clip_factor_15s']
 
-  log_factor_name: ['log_factor']
+  log_factor_name: ['long_term_log_factor']
   rebalancing_tables: []
 
   type: 'FactorLongTermDataset'
