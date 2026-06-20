@@ -120,6 +120,15 @@ LONG_TERM_CLIP_FACTOR_15S = dedupe_factor_names(
 
 LONG_TERM_LOG_FACTOR = dedupe_factor_names(log_factor)
 
+LONG_TERM_DERIVED_FACTOR_SUFFIX_15 = [
+    "skew_15",
+]
+
+LONG_TERM_DERIVED_FACTOR_15S = [
+    factor_name for factor_name in LONG_TERM_BASE_FACTOR_15S
+    if factor_name.endswith('_15s') or factor_name in LONG_TERM_DERIVED_FACTOR_SUFFIX_15
+]
+
 LONG_TERM_FACTOR_TABLE_15S = {
     'dfs://DDB_Factor_15s': ['BaseFokFactor', 'SlopeOflFactor', 'GPFactor']
 }
@@ -129,6 +138,7 @@ LONG_TERM_FACTOR_GROUPS = {
     'long_term_std_factor_15s': LONG_TERM_STD_FACTOR_15S,
     'long_term_clip_factor_15s': LONG_TERM_CLIP_FACTOR_15S,
     'long_term_log_factor': LONG_TERM_LOG_FACTOR,
+    'long_term_derived_factor_15s': LONG_TERM_DERIVED_FACTOR_15S,
     'ddb_base_factor': ddb_base_factor,
     'ddb_fok_factor': ddb_fok_factor,
     'ddb_ofl_factor': ddb_ofl_factor,

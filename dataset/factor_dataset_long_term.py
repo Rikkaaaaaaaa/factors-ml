@@ -11,6 +11,22 @@ from utils.registry import DATASET_REGISTRY
 
 @DATASET_REGISTRY.register()
 class FactorLongTermDataset(FactorDataset):
+    DERIVED_SUFFIXES = [
+        'ewm_10m',
+        'ewm_30m',
+        'z_5m',
+        'z_10m',
+        'z_30m',
+        'trend_mean_1m_5m',
+        'trend_mean_5m_30m',
+    ]
+    PREPROCESS_DERIVED_SUFFIXES = [
+        'ewm_10m',
+        'ewm_30m',
+        'trend_mean_1m_5m',
+        'trend_mean_5m_30m',
+    ]
+
     def __init__(self, opt, test_month, indus_type, logger_name=None, *args, **kwargs):
         dataset_opt = opt['dataset']
         if dataset_opt.get('factor_table_groups') and not dataset_opt.get('factor_table'):
@@ -28,12 +44,26 @@ class FactorLongTermDataset(FactorDataset):
         )
 
         self.raw_factor_name = build_factor_name_long_term(self.opt['dataset']['training_factor_name'])
+        requested_derived_factor_name = build_factor_name_long_term(
+            self.opt['dataset'].get('derived_factor_name', 'long_term_derived_factor_15s')
+        )
+        requested_derived_factor_set = set(requested_derived_factor_name)
+        self.derived_raw_factor_name = [
+            factor_name for factor_name in self.raw_factor_name
+            if factor_name in requested_derived_factor_set
+        ]
         self.raw_log_factor_name = list(
             set(self.raw_factor_name) & set(build_factor_name_long_term(self.opt['dataset']['log_factor_name']))
         )
         self.training_factor_name = self.build_long_term_feature_names(self.raw_factor_name)
-        self.std_factor_name = self.expand_feature_names(build_factor_name_long_term(self.opt['dataset']['std_factor_name']))
-        self.clip_factor_name = self.expand_feature_names(build_factor_name_long_term(self.opt['dataset']['clip_factor_name']))
+        self.std_factor_name = self.expand_feature_names(
+            build_factor_name_long_term(self.opt['dataset']['std_factor_name']),
+            include_zscore=False
+        )
+        self.clip_factor_name = self.expand_feature_names(
+            build_factor_name_long_term(self.opt['dataset']['clip_factor_name']),
+            include_zscore=False
+        )
         self.log_factor_name = self.raw_log_factor_name
 
         label_columns = ['ret', self.long_ret_name, self.short_ret_name]
@@ -42,20 +72,28 @@ class FactorLongTermDataset(FactorDataset):
 
         self.logger.info(f"[{self.logger_name}] Long-term factor mode enabled.")
         self.logger.info(f"[{self.logger_name}] Long return column: {self.long_ret_name}, short return column: {self.short_ret_name}")
+        self.logger.info(f"[{self.logger_name}] Derived raw factor number: {len(self.derived_raw_factor_name)}")
+
+    def build_feature_names_for_factor(self, factor_name, include_zscore=True):
+        feature_names = [f'{factor_name}__current']
+        if factor_name not in self.derived_raw_factor_name:
+            return feature_names
+
+        suffixes = self.DERIVED_SUFFIXES if include_zscore else self.PREPROCESS_DERIVED_SUFFIXES
+        feature_names.extend([f'{factor_name}__{suffix}' for suffix in suffixes])
+        return feature_names
 
     def build_long_term_feature_names(self, raw_factor_names):
         feature_names = []
         for factor_name in raw_factor_names:
-            feature_names.extend([
-                f'{factor_name}__current',
-            ])
+            feature_names.extend(self.build_feature_names_for_factor(factor_name, include_zscore=True))
         return feature_names
 
-    def expand_feature_names(self, factor_names):
+    def expand_feature_names(self, factor_names, include_zscore=True):
         expanded = []
         for factor_name in factor_names:
             if factor_name in self.raw_factor_name:
-                expanded.extend(self.build_long_term_feature_names([factor_name]))
+                expanded.extend(self.build_feature_names_for_factor(factor_name, include_zscore=include_zscore))
             elif factor_name in self.training_factor_name:
                 expanded.append(factor_name)
         return list(dict.fromkeys(expanded))
@@ -69,21 +107,48 @@ class FactorLongTermDataset(FactorDataset):
     def sort_factor_frame(self, factor_df):
         return factor_df.sort_values(['ticker', 'date', 'time']).reset_index(drop=True)
 
-    def build_single_factor_features(self, factor_df, factor_col):
-        factor_df = factor_df[['ticker', 'date', 'time', factor_col]].copy()
-        features = pd.DataFrame(index=factor_df.index)
-
-        features[f'{factor_col}__current'] = factor_df[factor_col]
-
-        return pd.concat([factor_df[['ticker', 'date', 'time']], features], axis=1)
+    def rename_feature_columns(self, feature_df, suffix):
+        return feature_df.rename(columns={col: f'{col}__{suffix}' for col in feature_df.columns})
 
     def generate_long_term_features(self, factor):
         factor = self.sort_factor_frame(factor)
         feature_frames = [factor[['ticker', 'date', 'time']].copy()]
-        for factor_name in self.raw_factor_name:
-            feature_frames.append(
-                self.build_single_factor_features(factor, factor_name).drop(columns=['ticker', 'date', 'time'])
-            )
+
+        current_features = factor[self.raw_factor_name].copy()
+        feature_frames.append(self.rename_feature_columns(current_features, 'current'))
+
+        derived_factor_name = [factor_name for factor_name in self.derived_raw_factor_name if factor_name in factor.columns]
+        if len(derived_factor_name) > 0:
+            derived_data = factor[derived_factor_name]
+            grouped = factor.groupby(['ticker', 'date'], sort=False)[derived_factor_name]
+            rolling_means = {}
+
+            for label in ['1m', '5m', '10m', '30m']:
+                window = self.window_config[label]
+                rolling_means[label] = grouped.transform(
+                    lambda x: x.rolling(window=window, min_periods=window).mean()
+                )
+
+            for label in ['10m', '30m']:
+                window = self.window_config[label]
+                ewm_features = grouped.transform(
+                    lambda x: x.ewm(span=window, adjust=False, min_periods=window).mean()
+                )
+                feature_frames.append(self.rename_feature_columns(ewm_features, f'ewm_{label}'))
+
+            for label in ['5m', '10m', '30m']:
+                window = self.window_config[label]
+                rolling_std = grouped.transform(
+                    lambda x: x.rolling(window=window, min_periods=window).std(ddof=0)
+                ).replace(0, np.nan)
+                z_features = (derived_data - rolling_means[label]) / rolling_std
+                feature_frames.append(self.rename_feature_columns(z_features, f'z_{label}'))
+
+            trend_1m_5m = rolling_means['1m'] - rolling_means['5m']
+            trend_5m_30m = rolling_means['5m'] - rolling_means['30m']
+            feature_frames.append(self.rename_feature_columns(trend_1m_5m, 'trend_mean_1m_5m'))
+            feature_frames.append(self.rename_feature_columns(trend_5m_30m, 'trend_mean_5m_30m'))
+
         res = pd.concat(feature_frames, axis=1)
         res = res.loc[:, ~res.columns.duplicated()].copy()
         return res

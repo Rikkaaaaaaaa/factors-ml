@@ -13,7 +13,11 @@ import pymysql
 import yaml
 from scipy.stats import rankdata
 
-from dataset.factor_name_long_term import build_factor_name_long_term, build_factor_table_long_term
+from dataset.factor_name_long_term import (
+    LONG_TERM_DERIVED_FACTOR_15S,
+    build_factor_name_long_term,
+    build_factor_table_long_term,
+)
 
 
 DEFAULT_FACTORS = [
@@ -81,6 +85,7 @@ WINDOW_CONFIG = {
 }
 
 TIME_KEYS = ["ticker", "date", "time"]
+DERIVED_FACTOR_SET = set(LONG_TERM_DERIVED_FACTOR_15S)
 WORKER_RETURN_DF = None
 WORKER_RETURN_COLS = None
 WORKER_MIN_CS = None
@@ -387,6 +392,33 @@ def build_single_factor_features(factor_df, factor_col):
     features = pd.DataFrame(index=factor_df.index)
 
     features[f"{factor_col}__current"] = factor_df[factor_col]
+    if factor_col not in DERIVED_FACTOR_SET:
+        result = pd.concat([factor_df[TIME_KEYS], features], axis=1)
+        return result
+
+    grouped = factor_df.groupby(["ticker", "date"], sort=False)[factor_col]
+    rolling_means = {}
+
+    for label in ["1m", "5m", "10m", "30m"]:
+        window = WINDOW_CONFIG[label]
+        rolling_means[label] = grouped.transform(
+            lambda x: x.rolling(window=window, min_periods=window).mean()
+        )
+
+    for label in ["10m", "30m"]:
+        window = WINDOW_CONFIG[label]
+        features[f"{factor_col}__ewm_{label}"] = grouped.transform(
+            lambda x: x.ewm(span=window, adjust=False, min_periods=window).mean()
+        )
+
+    for label in ["5m", "10m", "30m"]:
+        window = WINDOW_CONFIG[label]
+        rolling_std = grouped.transform(lambda x: x.rolling(window=window, min_periods=window).std(ddof=0))
+        rolling_std = rolling_std.replace(0, np.nan)
+        features[f"{factor_col}__z_{label}"] = (factor_df[factor_col] - rolling_means[label]) / rolling_std
+
+    features[f"{factor_col}__trend_mean_1m_5m"] = rolling_means["1m"] - rolling_means["5m"]
+    features[f"{factor_col}__trend_mean_5m_30m"] = rolling_means["5m"] - rolling_means["30m"]
 
     result = pd.concat([factor_df[TIME_KEYS], features], axis=1)
     return result
