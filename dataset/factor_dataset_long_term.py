@@ -14,9 +14,9 @@ class FactorLongTermDataset(FactorDataset):
     DERIVED_SUFFIXES = [
         'ewm_10m',
         'ewm_30m',
-        'z_5m',
-        'z_10m',
-        'z_30m',
+        # 'z_5m',
+        # 'z_10m',
+        # 'z_30m',
         'trend_mean_1m_5m',
         'trend_mean_5m_30m',
     ]
@@ -42,6 +42,8 @@ class FactorLongTermDataset(FactorDataset):
             'long_term_window_config',
             {'1m': 4, '5m': 20, '10m': 40, '30m': 120}
         )
+        self.long_term_min_periods = self.opt['dataset'].get('long_term_min_periods', 1)
+        self.long_term_std_min_periods = self.opt['dataset'].get('long_term_std_min_periods', 2)
 
         self.raw_factor_name = build_factor_name_long_term(self.opt['dataset']['training_factor_name'])
         requested_derived_factor_name = build_factor_name_long_term(
@@ -126,23 +128,28 @@ class FactorLongTermDataset(FactorDataset):
             for label in ['1m', '5m', '10m', '30m']:
                 window = self.window_config[label]
                 rolling_means[label] = grouped.transform(
-                    lambda x: x.rolling(window=window, min_periods=window).mean()
+                    lambda x: x.rolling(window=window, min_periods=self.long_term_min_periods).mean()
                 )
 
             for label in ['10m', '30m']:
                 window = self.window_config[label]
                 ewm_features = grouped.transform(
-                    lambda x: x.ewm(span=window, adjust=False, min_periods=window).mean()
+                    lambda x: x.ewm(
+                        span=window,
+                        adjust=False,
+                        min_periods=self.long_term_min_periods,
+                        ignore_na=True,
+                    ).mean()
                 )
                 feature_frames.append(self.rename_feature_columns(ewm_features, f'ewm_{label}'))
 
-            for label in ['5m', '10m', '30m']:
-                window = self.window_config[label]
-                rolling_std = grouped.transform(
-                    lambda x: x.rolling(window=window, min_periods=window).std(ddof=0)
-                ).replace(0, np.nan)
-                z_features = (derived_data - rolling_means[label]) / rolling_std
-                feature_frames.append(self.rename_feature_columns(z_features, f'z_{label}'))
+            # for label in ['5m', '10m', '30m']:
+            #     window = self.window_config[label]
+            #     rolling_std = grouped.transform(
+            #         lambda x: x.rolling(window=window, min_periods=self.long_term_std_min_periods).std(ddof=0)
+            #     ).replace(0, np.nan)
+            #     z_features = (derived_data - rolling_means[label]) / rolling_std
+            #     feature_frames.append(self.rename_feature_columns(z_features, f'z_{label}'))
 
             trend_1m_5m = rolling_means['1m'] - rolling_means['5m']
             trend_5m_30m = rolling_means['5m'] - rolling_means['30m']

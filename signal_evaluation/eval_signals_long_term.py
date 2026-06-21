@@ -91,6 +91,20 @@ def safe_mean(arr):
     return float(np.mean(arr))
 
 
+def safe_divide(numerator, denominator):
+    if np.isnan(numerator) or np.isnan(denominator) or denominator == 0:
+        return np.nan
+    return numerator / denominator
+
+
+def safe_contribution(rate, value):
+    if np.isnan(rate) or rate == 0:
+        return 0.0
+    if np.isnan(value):
+        return np.nan
+    return rate * value
+
+
 def compute_long_term_metrics(df):
     signal_values = df["signal"].to_numpy()
     long_ret = df["long_ret"].to_numpy()
@@ -107,27 +121,52 @@ def compute_long_term_metrics(df):
 
     up_mean_ret = safe_mean(long_ret[up_idx])
     down_mean_ret = safe_mean(short_ret[down_idx])
+    up_base_mean_ret = safe_mean(long_ret)
+    down_base_mean_ret = safe_mean(short_ret)
     up_win_rate = safe_mean(long_ret[up_non_zero_idx] > 0)
     down_win_rate = safe_mean(short_ret[down_non_zero_idx] > 0)
+    up_base_win_rate = safe_mean(long_ret[long_ret != 0] > 0)
+    down_base_win_rate = safe_mean(short_ret[short_ret != 0] > 0)
 
     combined_selected_returns = np.concatenate([long_ret[up_idx], short_ret[down_idx]])
-    weighted_return = 0.0
+    up_signal_rate = up_trade_num / total_sample if total_sample > 0 else np.nan
+    down_signal_rate = down_trade_num / total_sample if total_sample > 0 else np.nan
+    weighted_return = np.nan
+    base_weighted_return = np.nan
     if total_sample > 0:
         weighted_return = (
-            safe_mean(long_ret[up_idx]) * (up_trade_num / total_sample)
-            + safe_mean(short_ret[down_idx]) * (down_trade_num / total_sample)
+            safe_contribution(up_signal_rate, up_mean_ret)
+            + safe_contribution(down_signal_rate, down_mean_ret)
+        )
+        base_weighted_return = (
+            safe_contribution(up_signal_rate, up_base_mean_ret)
+            + safe_contribution(down_signal_rate, down_base_mean_ret)
         )
 
     metrics = {
         "up_win_rate": up_win_rate,
         "down_win_rate": down_win_rate,
+        "up_base_win_rate": up_base_win_rate,
+        "down_base_win_rate": down_base_win_rate,
+        "up_win_rate_lift": up_win_rate - up_base_win_rate,
+        "down_win_rate_lift": down_win_rate - down_base_win_rate,
+        "up_beat_base_mean_rate": safe_mean(long_ret[up_idx] > up_base_mean_ret),
+        "down_beat_base_mean_rate": safe_mean(short_ret[down_idx] > down_base_mean_ret),
         "up_mean_ret": up_mean_ret * 1e4 if not np.isnan(up_mean_ret) else np.nan,
         "down_mean_ret": down_mean_ret * 1e4 if not np.isnan(down_mean_ret) else np.nan,
-        "up_signal_rate": up_trade_num / total_sample if total_sample > 0 else np.nan,
-        "down_signal_rate": down_trade_num / total_sample if total_sample > 0 else np.nan,
+        "up_base_mean_ret": up_base_mean_ret * 1e4 if not np.isnan(up_base_mean_ret) else np.nan,
+        "down_base_mean_ret": down_base_mean_ret * 1e4 if not np.isnan(down_base_mean_ret) else np.nan,
+        "up_excess_mean_ret": (up_mean_ret - up_base_mean_ret) * 1e4,
+        "down_excess_mean_ret": (down_mean_ret - down_base_mean_ret) * 1e4,
+        "up_lift_ratio": safe_divide(up_mean_ret, abs(up_base_mean_ret)),
+        "down_lift_ratio": safe_divide(down_mean_ret, abs(down_base_mean_ret)),
+        "up_signal_rate": up_signal_rate,
+        "down_signal_rate": down_signal_rate,
         "up_trade_num": up_trade_num,
         "down_trade_num": down_trade_num,
         "weighted_return": weighted_return * 1e4 if not np.isnan(weighted_return) else np.nan,
+        "base_weighted_return": base_weighted_return * 1e4 if not np.isnan(base_weighted_return) else np.nan,
+        "excess_weighted_return": (weighted_return - base_weighted_return) * 1e4,
         "total_sample": total_sample,
         "zero_signal_rate": float(np.mean(signal_values == 0)) if total_sample > 0 else np.nan,
         "selected_abs_ret": safe_mean(np.abs(combined_selected_returns)) * 1e4 if len(combined_selected_returns) > 0 else np.nan,

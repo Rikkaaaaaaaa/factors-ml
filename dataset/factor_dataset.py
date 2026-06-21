@@ -11,7 +11,7 @@ except ImportError:
 
 from utils import list2str
 from dataset import build_factor_name
-from dataset.sql_ops import load_ticker_by_indus, load_labels, align_factor_ticker, load_factor_by_table, check_rebalanced
+from dataset.sql_ops import load_ticker_by_indus, load_ticker_by_price_group, load_labels, align_factor_ticker, load_factor_by_table, check_rebalanced
 from utils.logger import get_root_logger
 from utils.registry import DATASET_REGISTRY
 from utils.misc import Timer, time_str
@@ -180,7 +180,10 @@ class FactorDataset():
             # load ticker list
             ticker_list = []
             self.logger.info(f"[{self.logger_name}] Loading ticker list from mysql...")
-            cur_ticker = load_ticker_by_indus(self.opt, self.pool_name, self.indus_type, self.test_month)
+            if self.price_name == 'lowprice':
+                cur_ticker = load_ticker_by_price_group(self.opt, self.pool_name, self.indus_type, self.test_month)
+            else:
+                cur_ticker = load_ticker_by_indus(self.opt, self.pool_name, self.indus_type, self.test_month)
             ticker_list.extend(cur_ticker)
             self.logger.info(f"[{self.logger_name}] Suscessfully load ticker list from mysql with cost={time_str(load_timer.item())}")
             
@@ -395,6 +398,14 @@ class FactorDataset():
         self.std_params = []
         self.clip_params = []
 
+        def fill_empty_clip_bounds(factor_min, factor_max):
+            factor_min = np.asarray(factor_min, dtype=float)
+            factor_max = np.asarray(factor_max, dtype=float)
+            empty_bound = np.isnan(factor_min) | np.isnan(factor_max)
+            factor_min[empty_bound] = -np.inf
+            factor_max[empty_bound] = np.inf
+            return factor_min, factor_max
+
         # eval mode: read params from csv
         if self.mode == 'eval':
             # save and read path
@@ -424,22 +435,23 @@ class FactorDataset():
                         # clip type
                         if isinstance(self.opt['dataset'].get('clip'), dict):
                             if self.opt['dataset']['clip'].get('type') == '3sigma':
-                                factor_mean = np.mean(train_x.dropna(), axis=0).values
-                                factor_std = np.std(train_x.dropna(), axis=0).values
+                                factor_mean = np.nanmean(train_x.values, axis=0)
+                                factor_std = np.nanstd(train_x.values, axis=0)
                                 factor_min = factor_mean - 3 * factor_std
                                 factor_max = factor_mean + 3 * factor_std
                             elif self.opt['dataset']['clip'].get('type') == 'quantile':
                                 min_quantile = self.opt['dataset']['clip'].get('min_quantile')
                                 max_quantile = self.opt['dataset']['clip'].get('max_quantile')
-                                factor_min = np.percentile(train_x.dropna(), min_quantile, axis=0, )
-                                factor_max = np.percentile(train_x.dropna(), max_quantile, axis=0, )
+                                factor_min = np.nanpercentile(train_x.values, min_quantile, axis=0, )
+                                factor_max = np.nanpercentile(train_x.values, max_quantile, axis=0, )
                             else:
-                                factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
-                                factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
+                                factor_min = np.nanpercentile(train_x.values, 5, axis=0, )
+                                factor_max = np.nanpercentile(train_x.values, 95, axis=0, )
                         else:
                             # default 5%~95%
-                            factor_min = np.percentile(train_x.dropna(), 5, axis=0, )
-                            factor_max = np.percentile(train_x.dropna(), 95, axis=0, )
+                            factor_min = np.nanpercentile(train_x.values, 5, axis=0, )
+                            factor_max = np.nanpercentile(train_x.values, 95, axis=0, )
+                        factor_min, factor_max = fill_empty_clip_bounds(factor_min, factor_max)
 
                         # save transform params
                         clip_param = pd.DataFrame(columns=['factor_name', 'min', 'max', ])

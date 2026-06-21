@@ -57,9 +57,10 @@ def check_indus(opt, first_month):
 
         indus_list.extend(list(indus_table[indus_class]))
 
-    # default class num of low price is zero
     else:
-        indus_list = [0]
+        indus_table = cx_read_sql('select distinct {} from static_data_price_{}_history{} where test_month={} and avg_price <= 10'.format(
+                                    indus_class, pool_name, indus_table_suffix, first_month))
+        indus_list.extend(list(indus_table[indus_class]))
 
     return set(indus_list)
 

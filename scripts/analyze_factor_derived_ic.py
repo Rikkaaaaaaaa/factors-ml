@@ -83,6 +83,8 @@ WINDOW_CONFIG = {
     "10m": 40,
     "30m": 120,
 }
+MIN_PERIODS = 1
+# STD_MIN_PERIODS = 2
 
 TIME_KEYS = ["ticker", "date", "time"]
 DERIVED_FACTOR_SET = set(LONG_TERM_DERIVED_FACTOR_15S)
@@ -402,20 +404,20 @@ def build_single_factor_features(factor_df, factor_col):
     for label in ["1m", "5m", "10m", "30m"]:
         window = WINDOW_CONFIG[label]
         rolling_means[label] = grouped.transform(
-            lambda x: x.rolling(window=window, min_periods=window).mean()
+            lambda x: x.rolling(window=window, min_periods=MIN_PERIODS).mean()
         )
 
     for label in ["10m", "30m"]:
         window = WINDOW_CONFIG[label]
         features[f"{factor_col}__ewm_{label}"] = grouped.transform(
-            lambda x: x.ewm(span=window, adjust=False, min_periods=window).mean()
+            lambda x: x.ewm(span=window, adjust=False, min_periods=MIN_PERIODS, ignore_na=True).mean()
         )
 
-    for label in ["5m", "10m", "30m"]:
-        window = WINDOW_CONFIG[label]
-        rolling_std = grouped.transform(lambda x: x.rolling(window=window, min_periods=window).std(ddof=0))
-        rolling_std = rolling_std.replace(0, np.nan)
-        features[f"{factor_col}__z_{label}"] = (factor_df[factor_col] - rolling_means[label]) / rolling_std
+    # for label in ["5m", "10m", "30m"]:
+    #     window = WINDOW_CONFIG[label]
+    #     rolling_std = grouped.transform(lambda x: x.rolling(window=window, min_periods=STD_MIN_PERIODS).std(ddof=0))
+    #     rolling_std = rolling_std.replace(0, np.nan)
+    #     features[f"{factor_col}__z_{label}"] = (factor_df[factor_col] - rolling_means[label]) / rolling_std
 
     features[f"{factor_col}__trend_mean_1m_5m"] = rolling_means["1m"] - rolling_means["5m"]
     features[f"{factor_col}__trend_mean_5m_30m"] = rolling_means["5m"] - rolling_means["30m"]
