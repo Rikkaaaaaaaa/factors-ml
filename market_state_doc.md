@@ -43,6 +43,24 @@ YAML 的 `debug_connection` 段复制到示例中。建议首次使用新的 `ba
 - `market_state/indus<行业>/metrics.csv`：`unified` 与 `routed` 在相同测试样本上的分类和收益指标。
 - `market_state/indus<行业>/test_predictions.csv`：原 state、组别、统一/路由预测概率及上下阈值。
 
+使用 `LgbmModel` 时，每个 `market_state/indus<行业>/model_group_<组号>/` 自动增加以下输出，无需新增参数：
+
+- `feature_importance.csv`：全部因子的 gain（分裂收益）和 split（分裂次数），按 gain 排序。
+- `shap_importance.csv`：因子的平均绝对 SHAP、平均有符号 SHAP，按平均绝对值排序。
+- `feature_importance.png`、`shap_importance.png`：对应排名的前 20 个因子。
+- `shap_values.csv`：抽样数据逐行的因子 SHAP 和 `base_value`，保留股票、日期、毫秒时间。
+- `shap_samples.csv`：上述同批样本的预处理后因子值，行序与 SHAP 明细一致。
+- `explanation.json`：实际模型来源、抽样来自训练集还是测试集、抽样数量和随机种子。
+
+SHAP 优先解释该组测试样本，不按未来收益筛选；该组无测试样本时使用本组训练样本。
+全因子缺失行不解释，每组最多抽取 2,000 条，使用已有 `manual_seed` 保证抽样可复现。
+这部分仅解释已训练模型，不用于重新选因子或调参。使用 LightGBM 自带的
+`pred_contrib=True`，无需安装 `shap` 包；二分类 SHAP 是 log-odds 的贡献，
+各因子贡献加上 `base_value` 等于模型的原始分数，不是预测概率。
+兜底组（含 `-1`）输出的是统一模型的 feature importance，SHAP 仍在该组样本上计算；
+无可用样本时 SHAP 排名为空值，明细为空。其他模型类型保持原流程，不输出这组解释文件。
+若旧实验已经训练完成，会沿用原逻辑跳过；要生成新增文件，请换一个 `base_name` 重新运行。
+
 `metrics.csv` 中 `model_group=all` 直接汇总所有测试样本（含 `-1`），不是四组指标
 的简单平均。分类 accuracy/AUC 仅统计标签 0/1；收益指标包含中性样本，预测阶段
 不按未来收益筛选。全特征缺失行不评估；收益缺失行不计入收益指标。

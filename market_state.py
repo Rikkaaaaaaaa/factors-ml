@@ -89,6 +89,49 @@ def state_metrics(opt, data, proba, bounds):
     return metrics
 
 
+def save_state_explanations(model, data, features, output, model_source, split, seed):
+    """复用 LGBM 原生接口，输出重要性及抽样 SHAP，不重新训练模型。"""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    output.mkdir(parents=True, exist_ok=True)
+    booster = model.model
+    importance = pd.DataFrame({'factor_name': booster.feature_name(),
+                               'gain': booster.feature_importance(importance_type='gain'),
+                               'split': booster.feature_importance(importance_type='split')})
+    importance.sort_values('gain', ascending=False).to_csv(output / 'feature_importance.csv', index=False)
+
+    # 先抽样再排除全部特征为空的行，避免扫描、复制全量因子数据。
+    sample = data.sample(n=min(len(data), 2000), random_state=seed)
+    sample = sample.loc[~sample[features].isna().all(axis=1)].reset_index(drop=True)
+    shap_values = np.empty((0, len(features) + 1))
+    if len(sample):
+        shap_values = booster.predict(sample[features], pred_contrib=True)
+    # 最后一列是基准值，不参与因子排名；二分类 SHAP 的单位是 log-odds。
+    summary = pd.DataFrame({'factor_name': booster.feature_name(),
+                            'mean_abs_shap': np.abs(shap_values[:, :-1]).mean(axis=0) if len(sample) else np.nan,
+                            'mean_shap': shap_values[:, :-1].mean(axis=0) if len(sample) else np.nan})
+    summary.sort_values('mean_abs_shap', ascending=False).to_csv(output / 'shap_importance.csv', index=False)
+    details = pd.DataFrame(shap_values, columns=booster.feature_name() + ['base_value'])
+    pd.concat([sample[KEYS], details], axis=1).to_csv(output / 'shap_values.csv', index=False)
+    sample[KEYS + features].to_csv(output / 'shap_samples.csv', index=False)
+    info = {'model_source': model_source, 'sample_split': split, 'sample_count': len(sample),
+            'seed': seed, 'shap_scale': 'log_odds'}
+    (output / 'explanation.json').write_text(json.dumps(info, indent=2), encoding='utf-8')
+
+    for table, score, filename in [(importance, 'gain', 'feature_importance.png'),
+                                    (summary, 'mean_abs_shap', 'shap_importance.png')]:
+        top = table.dropna(subset=[score]).nlargest(20, score).iloc[::-1]
+        fig = Figure(figsize=(12, 8))
+        FigureCanvasAgg(fig)  # 使用无窗口绘图，兼容多进程训练。
+        ax = fig.subplots()
+        ax.barh(top['factor_name'], top[score])
+        ax.set_xlabel(score)
+        ax.set_title(f'{output.name} | model={model_source} | SHAP {split} n={len(sample)}')
+        fig.tight_layout()
+        fig.savefig(output / filename, dpi=150)
+
+
 def train_market_states(opt, dataset, unified_model, features):
     """保留统一模型，额外训练四组模型并输出同样本对比。"""
     month, industry = dataset.test_month, dataset.indus_type
@@ -126,27 +169,34 @@ def train_market_states(opt, dataset, unified_model, features):
     unified_bounds = prediction_bounds(opt, train, unified_train, test)
     routed_test, routed_bounds = unified_test.copy(), unified_bounds.copy()
     model_sources = {}
-    for group in range(4):
+    for group in [0, 1, 2, 3, -1]:
         group_train = train.loc[train['model_group'] == group]
         test_mask = (test['model_group'] == group).to_numpy()
+        group_test = test.loc[test_mask]
+        model = unified_model
         # LGBM 默认每叶至少 20 条；不足两叶或缺少一个类别时复用统一模型。
-        if len(group_train) < 40 or group_train['class_label'].nunique() < 2:
+        if group == -1 or len(group_train) < 40 or group_train['class_label'].nunique() < 2:
             model_sources[group] = 'unified'
-            dataset.logger.warning('model_group_%s 样本不足或缺少类别，使用统一模型', group)
-            continue
-        group_opt = deepcopy(opt)
-        model_dir = Path(opt['path']['model_path'][month]) / f'model_group_{group}'
-        model_dir.mkdir(parents=True, exist_ok=True)
-        group_opt['path']['model_path'][month] = str(model_dir)
-        model = build_model(group_opt, test_month=month, indus_type=industry)
-        model.train(group_train[features], group_train['class_label'])
-        model.save()
-        model_sources[group] = f'model_group_{group}'
-        if test_mask.any():
-            group_test = test.loc[test_mask]
-            routed_test[test_mask] = model.predict(group_test[features])
-            routed_bounds[test_mask] = prediction_bounds(
-                opt, group_train, model.predict(group_train[features]), group_test)
+            dataset.logger.warning('model_group_%s 为未知状态、样本不足或缺少类别，使用统一模型', group)
+        else:
+            group_opt = deepcopy(opt)
+            model_dir = Path(opt['path']['model_path'][month]) / f'model_group_{group}'
+            model_dir.mkdir(parents=True, exist_ok=True)
+            group_opt['path']['model_path'][month] = str(model_dir)
+            model = build_model(group_opt, test_month=month, indus_type=industry)
+            model.train(group_train[features], group_train['class_label'])
+            model.save()
+            model_sources[group] = f'model_group_{group}'
+            if test_mask.any():
+                routed_test[test_mask] = model.predict(group_test[features])
+                routed_bounds[test_mask] = prediction_bounds(
+                    opt, group_train, model.predict(group_train[features]), group_test)
+
+        if opt['model']['type'] == 'LgbmModel':
+            split = 'test' if len(group_test) else 'train'
+            save_state_explanations(model, group_test if split == 'test' else group_train, features,
+                                    output / f'model_group_{group}', model_sources[group], split, opt['manual_seed'])
+            dataset.logger.info('model_group_%s 的 feature importance 和 SHAP 已保存', group)
 
     # 映射和因子顺序随模型保存，方便后续加载时按相同规则路由。
     metadata = {'version': 1, 'state_group': STATE_GROUP, 'features': list(features),

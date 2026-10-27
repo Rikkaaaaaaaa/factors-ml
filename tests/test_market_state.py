@@ -80,6 +80,7 @@ class MarketStateTest(unittest.TestCase):
                                  'class_label': [1, 0, 2, 1, 0, 1], 'ret': [0.01] * 6})
             train['market_state'], test['market_state'] = 4, [4, 1, 7, 0, np.nan, 4]
             opt = {'path': {'experiments_root': folder, 'model_path': {202602: folder}},
+                   'model': {'type': 'LgbmModel'}, 'manual_seed': 2023,
                    'dataset': {}, 'test': {'bound_mode': 'by_ticker', 'threshold_pct': 10}}
             dataset = SimpleNamespace(train_data=train, test_data=test, test_month=202602,
                                       indus_type=0, logger=logging.getLogger('test'))
@@ -93,8 +94,18 @@ class MarketStateTest(unittest.TestCase):
                 return SimpleNamespace(train=train_model, save=Mock(),
                                        predict=lambda frame: np.full(len(frame), 0.9 - group * 0.8))
 
-            with patch.object(state, 'attach_market_state'), patch.object(state, 'build_model', side_effect=build_model):
+            with patch.object(state, 'attach_market_state'), \
+                    patch.object(state, 'build_model', side_effect=build_model), \
+                    patch.object(state, 'save_state_explanations') as explain:
                 state.train_market_states(opt, dataset, unified, ['x'])
+            self.assertEqual(explain.call_count, 5)
+            self.assertEqual([call.args[4] for call in explain.call_args_list],
+                             ['model_group_0', 'model_group_1', 'unified', 'unified', 'unified'])
+            for group, call in zip([0, 1, 2, 3, -1], explain.call_args_list):
+                self.assertEqual(call.args[1]['model_group'].unique().tolist(), [group])
+                self.assertEqual(call.args[5], 'test')
+                if group in [2, 3, -1]:
+                    self.assertIs(call.args[0], unified)
             self.assertEqual([item[0] for item in trained], [0, 1])
             self.assertEqual(trained[0][1]['x'].tolist(), list(range(60)))
             self.assertEqual(trained[1][1]['x'].tolist(), list(range(60, 120)))
@@ -108,6 +119,50 @@ class MarketStateTest(unittest.TestCase):
             self.assertEqual(overall['test_samples'].tolist(), [5, 5])
             self.assertEqual(overall['classification_samples'].tolist(), [4, 4])
             self.assertTrue((Path(folder) / 'market_state_indus0.json').exists())
+
+    def test_explanations_sample_alignment_and_base_value(self):
+        booster = Mock()
+        booster.feature_name.return_value = ['b', 'a']
+        booster.feature_importance.side_effect = lambda importance_type: [1, 10] if importance_type == 'gain' else [3, 2]
+        booster.predict.side_effect = lambda x, pred_contrib: np.column_stack([
+            x['b'] * 2, -x['a'], np.full(len(x), 1000)])
+        data = pd.DataFrame({'ticker': ['A.SZ'] * 2002, 'date': [20260205] * 2002,
+                             'time': np.arange(2002), 'b': np.arange(2002, dtype=float),
+                             'a': np.arange(2002, dtype=float) + 1})
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'model_group_0'
+            state.save_state_explanations(SimpleNamespace(model=booster), data, ['b', 'a'],
+                                          output, 'model_group_0', 'test', 2023)
+            samples = pd.read_csv(output / 'shap_samples.csv')
+            values = pd.read_csv(output / 'shap_values.csv')
+            self.assertEqual(len(samples), 2000)
+            self.assertEqual(samples['time'].tolist(), data.sample(2000, random_state=2023)['time'].tolist())
+            pd.testing.assert_frame_equal(samples[state.KEYS], values[state.KEYS])
+            np.testing.assert_allclose(values['b'], samples['b'] * 2)
+            np.testing.assert_allclose(values['a'], -samples['a'])
+            self.assertTrue((values['base_value'] == 1000).all())
+            summary = pd.read_csv(output / 'shap_importance.csv').set_index('factor_name')
+            self.assertEqual(set(summary.index), {'b', 'a'})
+            self.assertAlmostEqual(summary.loc['a', 'mean_abs_shap'], samples['a'].mean())
+            self.assertAlmostEqual(summary.loc['a', 'mean_shap'], -samples['a'].mean())
+            importance = pd.read_csv(output / 'feature_importance.csv')
+            self.assertEqual(importance['factor_name'].tolist(), ['a', 'b'])
+            self.assertEqual(importance['split'].tolist(), [2, 3])
+            for filename in ['feature_importance.png', 'shap_importance.png']:
+                self.assertGreater((output / filename).stat().st_size, 1000)
+
+    def test_explanations_without_usable_samples(self):
+        booster = Mock()
+        booster.feature_name.return_value = ['x']
+        booster.feature_importance.return_value = [0]
+        data = pd.DataFrame({'ticker': ['A.SZ'], 'date': [20260205], 'time': [93001000], 'x': [np.nan]})
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            state.save_state_explanations(SimpleNamespace(model=booster), data, ['x'],
+                                          output, 'unified', 'train', 2023)
+            booster.predict.assert_not_called()
+            self.assertTrue(pd.read_csv(output / 'shap_values.csv').empty)
+            self.assertTrue(pd.read_csv(output / 'shap_importance.csv')['mean_abs_shap'].isna().all())
 
 
 if __name__ == '__main__':
