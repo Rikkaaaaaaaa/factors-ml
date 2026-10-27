@@ -31,6 +31,10 @@ def train_pipeline(train_args):
 
     # define task type
     task_type = opt['dataset'].setdefault('task_type', 'classification')
+    # 新功能只增加一个开关；关闭时完全沿用原训练流程。
+    by_market_state = opt['train'].get('by_market_state', False)
+    if by_market_state and (task_type != 'classification' or opt['dataset'].get('class_num', 2) != 2):
+        raise ValueError('by_market_state 当前用于二分类训练（class_num: 2）')
     if task_type == 'classification':
         label_col_name = 'class_label'
     else:
@@ -59,8 +63,8 @@ def train_pipeline(train_args):
     model.save()
 
     # 20260618 temp test
-    train_predict = model.predict(dataset.train_data[dataset.training_factor_name])
-    test_predict = model.predict(dataset.test_data[dataset.training_factor_name])
+    train_predict = model.predict(dataset.train_data[training_factor_name])
+    test_predict = model.predict(dataset.test_data[training_factor_name])
     y_test = dataset.test_data[label_col_name]
     print(dataset.train_data[dataset.training_factor_name].shape)
     print(y_train[train_predict > np.quantile(train_predict, 0.9)].mean())
@@ -69,6 +73,11 @@ def train_pipeline(train_args):
     print(y_test[(test_predict < np.quantile(test_predict, 0.1))& (y_test != 2)].mean())
     print(np.corrcoef(train_predict, y_train))
     print(np.corrcoef(test_predict, y_test))
+
+    # 在预处理、因子选择完成后分 state 训练；统一模型仍按原流程回测。
+    if by_market_state:
+        from market_state import train_market_states
+        train_market_states(opt, dataset, model, training_factor_name)
 
     # backtesting or record inference_bound
     backtester = build_backtester(opt, test_month, indus_type)
@@ -83,7 +92,10 @@ def init_args(opt):
             f"Loading indus by [{opt['dataset']['indus_class']}] from table [static_data_industry_{opt['dataset']['pool_name']}_history] + [{opt['dataset']['indus_table_suffix']}]]")
         print(f"Including industry id: {industry}")
         for indus_type in industry:
-            if not exists_results(opt, test_month, indus_type):
+            state_report = osp.join(opt['path']['experiments_root'], str(test_month),
+                                    'market_state', f'indus{indus_type}', 'metrics.csv')
+            state_pending = opt['train'].get('by_market_state', False) and not osp.exists(state_report)
+            if not exists_results(opt, test_month, indus_type) or state_pending:
                 args.append((opt, test_month, indus_type))
     return args
 
@@ -107,7 +119,7 @@ if __name__ == '__main__':
     print(get_env_info())
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_path', type=str, default='./', help='Root path of project.')
-    parser.add_argument('--option', type=str, default='option/long_term/hs300/long_term_hs300_10min.yaml', help='Path to option YAML file.')
+    parser.add_argument('--option', type=str, default='option/long_term/hs300/long_term_hs300_202602_demo.yaml', help='Path to option YAML file.')
     parser.add_argument('--is_realtime', action='store_true', help='Whether the phase is backtesting or realtime')
     parser.add_argument('--debug', action='store_true', help='Whether to use debug mode') # it'll contain ticker num <= 10
     args = parser.parse_args()
